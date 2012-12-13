@@ -1502,7 +1502,7 @@ static void rw_t3t_handle_get_sc_poll_rsp (tRW_T3T_CB *p_cb, UINT8 nci_status, U
                 p_cb->system_codes[p_cb->num_system_codes++] = sc;
 
                 /* Poll for NDEF system code */
-                if ((status = (tNFC_STATUS) nci_snd_t3t_polling (T3T_SYSTEM_CODE_NDEF, T3T_POLL_RC_SC, 0)) == NCI_STATUS_OK)
+                if ((status = (tNFC_STATUS) nci_snd_t3t_polling (T3T_SYSTEM_CODE_NDEF, 0, 0)) == NCI_STATUS_OK)
                 {
                     p_cb->rw_substate = RW_T3T_GET_SC_SST_POLL_NDEF;
                     p_cb->cur_poll_rc = 0;
@@ -2236,7 +2236,7 @@ tNFC_STATUS RW_T3tDetectNDef (void)
         return (NFC_STATUS_FAILED);
     }
 
-    if ((retval = (tNFC_STATUS) nci_snd_t3t_polling (T3T_SYSTEM_CODE_NDEF, T3T_POLL_RC_SC, 0)) == NCI_STATUS_OK)
+    if ((retval = (tNFC_STATUS) nci_snd_t3t_polling (T3T_SYSTEM_CODE_NDEF, 0, 0)) == NCI_STATUS_OK)
     {
         p_cb->cur_cmd = RW_T3T_CMD_DETECT_NDEF;
         p_cb->cur_tout = RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS;

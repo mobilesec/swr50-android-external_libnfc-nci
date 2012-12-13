@@ -1,10 +1,12 @@
 This file contains version information for the NFC stack code.
-
 # reset nv data on Clear All Pipe CMD Ntf
 element * .../main_prasadk_1747333/LATEST
 
 # turn off NFC when in power-off-sleep mode
 element * .../main_sherrys_1747155/LATEST
+
+# T3T read conformance failure on AT4
+element * .../main_darinlee_1726247/LATEST
 
 # reading NDEF message in T3T
 element * .../main_darinlee_1726051/LATEST
