@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright (C) 2009-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -480,6 +480,7 @@ typedef UINT8 tT3T_POLL_RC;
 #define I93_ICODE_CC_READ_ONLY              0x03    /* write access not granted at all       */
 #define I93_ICODE_CC_MBREAD_MASK            0x01    /* read multi block supported in CC[3]   */
 #define I93_ICODE_CC_IPREAD_MASK            0x02    /* inventory page read supported in CC[3] */
+#define I93_STM_CC_OVERFLOW_MASK            0x04    /* More than 2040 bytes are supported in CC[3] */
 
 /* ICODE TLV type */
 #define I93_ICODE_TLV_TYPE_NULL             0x00    /* NULL TLV         */
@@ -491,6 +492,7 @@ typedef UINT8 tT3T_POLL_RC;
 #define I93_UID_FIRST_BYTE                      0xE0
 
 /* UID Coding (UID Bit 56-49), IC manufacturer code */
+#define I93_UID_IC_MFG_CODE_STM                 0x02
 #define I93_UID_IC_MFG_CODE_NXP                 0x04
 #define I93_UID_IC_MFG_CODE_TI                  0x07
 
@@ -515,5 +517,19 @@ typedef UINT8 tT3T_POLL_RC;
 #define I93_TAG_IT_HF_I_STD_PRO_CHIP_INLAY_BLK_SIZE         4
 #define I93_TAG_IT_HF_I_STD_PRO_CHIP_INLAY_NUM_USER_BLK     8
 #define I93_TAG_IT_HF_I_STD_PRO_CHIP_INLAY_AFI_LOCATION    40   /* LSB in Block 0x0A */
+
+/* STM, product version (IC manufacturer code) */
+#define I93_IC_REF_STM_MASK                     0xFC    /* IC Reference mask for STM */
+#define I93_IC_REF_STM_LRI1K                    0x40    /* IC Reference for LRI1K:      010000xx(b), blockSize: 4, numberBlocks: 0x20 */
+#define I93_IC_REF_STM_LRI2K                    0x20    /* IC Reference for LRI2K:      001000xx(b), blockSize: 4, numberBlocks: 0x40 */
+#define I93_IC_REF_STM_LRIS2K                   0x28    /* IC Reference for LRIS2K:     001010xx(b), blockSize: 4, numberBlocks: 0x40 */
+#define I93_IC_REF_STM_LRIS64K                  0x44    /* IC Reference for LRIS64K:    010001xx(b), blockSize: 4, numberBlocks: 0x800 */
+#define I93_IC_REF_STM_M24LR64_R                0x2C    /* IC Reference for M24LR64-R:  001011xx(b), blockSize: 4, numberBlocks: 0x800 */
+#define I93_IC_REF_STM_M24LR04E_R               0x5A    /* IC Reference for M24LR04E-R: 01011010(b), blockSize: 4, numberBlocks: 0x80 */
+#define I93_IC_REF_STM_M24LR16E_R               0x4E    /* IC Reference for M24LR16E-R: 01001110(b), blockSize: 4, numberBlocks: 0x200 */
+#define I93_IC_REF_STM_M24LR64E_R               0x5E    /* IC Reference for M24LR64E-R: 01011110(b), blockSize: 4, numberBlocks: 0x800 */
+
+#define I93_STM_BLOCKS_PER_SECTOR               32
+#define I93_STM_MAX_BLOCKS_PER_READ             32
 
 #endif /* TAGS_DEFS_H */

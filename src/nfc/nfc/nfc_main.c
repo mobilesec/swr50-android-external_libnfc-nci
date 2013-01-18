@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -699,7 +699,7 @@ void NFC_Disable (void)
 {
     NFC_TRACE_API1 ("NFC_Disable (): nfc_state = %d", nfc_cb.nfc_state);
 
-    if (nfc_cb.nfc_state == NFC_STATE_NONE || nfc_cb.nfc_state == NFC_STATE_NFCC_POWER_OFF_SLEEP)
+    if ((nfc_cb.nfc_state == NFC_STATE_NONE) || (nfc_cb.nfc_state == NFC_STATE_NFCC_POWER_OFF_SLEEP))
     {
         nfc_set_state (NFC_STATE_NONE);
         if (nfc_cb.p_resp_cback)

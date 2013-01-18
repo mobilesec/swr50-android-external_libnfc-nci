@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -201,9 +201,11 @@ void nfa_dm_proc_nfcc_power_mode (UINT8 nfcc_power_mode)
     if (nfcc_power_mode == NFA_DM_PWR_MODE_FULL)
     {
         memset (&nfa_dm_cb.params, 0x00, sizeof (tNFA_DM_PARAMS));
-
+        NFA_TRACE_DEBUG2 ("setcfg_pending_mask=0x%x, setcfg_pending_num=%d",
+            nfa_dm_cb.setcfg_pending_mask, nfa_dm_cb.setcfg_pending_num);
         nfa_dm_cb.setcfg_pending_mask = 0;
         nfa_dm_cb.setcfg_pending_num  = 0;
+
         nfa_dm_set_init_nci_params ();
     }
 

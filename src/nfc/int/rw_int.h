@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright (C) 2009-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -484,6 +484,7 @@ typedef UINT8 tRW_I93_RW_SUBSTATE;
 #define RW_I93_FLAG_READ_MULTI_BLOCK    0x02    /* tag supports read multi block           */
 #define RW_I93_FLAG_RESET_DSFID         0x04    /* need to reset DSFID for formatting      */
 #define RW_I93_FLAG_RESET_AFI           0x08    /* need to reset AFI for formatting        */
+#define RW_I93_FLAG_16BIT_NUM_BLOCK     0x10    /* use 2 bytes for number of blocks        */
 
 #define RW_I93_TLV_DETECT_STATE_TYPE      0x01  /* searching for type                      */
 #define RW_I93_TLV_DETECT_STATE_LENGTH_1  0x02  /* searching for the first byte of length  */
@@ -500,6 +501,14 @@ enum
     RW_I93_TAG_IT_HF_I_PLUS_CHIP,       /* Tag-it HF-I Plus Chip            */
     RW_I93_TAG_IT_HF_I_STD_CHIP_INLAY,  /* Tag-it HF-I Standard Chip/Inlyas */
     RW_I93_TAG_IT_HF_I_PRO_CHIP_INLAY,  /* Tag-it HF-I Pro Chip/Inlyas      */
+    RW_I93_STM_LRI1K,                   /* STM LRI1K                        */
+    RW_I93_STM_LRI2K,                   /* STM LRI2K                        */
+    RW_I93_STM_LRIS2K,                  /* STM LRIS2K                       */
+    RW_I93_STM_LRIS64K,                 /* STM LRIS64K                      */
+    RW_I93_STM_M24LR64_R,               /* STM M24LR64-R                    */
+    RW_I93_STM_M24LR04E_R,              /* STM M24LR04E-R                   */
+    RW_I93_STM_M24LR16E_R,              /* STM M24LR16E-R                   */
+    RW_I93_STM_M24LR64E_R,              /* STM M24LR64E-R                   */
     RW_I93_UNKNOWN_PRODUCT              /* Unknwon product version          */
 };
 
@@ -509,6 +518,8 @@ typedef struct
     tRW_I93_RW_SUBSTATE sub_state;              /* sub state                        */
     TIMER_LIST_ENT      timer;                  /* timeout for each sent command    */
     UINT8               sent_cmd;               /* last sent command                */
+    UINT8               retry_count;            /* number of retry                  */
+    BT_HDR             *p_retry_cmd;            /* buffer to store cmd sent last    */
 
     UINT8               info_flags;             /* information flags                */
     UINT8               uid[I93_UID_BYTE_LEN];  /* UID of currently activated       */
@@ -613,7 +624,7 @@ void rw_t3t_handle_nci_poll_ntf (UINT8 nci_status, UINT8 num_responses, UINT8 se
 extern tNFC_STATUS rw_t4t_select (void);
 extern void rw_t4t_process_timeout (TIMER_LIST_ENT *p_tle);
 
-extern tNFC_STATUS rw_i93_select (void);
+extern tNFC_STATUS rw_i93_select (UINT8 *p_uid);
 extern void rw_i93_process_timeout (TIMER_LIST_ENT *p_tle);
 
 #if (defined (RW_STATS_INCLUDED) && (RW_STATS_INCLUDED == TRUE))

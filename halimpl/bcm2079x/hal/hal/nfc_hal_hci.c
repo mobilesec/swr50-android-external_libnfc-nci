@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2012 Broadcom Corporation
+ *  Copyright (C) 2012-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -148,7 +148,7 @@ void nfc_hal_hci_handle_hci_netwk_info (UINT8 *p_data)
         }
         else
         {
-            NCI_TRACE_DEBUG1 ("nfc_hal_hci_handle_hci_netwk_info(): Type A Card Emulation invalid, Reset nv file: 0x%02x", p[15]);
+            NCI_TRACE_DEBUG1 ("nfc_hal_hci_handle_hci_netwk_info(): Type A Card Emulation invalid, Reset nv file: 0x%02x", p[12]);
             hci_netwk_cmd[0] = NFC_HAL_HCI_UICC0_TARGET_HANDLE;
             memset (&hci_netwk_cmd[1], 0xFF, NFC_HAL_HCI_SESSION_ID_LEN);
             nfc_hal_nv_co_write (hci_netwk_cmd, 1, HC_F3_NV_BLOCK);
@@ -163,7 +163,7 @@ void nfc_hal_hci_handle_hci_netwk_info (UINT8 *p_data)
         }
         else
         {
-            NCI_TRACE_DEBUG1 ("nfc_hal_hci_handle_hci_netwk_info(): Type A Card Emulation invalid, Reset nv file: 0x%02x", p[15]);
+            NCI_TRACE_DEBUG1 ("nfc_hal_hci_handle_hci_netwk_info(): Type A Card Emulation invalid, Reset nv file: 0x%02x", p[12]);
             hci_netwk_cmd[0] = NFC_HAL_HCI_UICC1_TARGET_HANDLE;
             /* Reset Session ID */
             memset (&hci_netwk_cmd[1], 0xFF, NFC_HAL_HCI_SESSION_ID_LEN);

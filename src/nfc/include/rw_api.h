@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright (C) 2009-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -925,7 +925,7 @@ NFC_API extern tNFC_STATUS RW_I93StayQuiet (void);
 **                  NFC_STATUS_FAILED if other error
 **
 *******************************************************************************/
-NFC_API extern tNFC_STATUS RW_I93ReadSingleBlock (UINT8 block_number);
+NFC_API extern tNFC_STATUS RW_I93ReadSingleBlock (UINT16 block_number);
 
 /*******************************************************************************
 **
@@ -942,8 +942,8 @@ NFC_API extern tNFC_STATUS RW_I93ReadSingleBlock (UINT8 block_number);
 **                  NFC_STATUS_FAILED if other error
 **
 *******************************************************************************/
-NFC_API extern tNFC_STATUS RW_I93WriteSingleBlock (UINT8 block_number,
-                                                   UINT8 *p_data);
+NFC_API extern tNFC_STATUS RW_I93WriteSingleBlock (UINT16 block_number,
+                                                   UINT8  *p_data);
 
 /*******************************************************************************
 **
@@ -975,7 +975,7 @@ NFC_API extern tNFC_STATUS RW_I93LockBlock (UINT8 block_number);
 **                  NFC_STATUS_FAILED if other error
 **
 *******************************************************************************/
-NFC_API extern tNFC_STATUS RW_I93ReadMultipleBlocks (UINT8 first_block_number,
+NFC_API extern tNFC_STATUS RW_I93ReadMultipleBlocks (UINT16 first_block_number,
                                                      UINT16 number_blocks);
 
 /*******************************************************************************
@@ -1128,7 +1128,7 @@ NFC_API extern tNFC_STATUS RW_I93GetSysInfo (UINT8 *p_uid);
 **                  NFC_STATUS_FAILED if other error
 **
 *******************************************************************************/
-NFC_API extern tNFC_STATUS RW_I93GetMultiBlockSecurityStatus (UINT8  first_block_number,
+NFC_API extern tNFC_STATUS RW_I93GetMultiBlockSecurityStatus (UINT16 first_block_number,
                                                               UINT16 number_blocks);
 
 /*******************************************************************************

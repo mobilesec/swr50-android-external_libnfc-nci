@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2012 Broadcom Corporation
+ *  Copyright (C) 2012-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -634,6 +634,7 @@ void nfc_hal_prm_nci_command_complete_cback (tNFC_HAL_NCI_EVT event, UINT16 data
             }
             nfc_hal_cb.prm.flags |= NFC_HAL_PRM_FLAGS_NO_NVM;
         }
+
         /* Get patchfile version number */
         nfc_hal_cb.prm.state = NFC_HAL_PRM_ST_SPD_COMPARE_VERSION;
 
