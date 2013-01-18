@@ -215,6 +215,7 @@
 #define T2T_NUM_STATIC_LOCK_BYTES           2   /* Number of static lock bytes in tag   */
 #define T2T_BYTES_LOCKED_BY_STATIC_LOCK_BIT 4   /* Bytes locked by one static lock bit  */
 
+#define T2T_CC2_TMS_MUL           0x06
 #define T2T_CC2_TMS_MULC          0x12
 /*
 **

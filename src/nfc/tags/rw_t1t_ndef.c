@@ -958,14 +958,10 @@ static tNFC_STATUS rw_t1t_handle_tlv_detect_rsp (UINT8 *p_data)
                     /* Backup ndef first block */
                     tlv_detect_state = RW_T1T_SUBSTATE_WAIT_FIND_LEN_FIELD_LEN;
                 }
-                else if (  ((p_t1t->tlv_detect == TAG_LOCK_CTRL_TLV) && (p_t1t->num_lockbytes > 0))
-                         ||((p_t1t->tlv_detect == TAG_MEM_CTRL_TLV) && (p_t1t->num_mem_tlvs > 0))  )
-                {
-                    found = TRUE;
-                }
                 else
                 {
-                    failed = TRUE;
+                    /* NDEF/LOCK/MEM TLV can exist after Proprietary Tlv so we continue searching, skiping proprietary tlv */
+                    tlv_detect_state = RW_T1T_SUBSTATE_WAIT_FIND_LEN_FIELD_LEN;
                 }
                 break;
 

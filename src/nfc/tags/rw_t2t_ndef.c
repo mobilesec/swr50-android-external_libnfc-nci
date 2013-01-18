@@ -513,16 +513,10 @@ static void rw_t2t_handle_tlv_detect_rsp (UINT8 *p_data)
                     index = (offset % T2T_BLOCK_SIZE);
                     p_t2t->substate = RW_T2T_SUBSTATE_WAIT_FIND_LEN_FIELD_LEN;
                 }
-                else if (  ((tlvtype == TAG_LOCK_CTRL_TLV) && (p_t2t->num_lockbytes > 0))
-                         ||((tlvtype == TAG_MEM_CTRL_TLV) && (p_t2t->num_mem_tlvs > 0))  )
-                {
-                    /* We stop searching for Lock/Memory control Tlv if a proprietary tlv is found */
-                    found = TRUE;
-                }
                 else
                 {
-                    /* NDEF, Lock control TLV, Memory control tlv cannot exist after proprietary TLV */
-                    failed = TRUE;
+                    /* NDEF/LOCK/MEM TLV can exist after Proprietary Tlv so we continue searching, skiping proprietary tlv */
+                    p_t2t->substate = RW_T2T_SUBSTATE_WAIT_FIND_LEN_FIELD_LEN;
                 }
                 break;
 
@@ -851,10 +845,11 @@ tNFC_STATUS rw_t2t_read_locks (void)
     UINT16      block;
 
     if (  (p_t2t->tag_hdr[T2T_CC3_RWA_BYTE] != T2T_CC3_RWA_RW)
-        ||((p_t2t->tag_hdr[0] == TAG_MIFARE_MID) && (p_t2t->tag_hdr[T2T_CC2_TMS_BYTE] == T2T_CC2_TMS_MULC))  )
+        ||((p_t2t->tag_hdr[0] == TAG_MIFARE_MID) && (p_t2t->tag_hdr[T2T_CC2_TMS_BYTE] == T2T_CC2_TMS_MULC))
+        ||((p_t2t->tag_hdr[0] == TAG_MIFARE_MID) && (p_t2t->tag_hdr[T2T_CC2_TMS_BYTE] == T2T_CC2_TMS_MUL))  )
 
     {
-        /* Skip reading dynamic lock bytes if CC is set as Read only or on MUL-C tag */
+        /* Skip reading dynamic lock bytes if CC is set as Read only or on MUL/MUL-C tag */
         while (num_locks < p_t2t->num_lockbytes)
         {
             p_t2t->lockbyte[num_locks].lock_byte   = 0x00;
@@ -2524,7 +2519,7 @@ tNFC_STATUS rw_t2t_set_dynamic_lock_bits (UINT8 *p_data)
 
             p_t2t->substate = RW_T2T_SUBSTATE_WAIT_SET_DYN_LOCK_BITS;
             /* send WRITE command to set dynamic lock bits */
-            if ((status = rw_t2t_write ((UINT8) (offset / T2T_BLOCK_SIZE), write_block)) == NFC_STATUS_OK)
+            if ((status = rw_t2t_write ((UINT16) (offset / T2T_BLOCK_SIZE), write_block)) == NFC_STATUS_OK)
             {
                 while (lock_count >  num_locks)
                 {
