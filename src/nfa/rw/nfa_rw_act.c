@@ -2170,12 +2170,11 @@ static BOOLEAN nfa_rw_i93_command (tNFA_RW_MSG *p_data)
         i93_command = I93_CMD_INVENTORY;
         if (p_data->op_req.params.i93_cmd.uid_present)
         {
-            status = RW_I93Inventory (p_data->op_req.params.i93_cmd.afi,
-                                      p_data->op_req.params.i93_cmd.uid);
+            status = RW_I93Inventory (p_data->op_req.params.i93_cmd.uid);
         }
         else
         {
-            status = RW_I93Inventory (p_data->op_req.params.i93_cmd.afi, NULL);
+            status = RW_I93Inventory (NULL);
         }
         break;
 

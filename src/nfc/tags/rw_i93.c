@@ -533,12 +533,12 @@ BOOLEAN rw_i93_send_to_lower (BT_HDR *p_msg)
 ** Returns          tNFC_STATUS
 **
 *******************************************************************************/
-tNFC_STATUS rw_i93_send_cmd_inventory (UINT8 *p_uid, UINT8 afi)
+tNFC_STATUS rw_i93_send_cmd_inventory (UINT8 *p_uid)
 {
     BT_HDR      *p_cmd;
     UINT8       *p;
 
-    RW_TRACE_DEBUG1 ("rw_i93_send_cmd_inventory () AFI:0x%02X", afi);
+    RW_TRACE_DEBUG0 ("rw_i93_send_cmd_inventory ()");
 
     p_cmd = (BT_HDR *) GKI_getpoolbuf (NFC_RW_POOL_ID);
 
@@ -549,17 +549,14 @@ tNFC_STATUS rw_i93_send_cmd_inventory (UINT8 *p_uid, UINT8 afi)
     }
 
     p_cmd->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE;
-    p_cmd->len    = 4;
+    p_cmd->len    = 3;
     p = (UINT8 *) (p_cmd + 1) + p_cmd->offset;
 
     /* Flags */
-    UINT8_TO_STREAM (p, (I93_FLAG_SLOT_ONE | I93_FLAG_INVENTORY_SET | I93_FLAG_AFI_PRESENT | RW_I93_FLAG_SUB_CARRIER | RW_I93_FLAG_DATA_RATE));
+    UINT8_TO_STREAM (p, (I93_FLAG_SLOT_ONE | I93_FLAG_INVENTORY_SET | RW_I93_FLAG_SUB_CARRIER | RW_I93_FLAG_DATA_RATE));
 
     /* Command Code */
     UINT8_TO_STREAM (p, I93_CMD_INVENTORY);
-
-    /* Parameters */
-    UINT8_TO_STREAM (p, afi);    /* Optional AFI */
 
     if (p_uid)
     {
@@ -3215,11 +3212,11 @@ tNFC_STATUS rw_i93_select (UINT8 *p_uid)
 **                  NFC_STATUS_FAILED if other error
 **
 *******************************************************************************/
-tNFC_STATUS RW_I93Inventory (UINT8 afi, UINT8 *p_uid)
+tNFC_STATUS RW_I93Inventory (UINT8 *p_uid)
 {
     tNFC_STATUS status;
 
-    RW_TRACE_API1 ("RW_I93Inventory (), AFI:0x%02X", afi);
+    RW_TRACE_API0 ("RW_I93Inventory ()");
 
     if (rw_cb.tcb.i93.state != RW_I93_STATE_IDLE)
     {
@@ -3230,11 +3227,11 @@ tNFC_STATUS RW_I93Inventory (UINT8 afi, UINT8 *p_uid)
 
     if (p_uid)
     {
-        status = rw_i93_send_cmd_inventory (p_uid, afi);
+        status = rw_i93_send_cmd_inventory (p_uid);
     }
     else
     {
-        status = rw_i93_send_cmd_inventory (NULL, afi);
+        status = rw_i93_send_cmd_inventory (NULL);
     }
 
     if (status == NFC_STATUS_OK)
@@ -3816,7 +3813,7 @@ tNFC_STATUS RW_I93DetectNDef (void)
 
     if (rw_cb.tcb.i93.uid[0] != I93_UID_FIRST_BYTE)
     {
-        status = rw_i93_send_cmd_inventory (NULL, 0x00);
+        status = rw_i93_send_cmd_inventory (NULL);
         sub_state = RW_I93_SUBSTATE_WAIT_UID;
     }
     else if (  (rw_cb.tcb.i93.num_block == 0)
@@ -4007,7 +4004,7 @@ tNFC_STATUS RW_I93FormatNDef (void)
     }
     else
     {
-        status = rw_i93_send_cmd_inventory (rw_cb.tcb.i93.uid, 0x00);
+        status = rw_i93_send_cmd_inventory (rw_cb.tcb.i93.uid);
         sub_state = RW_I93_SUBSTATE_WAIT_UID;
     }
 
@@ -4113,7 +4110,7 @@ tNFC_STATUS RW_I93PresenceCheck (void)
     }
     else
     {
-        status = rw_i93_send_cmd_inventory (rw_cb.tcb.i93.uid, 0x00);
+        status = rw_i93_send_cmd_inventory (rw_cb.tcb.i93.uid);
 
         if (status == NFC_STATUS_OK)
         {

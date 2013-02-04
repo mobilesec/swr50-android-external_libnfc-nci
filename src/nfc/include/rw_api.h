@@ -893,7 +893,7 @@ NFC_API extern tNFC_STATUS RW_T4tPresenceCheck (void);
 **                  NFC_STATUS_FAILED if T4T is busy or other error
 **
 *******************************************************************************/
-NFC_API extern tNFC_STATUS RW_I93Inventory (UINT8 afi, UINT8 *p_uid);
+NFC_API extern tNFC_STATUS RW_I93Inventory (UINT8 *p_uid);
 
 /*******************************************************************************
 **
