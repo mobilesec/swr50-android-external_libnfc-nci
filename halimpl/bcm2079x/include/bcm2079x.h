@@ -34,6 +34,7 @@
 #define BCMNFC_SET_WAKE_ACTIVE_STATE	_IO(BCMNFC_MAGIC, 0x04)
 #define BCMNFC_WAKE_CTL			_IO(BCMNFC_MAGIC, 0x05)
 #define BCMNFC_READ_MULTI_PACKETS	_IO(BCMNFC_MAGIC, 0x06)
+#define BCMNFC_SET_CLIENT_ADDR		_IO(BCMNFC_MAGIC, 0x07)
 
 struct bcm2079x_platform_data {
 	unsigned int irq_gpio;

@@ -164,6 +164,7 @@ static int   bSerialPortDevice = FALSE;
 static int _timeout = POLL_TIMEOUT;
 static BOOLEAN is_close_thread_is_waiting = FALSE;
 
+static int change_client_addr(int addr);
 
 int   perf_log_every_count = 0;
 typedef struct {
@@ -1647,7 +1648,7 @@ UDRV_API void USERIAL_PowerupDevice(tUSERIAL_PORT port)
             /* Delay needed after turning on chip */
             GKI_delay(delay);
             ALOGD( "Change client address to %x\n", bcmi2cnfc_client_addr);
-            ret = ioctl(linux_cb.sock, BCMNFC_CHANGE_ADDR, bcmi2cnfc_client_addr);
+            ret = change_client_addr(bcmi2cnfc_client_addr);
             if (!ret) {
                 resetSuccess = 1;
                 linux_cb.client_device_address = bcmi2cnfc_client_addr;
@@ -1665,4 +1666,50 @@ UDRV_API void USERIAL_PowerupDevice(tUSERIAL_PORT port)
 
     GKI_delay(delay);
     ALOGD("%s: exit", __FUNCTION__);
+}
+
+#define DEFAULT_CLIENT_ADDRESS 0x77
+#define ALIAS_CLIENT_ADDRESS   0x79
+static int change_client_addr(int addr)
+{
+    int ret;
+    int i;
+    char addr_data[] = {
+        0xFA, 0xF2, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x2A
+    };
+    int size = sizeof(addr_data) - 1;
+
+    addr_data[5] = addr & 0xFF;
+
+    /* set the checksum */
+    ret = 0;
+    for (i = 1; i < size; ++i)
+        ret += addr_data[i];
+    addr_data[size] = (ret & 0xFF);
+    ALOGD( "change_client_addr() change addr from 0x%x to 0x%x\n", DEFAULT_CLIENT_ADDRESS, addr);
+    /* ignore the return code from IOCTL */
+    /* always revert back to the default client address */
+    ioctl(linux_cb.sock, BCMNFC_SET_CLIENT_ADDR, DEFAULT_CLIENT_ADDRESS);
+    /* Send address change command (skipping first byte) */
+    ret = write(linux_cb.sock, &addr_data[1], size);
+
+    /* If it fails, it is likely a B3 we are talking to */
+    if (ret != size) {
+        ALOGD( "change_client_addr() change addr to 0x%x by setting BSP address to 0x%x\n", addr, ALIAS_CLIENT_ADDRESS);
+        /* legacy kernel */
+        ioctl(linux_cb.sock, BCMNFC_CHANGE_ADDR, addr);
+        /* We'll tweak address to make it look like 0x1FA address */
+        ret = ioctl(linux_cb.sock, BCMNFC_SET_CLIENT_ADDR, ALIAS_CLIENT_ADDRESS);
+        size++;
+        ret = write(linux_cb.sock, addr_data, size);
+    }
+
+    if (ret == size) {
+        ALOGD( "change_client_addr() set client address 0x%x to client driver\n", addr);
+        ret = ioctl(linux_cb.sock, BCMNFC_SET_CLIENT_ADDR, addr);
+    }
+    else {
+        ret = -EIO;
+    }
+    return ret;
 }
