@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright (C) 1999-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -625,12 +626,15 @@ typedef struct
 } tNCI_DISCOVER_MAPS;
 
 #define NCI_NFCID1_MAX_LEN    10
+#define NCI_T1T_HR_LEN        2
 typedef struct
 {
     UINT8       sens_res[2];/* SENS_RES Response (ATQA). Available after Technology Detection */
-    UINT8       nfcid1_len;    /* 4, 7 or 10 */
+    UINT8       nfcid1_len;         /* 4, 7 or 10 */
     UINT8       nfcid1[NCI_NFCID1_MAX_LEN]; /* AKA NFCID1 */
     UINT8       sel_rsp;    /* SEL_RSP (SAK) Available after Collision Resolution */
+    UINT8       hr_len;     /* 2, if T1T HR0/HR1 is reported */
+    UINT8       hr[NCI_T1T_HR_LEN]; /* T1T HR0 is in hr[0], HR1 is in hr[1] */
 } tNCI_RF_PA_PARAMS;
 
 

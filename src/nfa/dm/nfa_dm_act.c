@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains the action functions for device manager state
@@ -32,8 +33,11 @@
 #include "nfa_rw_int.h"
 #include "nfa_rw_api.h"
 #include "nfa_p2p_int.h"
-#include "nfa_cho_int.h"
 #include "nci_hmsgs.h"
+
+#if (defined (NFA_CHO_INCLUDED) && (NFA_CHO_INCLUDED==TRUE))
+#include "nfa_cho_int.h"
+#endif
 
 #if (NFC_NFCEE_INCLUDED == TRUE)
 #include "nfa_ee_int.h"
@@ -42,8 +46,6 @@
 
 #if (defined (NFA_SNEP_INCLUDED) && (NFA_SNEP_INCLUDED==TRUE))
 #include "nfa_snep_int.h"
-#else
-#define nfa_snep_init ()
 #endif
 
 /* This is the timeout value to guarantee disable is performed within reasonable amount of time */
@@ -332,7 +334,15 @@ static void nfa_dm_nfc_response_cback (tNFC_RESPONSE_EVT event, tNFC_RESPONSE *p
     case NFC_NFCEE_INFO_REVT:                    /* NFCEE Discover Notification */
     case NFC_EE_ACTION_REVT:                     /* EE Action notification */
     case NFC_NFCEE_MODE_SET_REVT:                /* NFCEE Mode Set response */
+        nfa_ee_proc_evt (event, p_data);
+        break;
+
     case NFC_EE_DISCOVER_REQ_REVT:               /* EE Discover Req notification */
+        if (nfa_dm_is_active() &&
+            (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_DISCOVERY) )
+        {
+            nfa_dm_rf_deactivate (NFA_DEACTIVATE_TYPE_IDLE);
+        }
         nfa_ee_proc_evt (event, p_data);
         break;
 #endif
@@ -392,6 +402,7 @@ static void nfa_dm_nfc_response_cback (tNFC_RESPONSE_EVT event, tNFC_RESPONSE *p
         conn_evt.status = p_data->status;
         nfa_dm_conn_cback_event_notify (NFA_UPDATE_RF_PARAM_RESULT_EVT, &conn_evt);
         break;
+
 
     default:
         break;
@@ -1060,6 +1071,8 @@ BOOLEAN nfa_dm_act_send_raw_frame (tNFA_DM_MSG *p_data)
         else
         {
             status = NFC_SendData (NFC_RF_CONN_ID, (BT_HDR*) p_data);
+            /* Already freed or NCI layer will free buffer */
+            return FALSE;
         }
     }
 
@@ -1429,15 +1442,6 @@ static void nfa_dm_excl_disc_cback (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_
         nfa_dm_cb.disc_cb.activated_sel_res = 0;
         break;
 
-    case NFA_DM_RF_DISC_CMD_IDLE_CMPL_EVT:
-        /* DH initiated deactivation in NFA_DM_RFST_W4_HOST_SELECT */
-        /* No need to notify NFA RW sub-systems                    */
-
-        evt_data.deactivated.type = NFA_DEACTIVATE_TYPE_IDLE;
-        /* notify deactivation to application */
-        nfa_dm_conn_cback_event_notify (NFA_DEACTIVATED_EVT, &evt_data);
-        break;
-
     default:
         NFA_TRACE_ERROR0 ("Unexpected event");
         break;
@@ -1552,37 +1556,6 @@ static void nfa_dm_poll_disc_cback (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_
 
         /* clean up SEL_RES response */
         nfa_dm_cb.disc_cb.activated_sel_res = 0;
-
-        if (!(nfa_dm_cb.flags & NFA_DM_FLAGS_POLLING_ENABLED))
-        {
-            /* deregister discovery callback from NFA DM Discovery */
-            nfa_dm_delete_rf_discover (nfa_dm_cb.poll_disc_handle);
-            nfa_dm_cb.poll_disc_handle = NFA_HANDLE_INVALID;
-
-            /* this is for disable polling */
-            if (nfa_dm_cb.flags & NFA_DM_FLAGS_SEND_POLL_STOP_EVT)
-            {
-                nfa_dm_cb.flags &= ~NFA_DM_FLAGS_SEND_POLL_STOP_EVT;
-
-                evt_data.status = NFA_STATUS_OK;
-                nfa_dm_conn_cback_event_notify (NFA_POLL_DISABLED_EVT, &evt_data);
-            }
-        }
-
-        break;
-
-    case NFA_DM_RF_DISC_CMD_IDLE_CMPL_EVT:
-        /* DH initiated deactivation in NFA_DM_RFST_W4_HOST_SELECT */
-        /* No need to notify NFA RW sub-systems                    */
-
-        /* clear stored NFCID/UID */
-        nfa_dm_cb.activated_nfcid_len = 0;
-        /* clean up SEL_RES response */
-        nfa_dm_cb.disc_cb.activated_sel_res = 0;
-
-        evt_data.deactivated.type = NFA_DEACTIVATE_TYPE_IDLE;
-        /* notify deactivation to application */
-        nfa_dm_conn_cback_event_notify (NFA_DEACTIVATED_EVT, &evt_data);
 
         if (!(nfa_dm_cb.flags & NFA_DM_FLAGS_POLLING_ENABLED))
         {

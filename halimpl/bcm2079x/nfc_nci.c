@@ -141,6 +141,7 @@ static int nfc_open (const hw_module_t* module, const char* name, hw_device_t** 
         dev->nci_device.control_granted = hal_control_granted;
         dev->nci_device.power_cycle = hal_power_cycle;
 
+
         // Copy in
         *device = (hw_device_t*) dev;
 

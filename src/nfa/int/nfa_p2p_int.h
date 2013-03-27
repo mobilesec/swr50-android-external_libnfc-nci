@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -61,6 +62,7 @@ enum
     NFA_P2P_API_GET_LINK_INFO_EVT,
     NFA_P2P_API_GET_REMOTE_SAP_EVT,
     NFA_P2P_API_SET_LLCP_CFG_EVT,
+    NFA_P2P_INT_RESTART_RF_DISC_EVT,
 
     NFA_P2P_LAST_EVT
 };
@@ -244,12 +246,16 @@ typedef struct
 {
     tNFA_HANDLE         dm_disc_handle;
 
+    tNFA_DM_RF_DISC_STATE rf_disc_state;
     tNFA_P2P_LLCP_STATE llcp_state;
     BOOLEAN             is_initiator;
+    BOOLEAN             is_active_mode;
     UINT16              local_link_miu;
     UINT16              remote_link_miu;
 
     tNFA_TECHNOLOGY_MASK listen_tech_mask;          /* for P2P listening */
+    tNFA_TECHNOLOGY_MASK listen_tech_mask_to_restore;/* to retry without active listen mode */
+    TIMER_LIST_ENT      active_listen_restore_timer; /* timer to restore active listen mode */
     BOOLEAN             is_p2p_listening;
     BOOLEAN             is_cho_listening;
     BOOLEAN             is_snep_listening;
@@ -316,6 +322,7 @@ BOOLEAN nfa_p2p_set_local_busy (tNFA_P2P_MSG *p_msg);
 BOOLEAN nfa_p2p_get_link_info (tNFA_P2P_MSG *p_msg);
 BOOLEAN nfa_p2p_get_remote_sap (tNFA_P2P_MSG *p_msg);
 BOOLEAN nfa_p2p_set_llcp_cfg (tNFA_P2P_MSG *p_msg);
+BOOLEAN nfa_p2p_restart_rf_discovery (tNFA_P2P_MSG *p_msg);
 
 #if (BT_TRACE_VERBOSE == TRUE)
 char *nfa_p2p_evt_code (UINT16 evt_code);

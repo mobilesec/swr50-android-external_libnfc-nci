@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -173,12 +174,19 @@ typedef struct
     tNFA_EE_DISCOVER_INFO   ee_disc_info[NFA_DM_MAX_UICC];  /* MFCEE DISCOVER Request info   */
 } tNFA_EE_DISCOVER_REQ;
 
+/* Data for NFA_EE_DATA_EVT */
+typedef struct
+{
+    tNFA_HANDLE handle;     /* Connection handle */
+    UINT16      len;        /* Length of data    */
+    UINT8       *p_buf;     /* Data buffer       */
+} tNFA_EE_DATA;
 
 /* Union of all EE callback structures */
 typedef union
 {
     tNFA_STATUS             status;             /* NFA_STATUS_OK is successful; otherwise NFA_STATUS_FAILED */
-    tNFA_DATA               data;
+    tNFA_EE_DATA            data;
     tNFA_HANDLE             handle;
     tNFA_EE_DISCOVER        ee_discover;
     tNFA_STATUS             ee_register;

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -72,6 +73,7 @@ typedef UINT8 tNDEF_STATUS;
 #define AC_REC_TYPE_LEN     2       /* Alternative Carrier Record Type  */
 #define ERR_REC_TYPE_LEN    3       /* Error Record Type                */
 #define BT_OOB_REC_TYPE_LEN 32      /* Bluetooth OOB Data Type          */
+#define WIFI_WSC_REC_TYPE_LEN 23    /* Wifi WSC Data Type               */
 
 
 #ifdef __cplusplus
@@ -518,6 +520,18 @@ EXPORT_NDEF_API extern tNDEF_STATUS NDEF_MsgAppendMediaBtOobHashCRandR (UINT8 *p
 EXPORT_NDEF_API extern tNDEF_STATUS NDEF_MsgAppendMediaBtOobEirData (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
                                                              char *p_id_str,
                                                              UINT8 eir_type, UINT8 data_len, UINT8 *p_data);
+
+/*******************************************************************************
+**
+** Function         NDEF_MsgAddMediaWifiWsc
+**
+** Description      This function adds Wifi Wsc Record header.
+**
+** Returns          NDEF_OK if all OK
+**
+*******************************************************************************/
+EXPORT_NDEF_API extern tNDEF_STATUS NDEF_MsgAddMediaWifiWsc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
+                                    char *p_id_str, UINT8 *p_payload, UINT32 payload_len);
 
 #ifdef __cplusplus
 }

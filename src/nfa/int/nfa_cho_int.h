@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -287,9 +288,5 @@ void nfa_cho_proc_simplified_format (UINT32 length, UINT8 *p_ndef_msg);
 tNFA_CHO_MSG_TYPE  nfa_cho_get_msg_type (UINT32 length, UINT8 *p_ndef_msg);
 tNFA_CHO_ROLE_TYPE nfa_cho_get_local_device_role (UINT32 length, UINT8 *p_ndef_msg);
 tNFA_STATUS nfa_cho_update_random_number (UINT8 *p_ndef_msg);
-#else
-
-#define nfa_cho_init ()
-
 #endif /* (defined (NFA_CHO_INCLUDED) && (NFA_CHO_INCLUDED==TRUE)) */
 #endif /* NFA_CHO_INT_H */

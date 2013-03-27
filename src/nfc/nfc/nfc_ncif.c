@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright (C) 1999-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -229,8 +230,7 @@ UINT8 nfc_ncif_send_data (tNFC_CONN_CB *p_cb, BT_HDR *p_data)
             p_cb->num_buff--;
 
         /* send to HAL */
-        nfc_cb.p_hal->write(p->len, (UINT8 *)(p+1) + p->offset);
-        GKI_freebuf(p);
+        HAL_WRITE(p);
 
         if (!fragmented)
         {
@@ -285,8 +285,7 @@ void nfc_ncif_check_cmd_queue (BT_HDR *p_buf)
             }
 
             /* send to HAL */
-            nfc_cb.p_hal->write(p_buf->len, (UINT8 *)(p_buf+1) + p_buf->offset);
-            GKI_freebuf(p_buf);
+            HAL_WRITE(p_buf);
 
             /* Indicate command is pending */
             nfc_cb.nci_cmd_window--;
@@ -620,6 +619,7 @@ UINT8 * nfc_ncif_decode_rf_params (tNFC_RF_TECH_PARAMS *p_param, UINT8 *p)
 
     len             = *p++;
     p_start         = p;
+    memset ( &p_param->param, 0, sizeof (tNFC_RF_TECH_PARAMU));
     switch (p_param->mode)
     {
     case NCI_DISCOVERY_TYPE_POLL_A:
@@ -630,6 +630,8 @@ SENS_RES Response   2 bytes Defined in [DIGPROT] Available after Technology Dete
 NFCID1 length   1 byte  Length of NFCID1 Available after Collision Resolution
 NFCID1  4, 7, or 10 bytes   Defined in [DIGPROT]Available after Collision Resolution
 SEL_RES Response    1 byte  Defined in [DIGPROT]Available after Collision Resolution
+HRx Length  1 Octets    Length of HRx Parameters collected from the response to the T1T RID command.
+HRx 0 or 2 Octets   If present, the first byte SHALL contain HR0 and the second byte SHALL contain HR1 as defined in [DIGITAL].
         */
         STREAM_TO_ARRAY (p_pa->sens_res, p, 2);
         p_pa->nfcid1_len     = *p++;
@@ -639,6 +641,15 @@ SEL_RES Response    1 byte  Defined in [DIGPROT]Available after Collision Resolu
         u8                   = *p++;
         if (u8)
             p_pa->sel_rsp    = *p++;
+        if (len == (7 + p_pa->nfcid1_len + u8)) /* 2(sens_res) + 1(len) + p_pa->nfcid1_len + 1(len) + u8 + hr (1:len + 2) */
+        {
+            p_pa->hr_len     = *p++;
+            if (p_pa->hr_len == NCI_T1T_HR_LEN)
+            {
+                p_pa->hr[0]  = *p++;
+                p_pa->hr[1]  = *p;
+            }
+        }
         break;
 
     case NCI_DISCOVERY_TYPE_POLL_B:
@@ -691,7 +702,12 @@ SENSF_RES Response Byte 2 - Byte 17 or 19  n bytes Defined in [DIGPROT] Availabl
 
     case NCI_DISCOVERY_TYPE_POLL_KOVIO:
         p_param->param.pk.uid_len = *p++;
-        STREAM_TO_ARRAY (p_param->param.pk.uid, p, NFC_KOVIO_MAX_LEN);
+        if (p_param->param.pk.uid_len > NFC_KOVIO_MAX_LEN)
+        {
+            NFC_TRACE_ERROR2( "Kovio UID len:0x%x exceeds max(0x%x)", p_param->param.pk.uid_len, NFC_KOVIO_MAX_LEN);
+            p_param->param.pk.uid_len = NFC_KOVIO_MAX_LEN;
+        }
+        STREAM_TO_ARRAY (p_param->param.pk.uid, p, p_param->param.pk.uid_len);
         break;
     }
 
@@ -754,6 +770,7 @@ void nfc_ncif_proc_activate (UINT8 *p, UINT8 len)
     tNFC_CONN_CB * p_cb = &nfc_cb.conn_cb[NFC_RF_CONN_ID];
     UINT8                   *pp, len_act;
     UINT8                   buff_size, num_buff;
+    tNFC_RF_PA_PARAMS       *p_pa;
 
     nfc_set_state (NFC_STATE_OPEN);
 
@@ -771,7 +788,7 @@ void nfc_ncif_proc_activate (UINT8 *p, UINT8 len)
     /* fill in tNFC_activate_DEVT */
     p = nfc_ncif_decode_rf_params (&evt_data.activate.rf_tech_param, p);
 
-    evt_data.activate.rf_tech_param.mode    = *p++;
+    evt_data.activate.data_mode             = *p++;
     evt_data.activate.tx_bitrate            = *p++;
     evt_data.activate.rx_bitrate            = *p++;
     mode         = evt_data.activate.rf_tech_param.mode;
@@ -927,6 +944,17 @@ void nfc_ncif_proc_activate (UINT8 *p, UINT8 len)
         }
     }
 #endif
+    else if ((evt_data.activate.intf_param.type == NCI_INTERFACE_FRAME) && (evt_data.activate.protocol == NCI_PROTOCOL_T1T) )
+    {
+        p_pa = &evt_data.activate.rf_tech_param.param.pa;
+        if ((len_act == NCI_T1T_HR_LEN) && (p_pa->hr_len == 0))
+        {
+            p_pa->hr_len    = NCI_T1T_HR_LEN;
+            p_pa->hr[0]     = *p++;
+            p_pa->hr[1]     = *p++;
+        }
+    }
+
     p_cb->act_protocol  = evt_data.activate.protocol;
     p_cb->buff_size     = buff_size;
     p_cb->num_buff      = num_buff;

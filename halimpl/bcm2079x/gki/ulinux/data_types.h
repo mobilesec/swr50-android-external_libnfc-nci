@@ -34,7 +34,7 @@ typedef signed   long   INT32;
 typedef signed   char   INT8;
 typedef signed   short  INT16;
 typedef unsigned char   BOOLEAN;
-
+typedef UINT32          UINTPTR;
 typedef UINT32          TIME_STAMP;
 
 #ifndef TRUE

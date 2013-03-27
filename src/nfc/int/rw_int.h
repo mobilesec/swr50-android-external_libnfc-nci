@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains the Near Field Communication (NFC) Reader/Writer mode
@@ -373,6 +374,7 @@ typedef struct
 #define RW_T3T_FL_W4_GET_SC_POLL_RSP            0x04    /* Waiting for POLL response for RW_T3tGetSystemCodes */
 #define RW_T3T_FL_W4_NDEF_DETECT_POLL_RSP       0x08    /* Waiting for POLL response for RW_T3tDetectNDef */
 #define RW_T3T_FL_W4_FMT_FELICA_LITE_POLL_RSP   0x10    /* Waiting for POLL response for RW_T3tFormat */
+#define RW_T3T_FL_W4_SRO_FELICA_LITE_POLL_RSP   0x20    /* Waiting for POLL response for RW_T3tSetReadOnly */
 
 typedef struct
 {

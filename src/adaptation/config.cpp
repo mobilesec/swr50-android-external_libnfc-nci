@@ -24,12 +24,7 @@
 
 #define LOG_TAG "NfcAdaptation"
 
-#if GENERIC_TARGET
-const char alternative_config_path[] = "/data/nfc/";
-#else
 const char alternative_config_path[] = "";
-#endif
-
 const char transport_config_path[] = "/etc/";
 
 #define config_name             "libnfc-brcm.conf"
@@ -61,7 +56,7 @@ public:
     static CNfcConfig& GetInstance();
     friend void readOptionalConfig(const char* optional);
 
-    bool    getValue(const char* name, char* pValue, size_t len) const;
+    bool    getValue(const char* name, char* pValue, size_t& len) const;
     bool    getValue(const char* name, unsigned long& rValue) const;
     bool    getValue(const char* name, unsigned short & rValue) const;
     const CNfcParam*    find(const char* p_name) const;
@@ -166,14 +161,14 @@ bool CNfcConfig::readConfig(const char* name, bool bResetContent)
         END_LINE
     };
 
-    FILE*   fd;
+    FILE*   fd = NULL;
     string  token;
     string  strValue;
     unsigned long    numValue = 0;
     CNfcParam* pParam = NULL;
-    int     i;
-    int     base;
-    char    c;
+    int     i = 0;
+    int     base = 0;
+    char    c = 0;
 
     state = BEGIN_LINE;
     /* open config file, read it into a buffer */
@@ -413,7 +408,7 @@ CNfcConfig& CNfcConfig::GetInstance()
 **              false if setting does not exist
 **
 *******************************************************************************/
-bool CNfcConfig::getValue(const char* name, char* pValue, size_t len) const
+bool CNfcConfig::getValue(const char* name, char* pValue, size_t& len) const
 {
     const CNfcParam* pParam = find(name);
     if (pParam == NULL)
@@ -422,7 +417,9 @@ bool CNfcConfig::getValue(const char* name, char* pValue, size_t len) const
     if (pParam->str_len() > 0)
     {
         memset(pValue, 0, len);
-        memcpy(pValue, pParam->str_value(), pParam->str_len());
+        if (len > pParam->str_len())
+            len  = pParam->str_len();
+        memcpy(pValue, pParam->str_value(), len);
         return true;
     }
     return false;
@@ -499,7 +496,7 @@ const CNfcParam* CNfcConfig::find(const char* p_name) const
             if((*it)->str_len() > 0)
                 ALOGD("%s found %s=%s\n", __func__, p_name, (*it)->str_value());
             else
-                ALOGD("%s found %s=(0x%X)\n", __func__, p_name, (*it)->numValue());
+                ALOGD("%s found %s=(0x%lX)\n", __func__, p_name, (*it)->numValue());
             return *it;
         }
         else
@@ -658,11 +655,13 @@ CNfcParam::CNfcParam(const char* name,  unsigned long value) :
 ** Returns:     none
 **
 *******************************************************************************/
-extern "C" int GetStrValue(const char* name, char* pValue, unsigned long len)
+extern "C" int GetStrValue(const char* name, char* pValue, unsigned long l)
 {
+    size_t len = l;
     CNfcConfig& rConfig = CNfcConfig::GetInstance();
 
-    return rConfig.getValue(name, pValue, len);
+    bool b = rConfig.getValue(name, pValue, len);
+    return b ? len : 0;
 }
 
 /*******************************************************************************
@@ -688,7 +687,7 @@ extern "C" int GetNumValue(const char* name, void* pValue, unsigned long len)
     if (v == 0 && pParam->str_len() > 0 && pParam->str_len() < 4)
     {
         const unsigned char* p = (const unsigned char*)pParam->str_value();
-        for (int i = 0 ; i < pParam->str_len(); ++i)
+        for (size_t i = 0 ; i < pParam->str_len(); ++i)
         {
             v *= 256;
             v += *p++;

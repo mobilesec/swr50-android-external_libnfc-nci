@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -697,12 +698,19 @@ NFC_API extern tNFA_STATUS NFA_Deactivate (BOOLEAN sleep_mode)
 ** Description      Send a raw frame over the activated interface with the NFCC.
 **                  This function can only be called after NFC link is activated.
 **
+**                  If the activated interface is a tag and auto-presence check is
+**                  enabled then presence_check_start_delay can be used to indicate
+**                  the delay in msec after which the next auto presence check
+**                  command can be sent. NFA_DM_DEFAULT_PRESENCE_CHECK_START_DELAY
+**                  can be used as the default value for the delay.
+**
 ** Returns          NFA_STATUS_OK if successfully initiated
 **                  NFA_STATUS_FAILED otherwise
 **
 *******************************************************************************/
 tNFA_STATUS NFA_SendRawFrame (UINT8  *p_raw_data,
-                              UINT16  data_len)
+                              UINT16  data_len,
+                              UINT16  presence_check_start_delay)
 {
     BT_HDR *p_msg;
     UINT16  size;
@@ -718,6 +726,7 @@ tNFA_STATUS NFA_SendRawFrame (UINT8  *p_raw_data,
     if ((p_msg = (BT_HDR *) GKI_getbuf (size)) != NULL)
     {
         p_msg->event  = NFA_DM_API_RAW_FRAME_EVT;
+        p_msg->layer_specific = presence_check_start_delay;
         p_msg->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE;
         p_msg->len    = data_len;
 

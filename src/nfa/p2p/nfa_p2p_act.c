@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -1212,6 +1213,25 @@ BOOLEAN nfa_p2p_set_llcp_cfg (tNFA_P2P_MSG *p_msg)
                     p_msg->api_set_llcp_cfg.symm_delay,
                     p_msg->api_set_llcp_cfg.data_link_timeout,
                     p_msg->api_set_llcp_cfg.delay_first_pdu_timeout);
+
+    return TRUE;
+}
+
+/*******************************************************************************
+**
+** Function         nfa_p2p_restart_rf_discovery
+**
+** Description      Restart RF discovery by deactivating to IDLE
+**
+**
+** Returns          TRUE to deallocate buffer
+**
+*******************************************************************************/
+BOOLEAN nfa_p2p_restart_rf_discovery (tNFA_P2P_MSG *p_msg)
+{
+    P2P_TRACE_DEBUG0 ("nfa_p2p_restart_rf_discovery ()");
+
+    nfa_dm_rf_deactivate (NFA_DEACTIVATE_TYPE_IDLE);
 
     return TRUE;
 }

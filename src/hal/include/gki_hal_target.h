@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2012 Broadcom Corporation
+ *  Copyright (C) 2012-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 #ifndef GKI_HAL_TARGET_H
 #define GKI_HAL_TARGET_H
 
@@ -53,6 +54,23 @@
 #ifndef GKI_MAX_TASKS
 #define GKI_MAX_TASKS               1
 #endif
+
+
+/******************************************************************************
+**
+** Buffer pool assignment
+**
+******************************************************************************/
+
+/* GKI pool for NCI messages */
+#ifndef NFC_HAL_NCI_POOL_ID
+#define NFC_HAL_NCI_POOL_ID         GKI_POOL_ID_1
+#endif
+
+#ifndef NFC_HAL_NCI_POOL_BUF_SIZE
+#define NFC_HAL_NCI_POOL_BUF_SIZE   GKI_BUF1_SIZE
+#endif
+
 
 /******************************************************************************
 **
@@ -225,6 +243,11 @@
 #endif
 
 
+#if defined(GKI_DEBUG) && (GKI_DEBUG == TRUE)
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "GKI_LINUX"
 /* GKI Trace Macros */
 #define GKI_TRACE_0(m)                          LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_GENERIC,m)
 #define GKI_TRACE_1(m,p1)                       LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_GENERIC,m,p1)
@@ -233,6 +256,16 @@
 #define GKI_TRACE_4(m,p1,p2,p3,p4)              LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_GENERIC,m,p1,p2,p3,p4)
 #define GKI_TRACE_5(m,p1,p2,p3,p4,p5)           LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_GENERIC,m,p1,p2,p3,p4,p5)
 #define GKI_TRACE_6(m,p1,p2,p3,p4,p5,p6)        LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_GENERIC,m,p1,p2,p3,p4,p5,p6)
+#else
+#define GKI_TRACE_0(m)
+#define GKI_TRACE_1(m,p1)
+#define GKI_TRACE_2(m,p1,p2)
+#define GKI_TRACE_3(m,p1,p2,p3)
+#define GKI_TRACE_4(m,p1,p2,p3,p4)
+#define GKI_TRACE_5(m,p1,p2,p3,p4,p5)
+#define GKI_TRACE_6(m,p1,p2,p3,p4,p5,p6)
+
+#endif
 
 #define GKI_TRACE_ERROR_0(m)                    LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_ERROR,m)
 #define GKI_TRACE_ERROR_1(m,p1)                 LogMsg(TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_ERROR,m,p1)

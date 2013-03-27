@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -233,7 +234,8 @@ void nfa_ee_proc_nfcc_power_mode (UINT8 nfcc_power_mode)
                 p_cb->ecb_flags    |= NFA_EE_ECB_FLAGS_RESTORE;
             }
         }
-        nfa_ee_cb.em_state      = NFA_EE_EM_STATE_RESTORING;
+        nfa_ee_cb.em_state          = NFA_EE_EM_STATE_RESTORING;
+        nfa_ee_cb.num_ee_expecting  = 0;
         if (nfa_sys_is_register (NFA_ID_HCI))
         {
             nfa_ee_cb.ee_flags   |= NFA_EE_FLAG_WAIT_HCI;
@@ -435,6 +437,7 @@ void nfa_ee_sys_disable (void)
     UINT32  xx;
     tNFA_EE_ECB *p_cb;
     tNFA_EE_MSG     msg;
+
     NFA_TRACE_DEBUG0 ("nfa_ee_sys_disable ()");
 
     nfa_ee_cb.em_state = NFA_EE_EM_STATE_DISABLED;
@@ -448,6 +451,7 @@ void nfa_ee_sys_disable (void)
         }
     }
 
+    nfa_ee_cb.num_ee_expecting  = 0;
     p_cb = nfa_ee_cb.ecb;
     for (xx = 0; xx < nfa_ee_cb.cur_ee; xx++, p_cb++)
     {
@@ -458,7 +462,7 @@ void nfa_ee_sys_disable (void)
                 /* Disconnect NCI connection on graceful shutdown */
                 msg.disconnect.p_cb = p_cb;
                 nfa_ee_api_disconnect (&msg);
-                nfa_ee_cb.em_state = NFA_EE_EM_STATE_DISABLING;
+                nfa_ee_cb.num_ee_expecting++;
             }
             else
             {
@@ -469,17 +473,42 @@ void nfa_ee_sys_disable (void)
             }
         }
     }
+
+    if (nfa_ee_cb.num_ee_expecting)
+    {
+        nfa_ee_cb.ee_flags |= NFA_EE_FLAG_WAIT_DISCONN;
+        nfa_ee_cb.em_state  = NFA_EE_EM_STATE_DISABLING;
+    }
+
+
     nfa_sys_stop_timer (&nfa_ee_cb.timer);
     nfa_sys_stop_timer (&nfa_ee_cb.discv_timer);
 
     /* If Application initiated NFCEE discovery, fake/report the event */
-    nfa_ee_cb.num_ee_expecting = 0;
     nfa_ee_report_disc_done (FALSE);
 
     /* deregister message handler on NFA SYS */
     if (nfa_ee_cb.em_state == NFA_EE_EM_STATE_DISABLED)
         nfa_sys_deregister (NFA_ID_EE);
 
+}
+
+/*******************************************************************************
+**
+** Function         nfa_ee_check_disable
+**
+** Description      Check if it is safe to move to disabled state
+**
+** Returns          None
+**
+*******************************************************************************/
+void nfa_ee_check_disable (void)
+{
+    if (!(nfa_ee_cb.ee_flags & NFA_EE_FLAG_WAIT_DISCONN))
+    {
+        nfa_ee_cb.em_state = NFA_EE_EM_STATE_DISABLED;
+        nfa_sys_deregister (NFA_ID_EE);
+    }
 }
 /*******************************************************************************
 **

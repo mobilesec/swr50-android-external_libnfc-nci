@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains the utility functions for the NFA HCI.
@@ -26,6 +27,7 @@
 #include "nfc_api.h"
 #include "nfa_sys.h"
 #include "nfa_sys_int.h"
+#include "nfa_dm_int.h"
 #include "nfa_hci_api.h"
 #include "nfa_hci_int.h"
 #include "nfa_nv_co.h"
@@ -402,7 +404,7 @@ tNFA_STATUS nfa_hciu_send_msg (UINT8 pipe_id, UINT8 type, UINT8 instruction, UIN
         if (nfa_hci_cb.hci_state == NFA_HCI_STATE_IDLE)
             nfa_hci_cb.hci_state = NFA_HCI_STATE_WAIT_RSP;
 
-        nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, NFA_HCI_CMD_RSP_TIMEOUT);
+        nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hcp_response_timeout);
     }
 
     return status;
@@ -423,7 +425,7 @@ UINT8 nfa_hciu_get_allocated_gate_list (UINT8 *p_gate_list)
     int                 xx;
     UINT8               count = 0;
 
-    for (xx = 0, p_cb = nfa_hci_cb.cfg.dyn_gates; xx <= NFA_HCI_MAX_GATE_CB; xx++, p_cb++)
+    for (xx = 0, p_cb = nfa_hci_cb.cfg.dyn_gates; xx < NFA_HCI_MAX_GATE_CB; xx++, p_cb++)
     {
         if (p_cb->gate_id != 0)
         {
@@ -1296,14 +1298,15 @@ char *nfa_hciu_get_state_name (UINT8 state)
 
     switch (state)
     {
-    case NFA_HCI_STATE_DISABLED:            return ("DISABLED");
-    case NFA_HCI_STATE_STARTUP:             return ("STARTUP");
-    case NFA_HCI_STATE_IDLE:                return ("IDLE");
-    case NFA_HCI_STATE_WAIT_RSP:            return ("WAIT_RSP");
-    case NFA_HCI_STATE_REMOVE_GATE:         return ("REMOVE_GATE");
-    case NFA_HCI_STATE_APP_DEREGISTER:      return ("APP_DEREGISTER");
-    case NFA_HCI_STATE_RESTORE:             return ("RESTORE");
-
+    case NFA_HCI_STATE_DISABLED:             return ("DISABLED");
+    case NFA_HCI_STATE_STARTUP:              return ("STARTUP");
+    case NFA_HCI_STATE_WAIT_NETWK_ENABLE:    return ("WAIT_NETWK_ENABLE");
+    case NFA_HCI_STATE_IDLE:                 return ("IDLE");
+    case NFA_HCI_STATE_WAIT_RSP:             return ("WAIT_RSP");
+    case NFA_HCI_STATE_REMOVE_GATE:          return ("REMOVE_GATE");
+    case NFA_HCI_STATE_APP_DEREGISTER:       return ("APP_DEREGISTER");
+    case NFA_HCI_STATE_RESTORE:              return ("RESTORE");
+    case NFA_HCI_STATE_RESTORE_NETWK_ENABLE: return ("WAIT_NETWK_ENABLE_AFTER_RESTORE");
 
     default:
         sprintf (unknown, "?? Unknown: %u ?? ", state);

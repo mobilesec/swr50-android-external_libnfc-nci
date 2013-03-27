@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright (C) 2009-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  Post NCI reset routines
@@ -29,6 +30,7 @@
 ** Application control block definitions
 ******************************************************************************/
 #define NFA_APP_PATCHFILE_MAX_PATH          255
+#define NFA_APP_MAX_NUM_REINIT                5
 
 typedef struct
 {
@@ -50,6 +52,13 @@ typedef struct
     UINT8 nfc_wake_active_mode;
     UINT8 dh_wake_active_mode;
 
+    /* NVM detection retry (some platforms require re-attempts to detect NVM) */
+    UINT8 spd_nvm_detection_max_count;  /* max retry to get NVM type */
+    UINT8 spd_nvm_detection_cur_count;  /* current retry count       */
+
+    /* handling for failure to download patch */
+    BOOLEAN spd_debug_mode;             /* debug mode for downloading patchram, report failure immediately and obviously */
+    BOOLEAN spd_skip_on_power_cycle;    /* skip downloading patchram after power cycle because of patch download failure */
 } tNFC_POST_RESET_CB;
 extern tNFC_POST_RESET_CB nfc_post_reset_cb;
 
@@ -61,6 +70,5 @@ extern tNFC_POST_RESET_CB nfc_post_reset_cb;
 ** HAL_NfcPreInitDone() must be called to proceed with stack start up.
 */
 void nfc_hal_post_reset_init (UINT32 brcm_hw_id, UINT8 nvm_type);
-
 
 #endif  /* NFC_HAL_POST_RESET_H */

@@ -1,3 +1,4 @@
+#define LOG_TAG "NfcNciHal"
 #include "OverrideLog.h"
 #include "spdhelper.h"
 #include "config.h"

@@ -532,6 +532,9 @@ void GKI_run (void *p_task_id)
                 err = nanosleep(&delay, &delay);
             } while (err < 0 && errno == EINTR);
 
+            if (GKI_TIMER_TICK_RUN_COND != *p_run_cond)
+                break; //GKI has shutdown
+
             /* the unit should be alsways 1 (1 tick). only if you vary for some reason heart beat tick
              * e.g. power saving you may want to provide more ticks
              */
@@ -1229,6 +1232,7 @@ void GKI_exit_task (UINT8 task_id)
 void GKI_sched_lock(void)
 {
     GKI_TRACE_0("GKI_sched_lock");
+    GKI_disable ();
     return;
 }
 
@@ -1249,6 +1253,7 @@ void GKI_sched_lock(void)
 void GKI_sched_unlock(void)
 {
     GKI_TRACE_0("GKI_sched_unlock");
+    GKI_enable ();
 }
 
 /*******************************************************************************

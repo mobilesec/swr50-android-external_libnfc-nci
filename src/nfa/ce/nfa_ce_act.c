@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2011-2012 Broadcom Corporation
+ *  Copyright (C) 2011-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -256,16 +257,13 @@ void nfa_ce_discovery_cback (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_data)
         break;
 
     case NFA_DM_RF_DISC_DEACTIVATED_EVT:
-        ce_msg.hdr.event = NFA_CE_DEACTIVATE_NTF_EVT;
-        ce_msg.hdr.layer_specific = p_data->deactivate.type;
-        nfa_ce_hdl_event ((BT_HDR *) &ce_msg);
-        break;
-
-    case NFA_DM_RF_DISC_CMD_IDLE_CMPL_EVT:
-        /* DH initiated deactivation in NFA_DM_RFST_LISTEN_SLEEP */
-        ce_msg.hdr.event = NFA_CE_DEACTIVATE_NTF_EVT;
-        ce_msg.hdr.layer_specific = NFA_DEACTIVATE_TYPE_IDLE;
-        nfa_ce_hdl_event ((BT_HDR *) &ce_msg);
+        /* DM broadcasts deactivaiton event in listen sleep state, so check before processing */
+        if (nfa_ce_cb.flags & NFA_CE_FLAGS_LISTEN_ACTIVE_SLEEP)
+        {
+            ce_msg.hdr.event = NFA_CE_DEACTIVATE_NTF_EVT;
+            ce_msg.hdr.layer_specific = p_data->deactivate.type;
+            nfa_ce_hdl_event ((BT_HDR *) &ce_msg);
+        }
         break;
 
     default:

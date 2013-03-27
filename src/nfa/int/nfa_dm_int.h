@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright (C) 2003-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -273,9 +274,7 @@ enum
 {
     NFA_DM_RF_DISC_START_EVT,           /* discovery started with protocol, technology and mode       */
     NFA_DM_RF_DISC_ACTIVATED_EVT,       /* activated with configured protocol, technology and mode    */
-    NFA_DM_RF_DISC_DEACTIVATED_EVT,     /* deactivated sleep or idle                                  */
-    NFA_DM_RF_DISC_CMD_IDLE_CMPL_EVT    /* deactivated to idle from host select or listen sleep state */
-                                        /*  by DH request                                             */
+    NFA_DM_RF_DISC_DEACTIVATED_EVT      /* deactivated sleep or idle                                  */
 };
 typedef UINT8 tNFA_DM_RF_DISC_EVT;
 
@@ -358,6 +357,12 @@ enum {
 #define SLP_REQ_CMD     0x5000
 #define NFA_DM_MAX_TECH_ROUTE   4 /* NFA_EE_MAX_TECH_ROUTE. only A, B, F, Bprime are supported by UICC now */
 
+/* timeout for waiting deactivation NTF,
+** possible delay to send deactivate CMD if all credit wasn't returned
+** transport delay (1sec) and max RWT (5sec)
+*/
+#define NFA_DM_DISC_TIMEOUT_W4_DEACT_NTF            (NFC_DEACTIVATE_TIMEOUT*1000 + 6000)
+
 typedef struct
 {
     UINT16                  disc_duration;          /* Disc duration                                    */
@@ -378,6 +383,8 @@ typedef struct
 
     UINT8                   listen_RT[NFA_DM_MAX_TECH_ROUTE];/* Host ID for A, B, F, B' technology routing*/
     tNFA_DM_DISC_TECH_PROTO_MASK    dm_disc_mask;   /* technology and protocol waiting for activation   */
+
+    TIMER_LIST_ENT          tle;                    /* timer for waiting deactivation NTF               */
 
 } tNFA_DM_DISC_CB;
 
@@ -500,6 +507,7 @@ tNFA_STATUS nfa_rw_send_raw_frame (BT_HDR *p_data);
 void nfa_ce_init (void);
 
 /* Pointer to compile-time configuration structure */
+extern tNFA_HCI_CFG *p_nfa_hci_cfg;
 extern tNFA_DM_CFG *p_nfa_dm_cfg;
 extern UINT8 *p_nfa_dm_ce_cfg;
 extern UINT8 *p_nfa_dm_gen_cfg;
@@ -517,8 +525,17 @@ extern tNFA_DM_CB *nfa_dm_cb_ptr;
 
 void nfa_dm_init (void);
 void nfa_p2p_init (void);
+#if (defined (NFA_CHO_INCLUDED) && (NFA_CHO_INCLUDED==TRUE))
 void nfa_cho_init (void);
+#else
+#define nfa_cho_init()
+#endif /* (defined (NFA_CHO_INCLUDED) && (NFA_CHO_INCLUDED==TRUE)) */
+#if (defined (NFA_SNEP_INCLUDED) && (NFA_SNEP_INCLUDED==TRUE))
 void nfa_snep_init (BOOLEAN is_dta_mode);
+#else
+#define nfa_snep_init(is_dta_mode)
+#endif
+
 void nfa_dta_init (void);
 #if (NFC_NFCEE_INCLUDED == TRUE)
 void nfa_ee_init (void);

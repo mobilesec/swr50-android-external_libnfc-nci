@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -283,6 +284,7 @@ void nfc_process_quick_timer_evt (void)
             break;
 #endif
         default:
+            NFC_TRACE_DEBUG1 ("nfc_process_quick_timer_evt: unhandled timer event (0x%04x)", p_tle->event);
             break;
         }
     }

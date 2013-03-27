@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -459,7 +460,7 @@ NFC_API extern tNFA_STATUS NFA_RwT3tWrite (UINT8                num_blocks,
 ** Function         NFA_RwI93Inventory
 **
 ** Description:
-**      Send Inventory command to the activated ISO 15693 tag.
+**      Send Inventory command to the activated ISO 15693 tag with/without AFI..
 **      If UID is provided then set UID[0]:MSB, ... UID[7]:LSB
 **
 **      When the write operation has completed (or if an error occurs), the
@@ -471,7 +472,7 @@ NFC_API extern tNFA_STATUS NFA_RwT3tWrite (UINT8                num_blocks,
 **      NFA_STATUS_FAILED otherwise
 **
 *******************************************************************************/
-NFC_API extern tNFA_STATUS NFA_RwI93Inventory (UINT8 afi, UINT8 *p_uid);
+NFC_API extern tNFA_STATUS NFA_RwI93Inventory (BOOLEAN afi_present, UINT8 afi, UINT8 *p_uid);
 
 /*******************************************************************************
 **

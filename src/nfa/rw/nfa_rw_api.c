@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -257,15 +258,16 @@ tNFA_STATUS NFA_RwSetTagReadOnly (BOOLEAN b_hard_lock)
     tNFA_RW_OPERATION *p_msg;
     tNFC_PROTOCOL      protocol = nfa_rw_cb.protocol;
 
-    if ((protocol != NFC_PROTOCOL_T1T) && (protocol != NFC_PROTOCOL_T2T) && (protocol != NFC_PROTOCOL_15693))
+    if ((protocol != NFC_PROTOCOL_T1T) && (protocol != NFC_PROTOCOL_T2T) && (protocol != NFC_PROTOCOL_15693) && (protocol != NFC_PROTOCOL_ISO_DEP) && (protocol != NFC_PROTOCOL_T3T))
     {
         NFA_TRACE_API1 ("NFA_RwSetTagReadOnly (): Cannot Configure as read only for Protocol: %d", protocol);
         return (NFA_STATUS_REJECTED);
     }
 
-    if (!b_hard_lock && (protocol == NFC_PROTOCOL_15693))
+    if (  (!b_hard_lock && (protocol == NFC_PROTOCOL_15693))
+        ||(b_hard_lock && (protocol == NFC_PROTOCOL_ISO_DEP))  )
     {
-        NFA_TRACE_API1 ("NFA_RwSetTagReadOnly (): Can only hardlock for Protocol: %d", protocol);
+        NFA_TRACE_API2 ("NFA_RwSetTagReadOnly (): Cannot %s for Protocol: %d", b_hard_lock ? "Hard lock" : "Soft lock", protocol);
         return (NFA_STATUS_REJECTED);
     }
 
@@ -643,7 +645,7 @@ tNFA_STATUS NFA_RwT2tWrite (UINT8 block_number,	UINT8 *p_data)
 {
     tNFA_RW_OPERATION *p_msg;
 
-    NFA_TRACE_API1 ("NFA_RwT2tRead (): Block to write: %d", block_number);
+    NFA_TRACE_API1 ("NFA_RwT2tWrite (): Block to write: %d", block_number);
 
     if ((p_msg = (tNFA_RW_OPERATION *) GKI_getbuf ((UINT16) (sizeof (tNFA_RW_OPERATION)))) != NULL)
     {
@@ -805,7 +807,7 @@ tNFA_STATUS NFA_RwT3tWrite (UINT8 num_blocks, tNFA_T3T_BLOCK_DESC *t3t_blocks,	U
 ** Function         NFA_RwI93Inventory
 **
 ** Description:
-**      Send Inventory command to the activated ISO 15693 tag.
+**      Send Inventory command to the activated ISO 15693 tag with/without AFI
 **      If UID is provided then set UID[0]:MSB, ... UID[7]:LSB
 **
 **      When the operation has completed (or if an error occurs), the
@@ -817,11 +819,11 @@ tNFA_STATUS NFA_RwT3tWrite (UINT8 num_blocks, tNFA_T3T_BLOCK_DESC *t3t_blocks,	U
 **      NFA_STATUS_FAILED otherwise
 **
 *******************************************************************************/
-tNFA_STATUS NFA_RwI93Inventory (UINT8 afi, UINT8 *p_uid)
+tNFA_STATUS NFA_RwI93Inventory (BOOLEAN afi_present, UINT8 afi, UINT8 *p_uid)
 {
     tNFA_RW_OPERATION *p_msg;
 
-    NFA_TRACE_API1 ("NFA_RwI93Inventory (): AFI: 0x%02X", afi);
+    NFA_TRACE_API2 ("NFA_RwI93Inventory (): afi_present:%d, AFI: 0x%02X", afi_present, afi);
 
     if (nfa_rw_cb.protocol != NFC_PROTOCOL_15693)
     {
@@ -834,6 +836,7 @@ tNFA_STATUS NFA_RwI93Inventory (UINT8 afi, UINT8 *p_uid)
         p_msg->hdr.event = NFA_RW_OP_REQUEST_EVT;
         p_msg->op        = NFA_RW_OP_I93_INVENTORY;
 
+        p_msg->params.i93_cmd.afi_present = afi_present;
         p_msg->params.i93_cmd.afi = afi;
 
         if (p_uid)

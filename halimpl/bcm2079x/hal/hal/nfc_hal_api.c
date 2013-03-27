@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2012 Broadcom Corporation
+ *  Copyright (C) 2012-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  NFC Hardware Abstraction Layer API: Implementation for Broadcom NFC
  *  controllers
  *
  ******************************************************************************/
+#include <string.h>
 #include "gki.h"
 #include "nfc_hal_target.h"
 #include "nfc_hal_api.h"
@@ -47,16 +49,17 @@ UINT32 nfc_hal_task_stack[(NFC_HAL_TASK_STACK_SIZE+3)/4];
 *******************************************************************************/
 void HAL_NfcInitialize (void)
 {
-    NCI_TRACE_API0 ("HAL_NfcInitialize ()");
-
     /* Initialize HAL control block */
     nfc_hal_main_init ();
 
-    /* Initialize OS */
-    GKI_init ();
+   HAL_TRACE_API1 ("HAL_NfcInitialize (): NFC_HAL_TASK id=%i", NFC_HAL_TASK);
 
-    /* Enable interrupts */
+
+#ifndef NFC_HAL_SHARED_GKI
+    /* Initialize GKI (not needed if using shared NFC/HAL GKI resources) */
+    GKI_init ();
     GKI_enable ();
+#endif
 
     /* Create the NCI transport task */
     GKI_create_task ((TASKPTR)nfc_hal_main_task,
@@ -65,8 +68,10 @@ void HAL_NfcInitialize (void)
                      (UINT16 *) ((UINT8 *)nfc_hal_task_stack + NFC_HAL_TASK_STACK_SIZE),
                      sizeof(nfc_hal_task_stack), NULL, NULL);
 
-    /* Start tasks */
+#ifndef NFC_HAL_SHARED_GKI
+    /* Start GKI scheduler (not needed if using shared NFC/HAL GKI resources) */
     GKI_run (0);
+#endif
 }
 
 /*******************************************************************************
@@ -80,7 +85,7 @@ void HAL_NfcInitialize (void)
 *******************************************************************************/
 void HAL_NfcTerminate(void)
 {
-    NCI_TRACE_API0 ("HAL_NfcTerminate ()");
+    HAL_TRACE_API0 ("HAL_NfcTerminate ()");
 }
 
 
@@ -98,7 +103,7 @@ void HAL_NfcTerminate(void)
 *******************************************************************************/
 void HAL_NfcOpen (tHAL_NFC_CBACK *p_hal_cback, tHAL_NFC_DATA_CBACK *p_data_cback)
 {
-    NCI_TRACE_API0 ("HAL_NfcOpen ()");
+    HAL_TRACE_API0 ("HAL_NfcOpen ()");
 
     /* Only handle if HAL is not opened (stack cback is NULL) */
     if (p_hal_cback)
@@ -124,7 +129,7 @@ void HAL_NfcOpen (tHAL_NFC_CBACK *p_hal_cback, tHAL_NFC_DATA_CBACK *p_data_cback
 *******************************************************************************/
 void HAL_NfcClose (void)
 {
-    NCI_TRACE_API0 ("HAL_NfcClose ()");
+    HAL_TRACE_API0 ("HAL_NfcClose ()");
 
     /* Only handle if HAL is opened (stack cback is not-NULL) */
     if (nfc_hal_cb.p_stack_cback)
@@ -151,7 +156,7 @@ void HAL_NfcCoreInitialized (UINT8 *p_core_init_rsp_params)
     NFC_HDR *p_msg;
     UINT16  size;
 
-    NCI_TRACE_API0 ("HAL_NfcCoreInitialized ()");
+    HAL_TRACE_API0 ("HAL_NfcCoreInitialized ()");
 
     /* NCI payload len + NCI header size */
     size = p_core_init_rsp_params[2] + NCI_MSG_HDR_SIZE;
@@ -186,11 +191,11 @@ void HAL_NfcWrite (UINT16 data_len, UINT8 *p_data)
     NFC_HDR *p_msg;
     UINT8 mt;
 
-    NCI_TRACE_API0 ("HAL_NfcWrite ()");
+    HAL_TRACE_API0 ("HAL_NfcWrite ()");
 
     if (data_len > (NCI_MAX_CTRL_SIZE + NCI_MSG_HDR_SIZE))
     {
-        NCI_TRACE_ERROR1 ("HAL_NfcWrite (): too many bytes (%d)", data_len);
+        HAL_TRACE_ERROR1 ("HAL_NfcWrite (): too many bytes (%d)", data_len);
         return;
     }
 
@@ -228,7 +233,7 @@ BOOLEAN HAL_NfcPreDiscover (void)
 {
     BOOLEAN status = FALSE;
 
-    NCI_TRACE_API1 ("HAL_NfcPreDiscover status:%d", status);
+    HAL_TRACE_API1 ("HAL_NfcPreDiscover status:%d", status);
     return status;
 }
 
@@ -252,7 +257,7 @@ BOOLEAN HAL_NfcPreDiscover (void)
 void HAL_NfcControlGranted (void)
 {
     NFC_HDR *p_msg;
-    NCI_TRACE_API0 ("HAL_NfcControlGranted ()");
+    HAL_TRACE_API0 ("HAL_NfcControlGranted ()");
 
     /* Send message to NFC_HAL_TASK */
     if ((p_msg = (NFC_HDR *)GKI_getpoolbuf (NFC_HAL_NCI_POOL_ID)) != NULL)
@@ -275,7 +280,7 @@ void HAL_NfcControlGranted (void)
 *******************************************************************************/
 void HAL_NfcPowerCycle (void)
 {
-    NCI_TRACE_API0 ("HAL_NfcPowerCycle ()");
+    HAL_TRACE_API0 ("HAL_NfcPowerCycle ()");
 
     /* Only handle if HAL is opened (stack cback is not-NULL) */
     if (nfc_hal_cb.p_stack_cback)

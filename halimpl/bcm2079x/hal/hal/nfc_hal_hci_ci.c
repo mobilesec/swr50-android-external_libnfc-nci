@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains the call-in functions for NFC HAL HCI
  *
  ******************************************************************************/
 #include <string.h>
+#include "gki.h"
 #include "nfc_hal_api.h"
 #include "nfc_hal_int.h"
 #include "nfc_hal_nv_ci.h"
@@ -29,7 +31,7 @@
 
 /*******************************************************************************
 **
-** Function         nfa_nv_ci_read
+** Function         nfc_hal_nv_ci_read
 **
 ** Description      call-in function for non volatile memory read acess
 **
@@ -63,7 +65,7 @@ void nfc_hal_nv_ci_read (UINT16 num_bytes_read, tNFC_HAL_NV_CO_STATUS status, UI
 
 /*******************************************************************************
 **
-** Function         nfa_nv_ci_write
+** Function         nfc_hal_nv_ci_write
 **
 ** Description      call-in function for non volatile memory write acess
 **

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -366,9 +367,16 @@ typedef void (*tNFA_EE_SM_ACT)(tNFA_EE_MSG *p_data);
 
 #define NFA_EE_FLAG_WAIT_HCI            0x01    /* set this bit when waiting for HCI to finish the initialization process in NFA_EE_EM_STATE_RESTORING */
 #define NFA_EE_FLAG_NOTIFY_HCI          0x02    /* set this bit when EE needs to notify the p_enable_cback at the end of NFCEE discover process in NFA_EE_EM_STATE_RESTORING */
+#define NFA_EE_FLAG_WAIT_DISCONN        0x04    /* set this bit when gracefully disable with outstanding NCI connections */
 typedef UINT8 tNFA_EE_FLAGS;
 
-typedef void (tNFA_EE_ENABLE_DONE_CBACK)(BOOLEAN disable_discover);
+
+#define NFA_EE_DISC_STS_ON              0x00    /* NFCEE DISCOVER in progress       */
+#define NFA_EE_DISC_STS_OFF             0x01    /* disable NFCEE DISCOVER           */
+#define NFA_EE_DISC_STS_REQ             0x02    /* received NFCEE DISCOVER REQ NTF  */
+typedef UINT8 tNFA_EE_DISC_STS;
+
+typedef void (tNFA_EE_ENABLE_DONE_CBACK)(tNFA_EE_DISC_STS status);
 
 /* NFA EE Management control block */
 typedef struct
@@ -451,6 +459,7 @@ void nfa_ee_start_timer(void);
 void nfa_ee_reg_cback_enable_done (tNFA_EE_ENABLE_DONE_CBACK *p_cback);
 
 extern void nfa_ee_proc_hci_info_cback (void);
+void nfa_ee_check_disable (void);
 
 
 #endif /* NFA_P2P_INT_H */

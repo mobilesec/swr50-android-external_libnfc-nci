@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2011-2012 Broadcom Corporation
+ *  Copyright (C) 2011-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -98,22 +99,17 @@ tNFA_STATUS nfa_ce_api_deregister_listen (tNFA_HANDLE handle, UINT32 listen_info
 **                  The NDEF data provided by p_ndef_data must be persistent
 **                  as long as the local NDEF tag is enabled.
 **
-**                  UID of the tag can be set only for Type 1 and Type 2 tag.
-**                  UID Length should be 4/7 bytes in case of Type 1 tag and
-**                  UID Length should be 4/10 bytes in case of Type 2 tag.
 **
 ** Note:            If RF discovery is started, NFA_StopRfDiscovery()/NFA_RF_DISCOVERY_STOPPED_EVT
-**                  should happen before calling this function
+**                  should happen before calling this function. Also, Input parameters p_uid and
+**                  uid_len are reserved for future use.
 **
 ** Returns:
 **                  NFA_STATUS_OK,            if command accepted
 **                  NFA_STATUS_INVALID_PARAM,
 **                      if protocol_maks is not 0 and p_ndef_data is NULL
-**                  (or)if p_uid is NULL and uid_len is not 0
-**                  (or)if protocol mask is set for both Type 1 and Type 2
-**                  (or)if uid_len is not 0 and protocol mask is not set for Type 1/2
-**                  (or)if protocol mask is set for Type 1 and uid_len is not 4/7
-**                  (or)if protocol mask is set for Type 2 and uid_len is not 4/10
+**                  (or)uid_len is not 0
+**                  (or)if protocol mask is set for Type 1 or Type 2
 **
 **                  NFA_STATUS_FAILED:        otherwise
 **
@@ -140,33 +136,15 @@ tNFA_STATUS NFA_CeConfigureLocalTag (tNFA_PROTOCOL_MASK protocol_mask,
             return (NFA_STATUS_INVALID_PARAM);
         }
 
-        if ((protocol_mask & NFA_PROTOCOL_MASK_T1T) && (protocol_mask & NFA_PROTOCOL_MASK_T2T))
+        if ((protocol_mask & NFA_PROTOCOL_MASK_T1T) || (protocol_mask & NFA_PROTOCOL_MASK_T2T))
         {
-            NFA_TRACE_ERROR0 ("NFA_CeConfigureLocalTag: Cannot emulate both Type 1 and Type 2 tag simultaneously");
+            NFA_TRACE_ERROR0 ("NFA_CeConfigureLocalTag: Cannot emulate Type 1 / Type 2 tag");
             return (NFA_STATUS_INVALID_PARAM);
         }
 
-        if ((uid_len) && !(protocol_mask & NFA_PROTOCOL_MASK_T1T) && !(protocol_mask & NFA_PROTOCOL_MASK_T2T))
+        if (uid_len)
         {
             NFA_TRACE_ERROR1 ("NFA_CeConfigureLocalTag: Cannot Set UID for Protocol_mask: 0x%x", protocol_mask);
-            return (NFA_STATUS_INVALID_PARAM);
-        }
-
-        if ((uid_len) && (protocol_mask & NFA_PROTOCOL_MASK_T1T) && (uid_len != NFA_T1T_UID_LEN) && (uid_len != NFA_T1T_CMD_UID_LEN))
-        {
-            NFA_TRACE_ERROR1 ("NFA_CeConfigureLocalTag: Invalid UID Length for Type 1: 0x%x", uid_len);
-            return (NFA_STATUS_INVALID_PARAM);
-        }
-
-        if ((uid_len) && (protocol_mask & NFA_PROTOCOL_MASK_T2T) && (uid_len != NFA_T2T_UID_LEN) && (uid_len != NFA_MAX_UID_LEN))
-        {
-            NFA_TRACE_ERROR1 ("NFA_CeConfigureLocalTag: Invalid UID Length for Type 2: 0x%x", uid_len);
-            return (NFA_STATUS_INVALID_PARAM);
-        }
-
-        if ((uid_len) && (p_uid == NULL))
-        {
-            NFA_TRACE_ERROR0 ("NFA_CeConfigureLocalTag: Invlaid UID Length/NULL uid pointer");
             return (NFA_STATUS_INVALID_PARAM);
         }
     }

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2012 Broadcom Corporation
+ *  Copyright (C) 2012-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -82,6 +83,10 @@
 #define NCI_MSG_SECURE_PATCH_DOWNLOAD   0x2E
 #define NCI_MSG_SPD_FORMAT_NVM          0x2F
 #define NCI_MSG_SPD_READ_NVM            0x30
+#define NCI_MSG_SWP_BIST                0x31
+#define NCI_MSG_WLESS_DBG_MODE          0x32
+#define NCI_MSG_I2C_REQ_POLARITY        0x33
+
 
 /**********************************************
  * Proprietary  NCI status codes

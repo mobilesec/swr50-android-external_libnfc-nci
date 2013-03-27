@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -657,6 +658,7 @@ static void llcp_dlc_proc_connect_pdu (UINT8 dsap, UINT8 ssap, UINT16 length, UI
             llcp_util_send_dm (ssap, LLCP_SAP_SDP, LLCP_SAP_DM_REASON_PERM_REJECT_THIS );
             return;
         }
+
         if (dsap == LLCP_SAP_SDP)
         {
             LLCP_TRACE_ERROR0 ("llcp_dlc_proc_connect_pdu (): SDP doesn't accept connection");
@@ -670,6 +672,20 @@ static void llcp_dlc_proc_connect_pdu (UINT8 dsap, UINT8 ssap, UINT16 length, UI
 
             llcp_util_send_dm (ssap, LLCP_SAP_SDP, LLCP_SAP_DM_REASON_NO_SERVICE );
             return;
+        }
+        else
+        {
+            /* check if this application can support connection-oriented transport */
+            p_app_cb = llcp_util_get_app_cb (dsap);
+
+            if (  (p_app_cb == NULL)
+                ||(p_app_cb->p_app_cback == NULL)
+                ||((p_app_cb->link_type & LLCP_LINK_TYPE_DATA_LINK_CONNECTION) == 0)  )
+            {
+                LLCP_TRACE_ERROR1 ("llcp_dlc_proc_connect_pdu (): SAP(0x%x) doesn't support connection-oriented", dsap);
+                llcp_util_send_dm (ssap, dsap, LLCP_SAP_DM_REASON_NO_SERVICE );
+                return;
+            }
         }
     }
 

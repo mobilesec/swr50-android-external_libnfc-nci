@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -58,7 +59,10 @@ static UINT8 ac_rec_type[AC_REC_TYPE_LEN] = { 0x61, 0x63 }; /* "ac" */
 static UINT8 err_rec_type[ERR_REC_TYPE_LEN] = { 0x65, 0x72, 0x72 }; /* "err" */
 
 /* Bluetooth OOB Data Type */
-static UINT8 *p_bt_oob_rec_type = (UINT8 *) "application/vnd.bluetooth.ep.oob";
+static UINT8 *p_bt_oob_rec_type = (UINT8 *)"application/vnd.bluetooth.ep.oob";
+
+/* Wifi WSC Data Type */
+static UINT8 *p_wifi_wsc_rec_type = (UINT8 *)"application/vnd.wfa.wsc";
 
 /*******************************************************************************
 **
@@ -138,13 +142,13 @@ tNDEF_STATUS NDEF_MsgAddWktHc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size
     ARRAY_TO_STREAM (p, p_carrier_type, carrier_type_len);
     ARRAY_TO_STREAM (p, p_carrier_data, carrier_data_len);
 
-    payload_len = (UINT32) carrier_type_len + carrier_data_len + 2;
+    payload_len = (UINT32)carrier_type_len + carrier_data_len + 2;
 
-    id_len = (UINT8) strlen (p_id_str);
+    id_len = (UINT8)strlen (p_id_str);
 
     status = NDEF_MsgAddRec (p_msg, max_size, p_cur_size,
                              NDEF_TNF_WKT, hc_rec_type, HC_REC_TYPE_LEN,
-                             (UINT8*) p_id_str, id_len, payload, payload_len);
+                             (UINT8*)p_id_str, id_len, payload, payload_len);
     return (status);
 }
 
@@ -169,11 +173,11 @@ tNDEF_STATUS NDEF_MsgAddWktAc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size
     /* get payload length first */
 
     /* CPS, length of carrier data ref, carrier data ref, Aux data reference count */
-    payload_len = 3 + (UINT8) strlen (p_carrier_data_ref_str);
+    payload_len = 3 + (UINT8)strlen (p_carrier_data_ref_str);
     for (xx = 0; xx < aux_data_ref_count; xx++)
     {
         /* Aux Data Reference length (1 byte) */
-        payload_len += 1 + (UINT8) strlen (p_aux_data_ref_str[xx]);
+        payload_len += 1 + (UINT8)strlen (p_aux_data_ref_str[xx]);
     }
 
     /* reserve memory for payload */
@@ -193,7 +197,7 @@ tNDEF_STATUS NDEF_MsgAddWktAc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size
         UINT8_TO_BE_STREAM (p, cps);
 
         /* Carrier Data Reference length */
-        ref_str_len = (UINT8) strlen (p_carrier_data_ref_str);
+        ref_str_len = (UINT8)strlen (p_carrier_data_ref_str);
 
         UINT8_TO_BE_STREAM (p, ref_str_len);
 
@@ -206,7 +210,7 @@ tNDEF_STATUS NDEF_MsgAddWktAc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size
         for (xx = 0; xx < aux_data_ref_count; xx++)
         {
             /* Aux Data Reference length (1 byte) */
-            ref_str_len = (UINT8) strlen (p_aux_data_ref_str[xx]);
+            ref_str_len = (UINT8)strlen (p_aux_data_ref_str[xx]);
 
             UINT8_TO_BE_STREAM (p, ref_str_len);
 
@@ -305,11 +309,11 @@ tNDEF_STATUS NDEF_MsgAddMediaBtOob (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur
     BDADDR_TO_STREAM (p, bd_addr);
 
     payload_len = BD_ADDR_LEN + 2;
-    id_len = (UINT8) strlen (p_id_str);
+    id_len = (UINT8)strlen (p_id_str);
 
     status = NDEF_MsgAddRec (p_msg, max_size, p_cur_size,
                              NDEF_TNF_MEDIA, p_bt_oob_rec_type, BT_OOB_REC_TYPE_LEN,
-                             (UINT8*) p_id_str, id_len, payload, payload_len);
+                             (UINT8*)p_id_str, id_len, payload, payload_len);
     return (status);
 }
 
@@ -346,8 +350,8 @@ tNDEF_STATUS NDEF_MsgAppendMediaBtOobCod (UINT8 *p_msg, UINT32 max_size, UINT32 
     eir_data_len = BT_OOB_COD_SIZE + 2;
 
     /* append EIR data at the end of record */
-    status = NDEF_MsgAppendPayload (p_msg, max_size, p_cur_size,
-                                    p_rec, eir_data, eir_data_len);
+    status = NDEF_MsgAppendPayload(p_msg, max_size, p_cur_size,
+                                   p_rec, eir_data, eir_data_len);
 
     /* update BT OOB data length, if success */
     if (status == NDEF_OK)
@@ -404,8 +408,8 @@ tNDEF_STATUS NDEF_MsgAppendMediaBtOobName (UINT8 *p_msg, UINT32 max_size, UINT32
     eir_data_len = name_len + 2;
 
     /* append EIR data at the end of record */
-    status = NDEF_MsgAppendPayload (p_msg, max_size, p_cur_size,
-                                    p_rec, eir_data, eir_data_len);
+    status = NDEF_MsgAppendPayload(p_msg, max_size, p_cur_size,
+                                   p_rec, eir_data, eir_data_len);
 
     /* update BT OOB data length, if success */
     if (status == NDEF_OK)
@@ -446,19 +450,19 @@ tNDEF_STATUS NDEF_MsgAppendMediaBtOobHashCRandR (UINT8 *p_msg, UINT32 max_size, 
     /* create EIR data format */
     p = eir_data;
 
-    UINT8_TO_STREAM (p, BT_OOB_HASH_C_SIZE + 1);
-    UINT8_TO_STREAM (p, BT_EIR_OOB_SSP_HASH_C_TYPE);
+    UINT8_TO_STREAM   (p, BT_OOB_HASH_C_SIZE + 1);
+    UINT8_TO_STREAM   (p, BT_EIR_OOB_SSP_HASH_C_TYPE);
     ARRAY16_TO_STREAM (p, p_hash_c);
 
-    UINT8_TO_STREAM (p, BT_OOB_RAND_R_SIZE + 1);
-    UINT8_TO_STREAM (p, BT_EIR_OOB_SSP_RAND_R_TYPE);
+    UINT8_TO_STREAM   (p, BT_OOB_RAND_R_SIZE + 1);
+    UINT8_TO_STREAM   (p, BT_EIR_OOB_SSP_RAND_R_TYPE);
     ARRAY16_TO_STREAM (p, p_rand_r);
 
     eir_data_len = BT_OOB_HASH_C_SIZE + BT_OOB_RAND_R_SIZE + 4;
 
     /* append EIR data at the end of record */
-    status = NDEF_MsgAppendPayload (p_msg, max_size, p_cur_size,
-                                    p_rec, eir_data, eir_data_len);
+    status = NDEF_MsgAppendPayload(p_msg, max_size, p_cur_size,
+                                   p_rec, eir_data, eir_data_len);
 
     /* update BT OOB data length, if success */
     if (status == NDEF_OK)
@@ -505,8 +509,8 @@ tNDEF_STATUS NDEF_MsgAppendMediaBtOobEirData (UINT8 *p_msg, UINT32 max_size, UIN
     eir_data_len = data_len + 2;
 
     /* append EIR data at the end of record */
-    status = NDEF_MsgAppendPayload (p_msg, max_size, p_cur_size,
-                                    p_rec, eir_data, eir_data_len);
+    status = NDEF_MsgAppendPayload(p_msg, max_size, p_cur_size,
+                                   p_rec, eir_data, eir_data_len);
 
     /* update BT OOB data length, if success */
     if (status == NDEF_OK)
@@ -516,6 +520,30 @@ tNDEF_STATUS NDEF_MsgAppendMediaBtOobEirData (UINT8 *p_msg, UINT32 max_size, UIN
         UINT16_TO_STREAM (p, oob_data_len);
     }
 
+    return (status);
+}
+
+/*******************************************************************************
+**
+** Function         NDEF_MsgAddMediaWifiWsc
+**
+** Description      This function adds Wifi Wsc Record header.
+**
+** Returns          NDEF_OK if all OK
+**
+*******************************************************************************/
+tNDEF_STATUS NDEF_MsgAddMediaWifiWsc (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cur_size,
+                                    char *p_id_str, UINT8 *p_payload, UINT32 payload_len)
+{
+    tNDEF_STATUS    status;
+    UINT8           id_len = 0;
+
+    if (p_id_str)
+        id_len = (UINT8)strlen (p_id_str);
+
+    status = NDEF_MsgAddRec (p_msg, max_size, p_cur_size,
+                             NDEF_TNF_MEDIA, p_wifi_wsc_rec_type, WIFI_WSC_REC_TYPE_LEN,
+                             (UINT8*)p_id_str, id_len, p_payload, payload_len);
     return (status);
 }
 
@@ -540,8 +568,8 @@ static UINT8 *ndef_get_bt_oob_record (UINT8 *p_msg, UINT32 max_size, UINT32 *p_c
     UINT8   id_len, tnf, type_len;
 
     /* find record by Payload ID */
-    id_len = (UINT8) strlen (p_id_str);
-    p_rec = NDEF_MsgGetFirstRecById (p_msg, (UINT8*) p_id_str, id_len);
+    id_len = (UINT8)strlen (p_id_str);
+    p_rec = NDEF_MsgGetFirstRecById (p_msg, (UINT8*)p_id_str, id_len);
 
     if (!p_rec)
         return (NULL);
@@ -549,10 +577,10 @@ static UINT8 *ndef_get_bt_oob_record (UINT8 *p_msg, UINT32 max_size, UINT32 *p_c
     p_type = NDEF_RecGetType (p_rec, &tnf, &type_len);
 
     /* check type if this is BT OOB record */
-    if (  (!p_rec)
-        ||(tnf != NDEF_TNF_MEDIA)
-        ||(type_len != BT_OOB_REC_TYPE_LEN)
-        ||(memcmp (p_type, p_bt_oob_rec_type, BT_OOB_REC_TYPE_LEN))  )
+    if ((!p_rec)
+      ||(tnf != NDEF_TNF_MEDIA)
+      ||(type_len != BT_OOB_REC_TYPE_LEN)
+      ||(memcmp (p_type, p_bt_oob_rec_type, BT_OOB_REC_TYPE_LEN)))
     {
         return (NULL);
     }

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright (C) 2009-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -558,25 +559,29 @@ typedef struct
     UINT8       uid[NFC_ISO15693_UID_LEN];
 } tNFC_RF_PISO15693_PARAMS;
 
-#define NFC_KOVIO_MAX_LEN       16
+#ifndef NFC_KOVIO_MAX_LEN
+#define NFC_KOVIO_MAX_LEN       32
+#endif
 typedef struct
 {
     UINT8       uid_len;
     UINT8       uid[NFC_KOVIO_MAX_LEN];
 } tNFC_RF_PKOVIO_PARAMS;
 
+typedef union
+{
+    tNFC_RF_PA_PARAMS   pa;
+    tNFC_RF_PB_PARAMS   pb;
+    tNFC_RF_PF_PARAMS   pf;
+    tNFC_RF_LF_PARAMS   lf;
+    tNFC_RF_PISO15693_PARAMS pi93;
+    tNFC_RF_PKOVIO_PARAMS pk;
+} tNFC_RF_TECH_PARAMU;
+
 typedef struct
 {
     tNFC_DISCOVERY_TYPE     mode;
-    union
-    {
-        tNFC_RF_PA_PARAMS   pa;
-        tNFC_RF_PB_PARAMS   pb;
-        tNFC_RF_PF_PARAMS   pf;
-        tNFC_RF_LF_PARAMS   lf;
-        tNFC_RF_PISO15693_PARAMS pi93;
-        tNFC_RF_PKOVIO_PARAMS pk;
-    } param; /* Discovery Type specific parameters */
+    tNFC_RF_TECH_PARAMU     param;
 } tNFC_RF_TECH_PARAMS;
 
 /* the data type associated with NFC_RESULT_DEVT */
@@ -693,6 +698,7 @@ typedef struct
     UINT8                   rf_disc_id;     /* RF Discovery ID          */
     tNFC_PROTOCOL           protocol;       /* supported protocol       */
     tNFC_RF_TECH_PARAMS     rf_tech_param;  /* RF technology parameters */
+    tNFC_DISCOVERY_TYPE     data_mode;      /* for future Data Exchange */
     tNFC_BIT_RATE           tx_bitrate;     /* Data Exchange Tx Bitrate */
     tNFC_BIT_RATE           rx_bitrate;     /* Data Exchange Rx Bitrate */
     tNFC_INTF_PARAMS        intf_param;     /* interface type and params*/

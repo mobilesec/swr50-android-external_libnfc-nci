@@ -32,6 +32,12 @@
 #include "nfc_hal_post_reset.h"
 #include <errno.h>
 #include <pthread.h>
+#include "buildcfg.h"
+extern void delete_hal_non_volatile_store ();
+extern "C"
+{
+#include "userial.h"
+}
 
 
 ///////////////////////////////////////
@@ -59,27 +65,94 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
     int retval = EACCES;
     unsigned long freq = 0;
     unsigned long num = 0;
+    char temp[120];
+    UINT8 logLevel = 0;
 
-    InitializeGlobalAppLogLevel ();
+    logLevel = InitializeGlobalAppLogLevel ();
 
-    //initialize the crystal frequency
-    if (GetNumValue((char*)NAME_XTAL_FREQUENCY, &freq, sizeof(freq)))
-    {
-        ALOGD("%s: setting xtal frequency=%lu", __FUNCTION__, freq);
-        nfc_post_reset_cb.dev_init_config.xtal_freq = (UINT16) freq;
-        nfc_post_reset_cb.dev_init_config.flags |= NFC_HAL_DEV_INIT_FLAGS_SET_XTAL_FREQ;
-    }
+    if ( GetNumValue ( NAME_PRESERVE_STORAGE, (char*)&num, sizeof ( num ) ) &&
+            (num == 1) )
+        ALOGD ("%s: preserve HAL NV store", __FUNCTION__);
+    else
+        delete_hal_non_volatile_store ();
 
     // Initialize protocol logging level
     if ( GetNumValue ( NAME_PROTOCOL_TRACE_LEVEL, &num, sizeof ( num ) ) )
         ScrProtocolTraceFlag = num;
 
-    HAL_NfcInitialize ();
+    tUSERIAL_OPEN_CFG cfg;
+    struct tUART_CONFIG  uart;
 
-    // Initialize appliation logging level
-    if ( GetNumValue ( NAME_APPL_TRACE_LEVEL, &num, sizeof ( num ) ) ) {
-        HAL_NfcSetTraceLevel(num);
+    if ( GetStrValue ( NAME_UART_PARITY, temp, sizeof ( temp ) ) )
+    {
+        if ( strcmp ( temp, "even" ) == 0 )
+            uart.m_iParity = USERIAL_PARITY_EVEN;
+        else if ( strcmp ( temp, "odd" ) == 0 )
+            uart.m_iParity = USERIAL_PARITY_ODD;
+        else if ( strcmp ( temp, "none" ) == 0 )
+            uart.m_iParity = USERIAL_PARITY_NONE;
     }
+    else
+        uart.m_iParity = USERIAL_PARITY_NONE;
+
+    if ( GetStrValue ( NAME_UART_STOPBITS, temp, sizeof ( temp ) ) )
+    {
+        if ( strcmp ( temp, "1" ) == 0 )
+            uart.m_iStopbits = USERIAL_STOPBITS_1;
+        else if ( strcmp ( temp, "2" ) == 0 )
+            uart.m_iStopbits = USERIAL_STOPBITS_2;
+        else if ( strcmp ( temp, "1.5" ) == 0 )
+            uart.m_iStopbits = USERIAL_STOPBITS_1_5;
+    }
+    else if ( GetNumValue ( NAME_UART_STOPBITS, &num, sizeof ( num ) ) )
+    {
+        if ( num == 1 )
+            uart.m_iStopbits = USERIAL_STOPBITS_1;
+        else if ( num == 2 )
+            uart.m_iStopbits = USERIAL_STOPBITS_2;
+    }
+    else
+        uart.m_iStopbits = USERIAL_STOPBITS_1;
+
+    if ( GetNumValue ( NAME_UART_DATABITS, &num, sizeof ( num ) ) )
+    {
+        if ( 5 <= num && num <= 8 )
+            uart.m_iDatabits = ( 1 << ( num + 1 ) );
+    }
+    else
+        uart.m_iDatabits = USERIAL_DATABITS_8;
+
+    if ( GetNumValue ( NAME_UART_BAUD, &num, sizeof ( num ) ) )
+    {
+        if ( num == 300 ) uart.m_iBaudrate = USERIAL_BAUD_300;
+        else if ( num == 600 ) uart.m_iBaudrate = USERIAL_BAUD_600;
+        else if ( num == 1200 ) uart.m_iBaudrate = USERIAL_BAUD_1200;
+        else if ( num == 2400 ) uart.m_iBaudrate = USERIAL_BAUD_2400;
+        else if ( num == 9600 ) uart.m_iBaudrate = USERIAL_BAUD_9600;
+        else if ( num == 19200 ) uart.m_iBaudrate = USERIAL_BAUD_19200;
+        else if ( num == 57600 ) uart.m_iBaudrate = USERIAL_BAUD_57600;
+        else if ( num == 115200 ) uart.m_iBaudrate = USERIAL_BAUD_115200;
+        else if ( num == 230400 ) uart.m_iBaudrate = USERIAL_BAUD_230400;
+        else if ( num == 460800 ) uart.m_iBaudrate = USERIAL_BAUD_460800;
+        else if ( num == 921600 ) uart.m_iBaudrate = USERIAL_BAUD_921600;
+    }
+    else if ( GetStrValue ( NAME_UART_BAUD, temp, sizeof ( temp ) ) )
+    {
+        if ( strcmp ( temp, "auto" ) == 0 )
+            uart.m_iBaudrate = USERIAL_BAUD_AUTO;
+    }
+    else
+        uart.m_iBaudrate = USERIAL_BAUD_115200;
+
+    memset (&cfg, 0, sizeof(tUSERIAL_OPEN_CFG));
+    cfg.fmt = uart.m_iDatabits | uart.m_iParity | uart.m_iStopbits;
+    cfg.baud = uart.m_iBaudrate;
+
+    ALOGD ("%s: uart config=0x%04x, %d\n", __func__, cfg.fmt, cfg.baud);
+    USERIAL_Init(&cfg);
+
+    HAL_NfcInitialize ();
+    HAL_NfcSetTraceLevel (logLevel); // Initialize HAL's logging level
 
     retval = 0;
     ALOGD ("%s: exit %d", __FUNCTION__, retval);
@@ -253,3 +326,4 @@ int HaiPowerCycle (const bcm2079x_dev_t* device)
     ALOGD ("%s: exit %d", __FUNCTION__, retval);
     return retval;
 }
+

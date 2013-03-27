@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -43,6 +44,7 @@
 #define RW_T4T_STATE_READ_NDEF                  0x03    /* performing read NDEF procedure       */
 #define RW_T4T_STATE_UPDATE_NDEF                0x04    /* performing update NDEF procedure     */
 #define RW_T4T_STATE_PRESENCE_CHECK             0x05    /* checking presence of tag             */
+#define RW_T4T_STATE_SET_READ_ONLY              0x06    /* convert tag to read only             */
 
 /* sub state */
 #define RW_T4T_SUBSTATE_WAIT_SELECT_APP         0x00    /* waiting for response of selecting AID    */
@@ -53,6 +55,7 @@
 #define RW_T4T_SUBSTATE_WAIT_READ_RESP          0x05    /* waiting for response of reading file     */
 #define RW_T4T_SUBSTATE_WAIT_UPDATE_RESP        0x06    /* waiting for response of updating file    */
 #define RW_T4T_SUBSTATE_WAIT_UPDATE_NLEN        0x07    /* waiting for response of updating NLEN    */
+#define RW_T4T_SUBSTATE_WAIT_UPDATE_CC          0x08    /* waiting for response of updating CC      */
 
 #if (BT_TRACE_VERBOSE == TRUE)
 static char *rw_t4t_get_state_name (UINT8 state);
@@ -64,12 +67,14 @@ static BOOLEAN rw_t4t_select_file (UINT16 file_id);
 static BOOLEAN rw_t4t_read_file (UINT16 offset, UINT16 length, BOOLEAN is_continue);
 static BOOLEAN rw_t4t_update_nlen (UINT16 ndef_len);
 static BOOLEAN rw_t4t_update_file (void);
+static BOOLEAN rw_t4t_update_cc_to_readonly (void);
 static BOOLEAN rw_t4t_select_application (UINT8 version);
 static BOOLEAN rw_t4t_validate_cc_file (void);
 static void rw_t4t_handle_error (tNFC_STATUS status, UINT8 sw1, UINT8 sw2);
 static void rw_t4t_sm_detect_ndef (BT_HDR *p_r_apdu);
 static void rw_t4t_sm_read_ndef (BT_HDR *p_r_apdu);
 static void rw_t4t_sm_update_ndef (BT_HDR  *p_r_apdu);
+static void rw_t4t_sm_set_readonly (BT_HDR  *p_r_apdu);
 static void rw_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_data);
 
 /*******************************************************************************
@@ -318,6 +323,53 @@ static BOOLEAN rw_t4t_update_file (void)
 
 /*******************************************************************************
 **
+** Function         rw_t4t_update_cc_to_readonly
+**
+** Description      Send UpdateBinary Command for changing Write access
+**
+** Returns          TRUE if success
+**
+*******************************************************************************/
+static BOOLEAN rw_t4t_update_cc_to_readonly (void)
+{
+    BT_HDR          *p_c_apdu;
+    UINT8           *p;
+
+    RW_TRACE_DEBUG0 ("rw_t4t_update_cc_to_readonly (): Remove Write access from CC");
+
+    p_c_apdu = (BT_HDR *) GKI_getpoolbuf (NFC_RW_POOL_ID);
+
+    if (!p_c_apdu)
+    {
+        RW_TRACE_ERROR0 ("rw_t4t_update_cc_to_readonly (): Cannot allocate buffer");
+        return FALSE;
+    }
+
+    p_c_apdu->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE;
+    p = (UINT8 *) (p_c_apdu + 1) + p_c_apdu->offset;
+
+    /* Add Command Header */
+    UINT8_TO_BE_STREAM (p, T4T_CMD_CLASS);
+    UINT8_TO_BE_STREAM (p, T4T_CMD_INS_UPDATE_BINARY);
+    UINT16_TO_BE_STREAM (p, (T4T_FC_TLV_OFFSET_IN_CC + T4T_FC_WRITE_ACCESS_OFFSET_IN_TLV)); /* Offset for Read Write access byte of CC */
+    UINT8_TO_BE_STREAM (p, 1); /* Length of write access field in cc interms of bytes */
+
+    /* Remove Write access */
+    UINT8_TO_BE_STREAM (p, T4T_FC_NO_WRITE_ACCESS);
+
+
+    p_c_apdu->len = T4T_CMD_MAX_HDR_SIZE + 1;
+
+    if (!rw_t4t_send_to_lower (p_c_apdu))
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+/*******************************************************************************
+**
 ** Function         rw_t4t_select_application
 **
 ** Description      Select Application
@@ -513,6 +565,10 @@ static void rw_t4t_handle_error (tNFC_STATUS status, UINT8 sw1, UINT8 sw2)
         case RW_T4T_STATE_PRESENCE_CHECK:
             event = RW_T4T_PRESENCE_CHECK_EVT;
             rw_data.status = NFC_STATUS_FAILED;
+            break;
+
+        case RW_T4T_STATE_SET_READ_ONLY:
+            event = RW_T4T_SET_TO_RO_EVT;
             break;
 
         default:
@@ -978,6 +1034,89 @@ static void rw_t4t_sm_update_ndef (BT_HDR  *p_r_apdu)
 
 /*******************************************************************************
 **
+** Function         rw_t4t_sm_set_readonly
+**
+** Description      State machine for CC update procedure
+**
+** Returns          none
+**
+*******************************************************************************/
+static void rw_t4t_sm_set_readonly (BT_HDR  *p_r_apdu)
+{
+    tRW_T4T_CB  *p_t4t = &rw_cb.tcb.t4t;
+    UINT8       *p;
+    UINT16      status_words;
+    tRW_DATA    rw_data;
+
+#if (BT_TRACE_VERBOSE == TRUE)
+    RW_TRACE_DEBUG2 ("rw_t4t_sm_set_readonly (): sub_state:%s (%d)",
+                      rw_t4t_get_sub_state_name (p_t4t->sub_state), p_t4t->sub_state);
+#else
+    RW_TRACE_DEBUG1 ("rw_t4t_sm_set_readonly (): sub_state=%d", p_t4t->sub_state);
+#endif
+
+    /* Get status words */
+    p = (UINT8 *) (p_r_apdu + 1) + p_r_apdu->offset;
+    p += (p_r_apdu->len - T4T_RSP_STATUS_WORDS_SIZE);
+    BE_STREAM_TO_UINT16 (status_words, p);
+
+    if (status_words != T4T_RSP_CMD_CMPLTED)
+    {
+        rw_t4t_handle_error (NFC_STATUS_CMD_NOT_CMPLTD, *(p-2), *(p-1));
+        return;
+    }
+
+    switch (p_t4t->sub_state)
+    {
+    case RW_T4T_SUBSTATE_WAIT_SELECT_CC:
+
+        /* CC file has been selected then update write access to read-only in CC file */
+        if (!rw_t4t_update_cc_to_readonly ())
+        {
+            rw_t4t_handle_error (NFC_STATUS_FAILED, 0, 0);
+        }
+        else
+        {
+            p_t4t->sub_state = RW_T4T_SUBSTATE_WAIT_UPDATE_CC;
+        }
+        break;
+
+    case RW_T4T_SUBSTATE_WAIT_UPDATE_CC:
+        /* CC Updated, Select NDEF File to allow NDEF operation */
+        p_t4t->cc_file.ndef_fc.write_access = T4T_FC_NO_WRITE_ACCESS;
+        p_t4t->ndef_status |= RW_T4T_NDEF_STATUS_NDEF_READ_ONLY;
+
+        if (!rw_t4t_select_file (p_t4t->cc_file.ndef_fc.file_id))
+        {
+            rw_t4t_handle_error (NFC_STATUS_FAILED, 0, 0);
+        }
+        else
+        {
+            p_t4t->sub_state = RW_T4T_SUBSTATE_WAIT_SELECT_NDEF_FILE;
+        }
+        break;
+
+    case RW_T4T_SUBSTATE_WAIT_SELECT_NDEF_FILE:
+        p_t4t->state = RW_T4T_STATE_IDLE;
+        /* just finished last step of configuring tag read only (Selecting NDEF file CC) */
+        if (rw_cb.p_cback)
+        {
+            rw_data.status = NFC_STATUS_OK;
+
+            RW_TRACE_DEBUG0 ("rw_t4t_sm_set_readonly (): Sent RW_T4T_SET_TO_RO_EVT");
+            (*(rw_cb.p_cback)) (RW_T4T_SET_TO_RO_EVT, &rw_data);
+        }
+        break;
+
+    default:
+        RW_TRACE_ERROR1 ("rw_t4t_sm_set_readonly (): unknown sub_state = %d", p_t4t->sub_state);
+        rw_t4t_handle_error (NFC_STATUS_FAILED, 0, 0);
+        break;
+    }
+}
+
+/*******************************************************************************
+**
 ** Function         rw_t4t_process_timeout
 **
 ** Description      process timeout event
@@ -1095,6 +1234,10 @@ static void rw_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
         rw_data.status = NFC_STATUS_OK;
         p_t4t->state = RW_T4T_STATE_IDLE;
         (*(rw_cb.p_cback)) (RW_T4T_PRESENCE_CHECK_EVT, &rw_data);
+        GKI_freebuf (p_r_apdu);
+        break;
+    case RW_T4T_STATE_SET_READ_ONLY:
+        rw_t4t_sm_set_readonly (p_r_apdu);
         GKI_freebuf (p_r_apdu);
         break;
     default:
@@ -1346,7 +1489,7 @@ tNFC_STATUS RW_T4tPresenceCheck (void)
     else if (rw_cb.tcb.t4t.state != RW_T4T_STATE_IDLE)
     {
         evt_data.status = NFC_STATUS_OK;
-        (*rw_cb.p_cback) (RW_T3T_PRESENCE_CHECK_EVT, &evt_data);
+        (*rw_cb.p_cback) (RW_T4T_PRESENCE_CHECK_EVT, &evt_data);
     }
     else
     {
@@ -1360,6 +1503,63 @@ tNFC_STATUS RW_T4tPresenceCheck (void)
         }
     }
 
+    return (retval);
+}
+
+/*****************************************************************************
+**
+** Function         RW_T4tSetNDefReadOnly
+**
+** Description      This function performs NDEF read-only procedure
+**                  Note: RW_T4tDetectNDef() must be called before using this
+**
+**                  The RW_T4T_SET_TO_RO_EVT event will be returned.
+**
+** Returns          NFC_STATUS_OK if success
+**                  NFC_STATUS_FAILED if T4T is busy or other error
+**
+*****************************************************************************/
+tNFC_STATUS RW_T4tSetNDefReadOnly (void)
+{
+    tNFC_STATUS retval = NFC_STATUS_OK;
+    tRW_DATA    evt_data;
+
+    RW_TRACE_API0 ("RW_T4tSetNDefReadOnly ()");
+
+    if (rw_cb.tcb.t4t.state != RW_T4T_STATE_IDLE)
+    {
+        RW_TRACE_ERROR1 ("RW_T4tSetNDefReadOnly ():Unable to start command at state (0x%X)",
+                          rw_cb.tcb.t4t.state);
+        return NFC_STATUS_FAILED;
+    }
+
+    /* if NDEF has been detected */
+    if (rw_cb.tcb.t4t.ndef_status & RW_T4T_NDEF_STATUS_NDEF_DETECTED)
+    {
+        /* if read-only */
+        if (rw_cb.tcb.t4t.ndef_status & RW_T4T_NDEF_STATUS_NDEF_READ_ONLY)
+        {
+            evt_data.status = NFC_STATUS_OK;
+            (*rw_cb.p_cback) (RW_T4T_SET_TO_RO_EVT, &evt_data);
+            return (retval);
+        }
+
+        /* NDEF Tag application has been selected then select CC file */
+        if (!rw_t4t_select_file (T4T_CC_FILE_ID))
+        {
+            return NFC_STATUS_FAILED;
+        }
+
+        rw_cb.tcb.t4t.state     = RW_T4T_STATE_SET_READ_ONLY;
+        rw_cb.tcb.t4t.sub_state = RW_T4T_SUBSTATE_WAIT_SELECT_CC;
+
+        return NFC_STATUS_OK;
+    }
+    else
+    {
+        RW_TRACE_ERROR0 ("RW_T4tSetNDefReadOnly ():No NDEF detected");
+        return NFC_STATUS_FAILED;
+    }
     return (retval);
 }
 

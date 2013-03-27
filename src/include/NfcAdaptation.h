@@ -20,6 +20,7 @@
 #ifndef UINT32
 typedef unsigned long   UINT32;
 #endif
+#include "nfc_target.h"
 #include "nfc_hal_api.h"
 #include <hardware/nfc.h>
 
@@ -68,6 +69,7 @@ public:
     void    Finalize();
     static  NfcAdaptation& GetInstance();
     tHAL_NFC_ENTRY* GetHalEntryFuncs ();
+    void    DownloadFirmware ();
 
 private:
     NfcAdaptation();
@@ -80,6 +82,8 @@ private:
     static nfc_nci_device_t* mHalDeviceContext;
     static tHAL_NFC_CBACK* mHalCallback;
     static tHAL_NFC_DATA_CBACK* mHalDataCallback;
+    static ThreadCondVar mHalOpenCompletedEvent;
+    static ThreadCondVar mHalCloseCompletedEvent;
 
     static UINT32 NFCA_TASK (UINT32 arg);
     static UINT32 Thread (UINT32 arg);
@@ -96,5 +100,7 @@ private:
     static BOOLEAN HalPrediscover ();
     static void HalControlGranted ();
     static void HalPowerCycle ();
+    static void HalDownloadFirmwareCallback (nfc_event_t event, nfc_status_t event_status);
+    static void HalDownloadFirmwareDataCallback (uint16_t data_len, uint8_t* p_data);
 };
 

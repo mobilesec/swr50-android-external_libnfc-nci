@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains the Near Field Communication (NFC) Tags related
@@ -226,6 +227,7 @@
 #define T3T_SYSTEM_CODE_NDEF        0x12FC  /* System Code for NDEF tags */
 #define T3T_SYSTEM_CODE_FELICA_LITE 0x88B4  /* System Code for felica-lite tags */
 #define T3T_MAX_SYSTEM_CODES        16
+#define T3T_FELICALITE_NMAXB        13      /* Maximum number of blocks for NDEF message for Felica Lite tags */
 
 /* Block descriptor, used to describe a block to check/update */
 typedef struct
@@ -307,7 +309,11 @@ typedef UINT8 tT3T_POLL_RC;
 
 /* Felica Lite defintions */
 #define T3T_MSG_FELICALITE_BLOCK_ID_MC              0x88    /* Block ID for MC (memory configuration)                       */
-#define T3T_MSG_FELICALITE_MC_OFFSET_SYS_OP         0x03    /* Memory Configuration Block offset: SYS_OP (System Option)    */
+
+#define T3T_MSG_FELICALITE_MC_OFFSET_MC_SP          0x00    /* Memory Configuration Block offset: MC_SP (Memory Configuration for scratch pad)   */
+#define T3T_MSG_FELICALITE_MC_OFFSET_MC_ALL         0x02    /* Memory Configuration Block offset: MC_ALL (Memory Configuration for system block) */
+#define T3T_MSG_FELICALITE_MC_OFFSET_SYS_OP         0x03    /* Memory Configuration Block offset: SYS_OP (System Option)                         */
+#define T3T_MSG_FELICALITE_MC_OFFSET_RF_PRM         0x04    /* Memory Configuration Block offset: RF_PRM (Memory Configuration for RF Parameter) */
 
 
 
@@ -356,8 +362,9 @@ typedef UINT8 tT3T_POLL_RC;
 #define T4T_CC_FILE_ID                  0xE103
 #define T4T_CC_FILE_MIN_LEN             0x000F
 
-#define T4T_VERSION_OFFSET_IN_CC        0x02
-#define T4T_FC_TLV_OFFSET_IN_CC         0x07
+#define T4T_VERSION_OFFSET_IN_CC          0x02
+#define T4T_FC_TLV_OFFSET_IN_CC           0x07
+#define T4T_FC_WRITE_ACCESS_OFFSET_IN_TLV 0x07  /* Offset of Write access byte from type field in CC */
 
 #define T4T_NDEF_FILE_CONTROL_TYPE      0x04    /* NDEF File Control Type */
 #define T4T_PROP_FILE_CONTROL_TYPE      0x05    /* Proprietary File Control Type */

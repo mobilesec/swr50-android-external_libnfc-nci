@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -33,9 +34,8 @@ extern BOOLEAN HCI_LOOPBACK_DEBUG;
 *****************************************************************************/
 
 
-#define NFA_HCI_HOST_ID_UICC0           0x02
-#define NFA_HCI_HOST_ID_UICC1           0x03
-#define NFA_HCI_LAST_HOST_SPECIFIC_GATE 0xEF
+#define NFA_HCI_HOST_ID_UICC0           0x02        /* Host ID for UICC 0 */
+#define NFA_HCI_LAST_HOST_SPECIFIC_GATE 0xEF        /* Lost host specific gate */
 
 #define NFA_HCI_SESSION_ID_LEN          8           /* HCI Session ID length */
 #define NFA_MAX_PIPES_IN_GENERIC_GATE   0x0F        /* Maximum pipes that can be created on a generic pipe  */
@@ -47,14 +47,15 @@ extern BOOLEAN HCI_LOOPBACK_DEBUG;
 #define NFA_HCI_VERSION                 90          /* HCI Version                                 */
 
 /* NFA HCI states */
-#define NFA_HCI_STATE_DISABLED          0x00     /* HCI is disabled  */
-#define NFA_HCI_STATE_STARTUP           0x01     /* HCI performing Initialization sequence */
-#define NFA_HCI_STATE_WAIT_NETWK_ENABLE 0x02     /* HCI is waiting for initialization of other host in the network */
-#define NFA_HCI_STATE_IDLE              0x03     /* HCI is waiting to handle api commands  */
-#define NFA_HCI_STATE_WAIT_RSP          0x04     /* HCI is performing api command request  */
-#define NFA_HCI_STATE_REMOVE_GATE       0x05     /* Removing all pipes prior to removing the gate */
-#define NFA_HCI_STATE_APP_DEREGISTER    0x06     /* Removing all pipes and gates prior to deregistering the app */
-#define NFA_HCI_STATE_RESTORE           0x07     /* HCI restore */
+#define NFA_HCI_STATE_DISABLED              0x00     /* HCI is disabled  */
+#define NFA_HCI_STATE_STARTUP               0x01     /* HCI performing Initialization sequence */
+#define NFA_HCI_STATE_WAIT_NETWK_ENABLE     0x02     /* HCI is waiting for initialization of other host in the network */
+#define NFA_HCI_STATE_IDLE                  0x03     /* HCI is waiting to handle api commands  */
+#define NFA_HCI_STATE_WAIT_RSP              0x04     /* HCI is waiting for response to command sent */
+#define NFA_HCI_STATE_REMOVE_GATE           0x05     /* Removing all pipes prior to removing the gate */
+#define NFA_HCI_STATE_APP_DEREGISTER        0x06     /* Removing all pipes and gates prior to deregistering the app */
+#define NFA_HCI_STATE_RESTORE               0x07     /* HCI restore */
+#define NFA_HCI_STATE_RESTORE_NETWK_ENABLE  0x08     /* HCI is waiting for initialization of other host in the network after restore */
 
 typedef UINT8 tNFA_HCI_STATE;
 
@@ -91,7 +92,7 @@ enum
 
     NFA_HCI_RSP_NV_READ_EVT,                                      /* Non volatile read complete event */
     NFA_HCI_RSP_NV_WRITE_EVT,                                     /* Non volatile write complete event */
-    NFA_HCI_RSP_TIMEOUT_EVT,
+    NFA_HCI_RSP_TIMEOUT_EVT,                                      /* Timeout to response for the HCP Command packet */
     NFA_HCI_CHECK_QUEUE_EVT
 };
 
@@ -306,8 +307,8 @@ typedef union
     tNFA_HCI_API_SEND_EVENT_EVT         send_evt;                       /* Send a command on a pipe to a host */
 
     /* Internal events */
-    tNFA_HCI_RSP_NV_READ_EVT            nv_read;
-    tNFA_HCI_RSP_NV_WRITE_EVT           nv_write;
+    tNFA_HCI_RSP_NV_READ_EVT            nv_read;                        /* Read Non volatile data */
+    tNFA_HCI_RSP_NV_WRITE_EVT           nv_write;                       /* Write Non volatile data */
 } tNFA_HCI_EVENT_DATA;
 
 /*****************************************************************************
@@ -366,7 +367,9 @@ typedef struct
 typedef struct
 {
     tNFA_HCI_STATE                  hci_state;                          /* state of the HCI */
-    UINT8                           num_nfcee;
+    UINT8                           num_nfcee;                          /* Number of NFCEE ID Discovered */
+    UINT8                           num_ee_dis_req_ntf;                 /* Number of ee discovery request ntf received */
+    UINT8                           num_hot_plug_evts;                  /* Number of Hot plug events received after ee discovery disable ntf */
     UINT8                           inactive_host[NFA_HCI_MAX_HOST_IN_NETWORK]; /* Inactive host in the host network */
     UINT8                           reset_host[NFA_HCI_MAX_HOST_IN_NETWORK]; /* List of host reseting */
     BOOLEAN                         b_low_power_mode;                   /* Host controller in low power mode */
@@ -388,6 +391,7 @@ typedef struct
     UINT8                           param_in_use;                       /* The registry parameter currently working with */
     tNFA_HCI_COMMAND                cmd_sent;                           /* The last command sent */
     BOOLEAN                         ee_disc_cmplt;                      /* EE Discovery operation completed */
+    BOOLEAN                         ee_disable_disc;                    /* EE Discovery operation is disabled */
     UINT16                          msg_len;                            /* For segmentation - length of the combined message */
     UINT16                          max_msg_len;                        /* Maximum reassembled message size */
     UINT8                           msg_data[NFA_MAX_HCI_EVENT_LEN];    /* For segmentation - the combined message data */
@@ -400,7 +404,7 @@ typedef struct
     tNFA_HCI_CBACK                  *p_app_cback[NFA_HCI_MAX_APP_CB];   /* Callback functions registered by the applications */
     UINT16                          rsp_buf_size;                       /* Maximum size of APDU buffer */
     UINT8                           *p_rsp_buf;                         /* Buffer to hold response to sent event */
-    struct
+    struct                                                              /* Persistent information for Device Host */
     {
         char                        reg_app_names[NFA_HCI_MAX_APP_CB][NFA_MAX_HCI_APP_NAME_LEN + 1];
 
@@ -441,7 +445,6 @@ extern void nfa_hci_dh_startup_complete (void);
 extern void nfa_hci_startup_complete (tNFA_STATUS status);
 extern void nfa_hci_startup (void);
 extern void nfa_hci_restore_default_config (UINT8 *p_session_id);
-extern void nfa_hci_vsc_cback (tNFC_VS_EVT event, UINT16 data_len, UINT8 *p_data);
 
 /* Action functions in nfa_hci_act.c
 */

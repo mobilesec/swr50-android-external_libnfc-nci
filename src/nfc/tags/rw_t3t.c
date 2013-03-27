@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -63,6 +64,8 @@ enum
     RW_T3T_CMD_SEND_RAW_FRAME,
     RW_T3T_CMD_GET_SYSTEM_CODES,
     RW_T3T_CMD_FORMAT,
+    RW_T3T_CMD_SET_READ_ONLY_SOFT,
+    RW_T3T_CMD_SET_READ_ONLY_HARD,
 
     RW_T3T_CMD_MAX
 };
@@ -77,7 +80,8 @@ const UINT8 rw_t3t_api_res_evt[RW_T3T_CMD_MAX] =
     RW_T3T_UPDATE_CPLT_EVT,         /* RW_T3T_CMD_UPDATE */
     RW_T3T_RAW_FRAME_EVT,           /* RW_T3T_CMD_SEND_RAW_FRAME */
     RW_T3T_GET_SYSTEM_CODES_EVT,    /* RW_T3T_CMD_GET_SYSTEM_CODES */
-    RW_T3T_FORMAT_CPLT_EVT          /* RW_T3T_CMD_FORMAT */
+    RW_T3T_FORMAT_CPLT_EVT,         /* RW_T3T_CMD_FORMAT */
+    RW_T3T_SET_READ_ONLY_CPLT_EVT   /* RW_T3T_CMD_SET_READ_ONLY */
 };
 
 /* States */
@@ -100,7 +104,13 @@ enum
     RW_T3T_FMT_SST_POLL_FELICA_LITE,        /* Waiting for POLL Felica-Lite response (for formatting) */
     RW_T3T_FMT_SST_CHECK_MC_BLK,            /* Waiting for Felica-Lite MC (MemoryControl) block-read to complete */
     RW_T3T_FMT_SST_UPDATE_MC_BLK,           /* Waiting for Felica-Lite MC (MemoryControl) block-write to complete */
-    RW_T3T_FMT_SST_UPDATE_NDEF_ATTRIB       /* Waiting for NDEF attribute block-write to complete */
+    RW_T3T_FMT_SST_UPDATE_NDEF_ATTRIB,      /* Waiting for NDEF attribute block-write to complete */
+
+    /* Sub states for setting Felica-Lite read only */
+    RW_T3T_SRO_SST_POLL_FELICA_LITE,        /* Waiting for POLL Felica-Lite response (for setting read only) */
+    RW_T3T_SRO_SST_UPDATE_NDEF_ATTRIB,      /* Waiting for NDEF attribute block-write to complete */
+    RW_T3T_SRO_SST_CHECK_MC_BLK,            /* Waiting for Felica-Lite MC (MemoryControl) block-read to complete */
+    RW_T3T_SRO_SST_UPDATE_MC_BLK            /* Waiting for Felica-Lite MC (MemoryControl) block-write to complete */
 };
 
 #if (BT_TRACE_VERBOSE == TRUE)
@@ -117,12 +127,13 @@ static void rw_t3t_handle_get_system_codes_cplt (void);
 static void rw_t3t_handle_get_sc_poll_rsp (tRW_T3T_CB *p_cb, UINT8 nci_status, UINT8 num_responses, UINT8 sensf_res_buf_size, UINT8 *p_sensf_res_buf);
 static void rw_t3t_handle_ndef_detect_poll_rsp (tRW_T3T_CB *p_cb, UINT8 nci_status, UINT8 num_responses, UINT8 sensf_res_buf_size, UINT8 *p_sensf_res_buf);
 static void rw_t3t_handle_fmt_poll_rsp (tRW_T3T_CB *p_cb, UINT8 nci_status, UINT8 num_responses, UINT8 sensf_res_buf_size, UINT8 *p_sensf_res_buf);
+static void rw_t3t_handle_sro_poll_rsp (tRW_T3T_CB *p_cb, UINT8 nci_status, UINT8 num_responses, UINT8 sensf_res_buf_size, UINT8 *p_sensf_res_buf);
 
 
 /* Default NDEF attribute information block (used when formatting Felica-Lite tags) */
 #define RW_T3T_DEFAULT_FELICALITE_NBR       4   /* NBr (max block reads per cmd)*/
 #define RW_T3T_DEFAULT_FELICALITE_NBW       1   /* NBw (max block write per cmd)*/
-#define RW_T3T_DEFAULT_FELICALITE_NMAXB     13  /* Nmaxb (max size in blocks)   */
+#define RW_T3T_DEFAULT_FELICALITE_NMAXB     (T3T_FELICALITE_NMAXB)
 #define RW_T3T_DEFAULT_FELICALITE_ATTRIB_INFO_CHECKSUM  ((T3T_MSG_NDEF_VERSION +                    \
                                                             RW_T3T_DEFAULT_FELICALITE_NBR +         \
                                                             RW_T3T_DEFAULT_FELICALITE_NBW +         \
@@ -288,6 +299,12 @@ void rw_t3t_handle_nci_poll_ntf (UINT8 nci_status, UINT8 num_responses, UINT8 se
         p_cb->flags &= ~RW_T3T_FL_W4_FMT_FELICA_LITE_POLL_RSP;
         rw_t3t_handle_fmt_poll_rsp (p_cb, nci_status, num_responses, sensf_res_buf_size, p_sensf_res_buf);
     }
+    else if (p_cb->flags & RW_T3T_FL_W4_SRO_FELICA_LITE_POLL_RSP)
+    {
+        /* Handle POLL ntf in response to get system codes */
+        p_cb->flags &= ~RW_T3T_FL_W4_SRO_FELICA_LITE_POLL_RSP;
+        rw_t3t_handle_sro_poll_rsp (p_cb, nci_status, num_responses, sensf_res_buf_size, p_sensf_res_buf);
+    }
     else if (p_cb->flags & RW_T3T_FL_W4_NDEF_DETECT_POLL_RSP)
     {
         /* Handle POLL ntf in response to ndef detection */
@@ -358,9 +375,43 @@ void rw_t3t_format_cplt (tNFC_STATUS status)
 
     p_cb->rw_state = RW_T3T_STATE_IDLE;
 
+    /* Update ndef info */
+    p_cb->ndef_attrib.status = status;
+    if (status == NFC_STATUS_OK)
+    {
+        p_cb->ndef_attrib.version = T3T_MSG_NDEF_VERSION;
+        p_cb->ndef_attrib.nbr = RW_T3T_DEFAULT_FELICALITE_NBR;
+        p_cb->ndef_attrib.nbw = RW_T3T_DEFAULT_FELICALITE_NBW;
+        p_cb->ndef_attrib.nmaxb = RW_T3T_DEFAULT_FELICALITE_NMAXB;
+        p_cb->ndef_attrib.writef = T3T_MSG_NDEF_WRITEF_OFF;
+        p_cb->ndef_attrib.rwflag = T3T_MSG_NDEF_RWFLAG_RW;
+        p_cb->ndef_attrib.ln = 0;
+    }
+
     /* Notify upper layer of format complete */
     evt_data.status = status;
     (*(rw_cb.p_cback)) (RW_T3T_FORMAT_CPLT_EVT, &evt_data);
+}
+
+/*******************************************************************************
+**
+** Function         rw_t3t_set_readonly_cplt
+**
+** Description      Notify upper layer of set read only complete
+**
+** Returns          none
+**
+*******************************************************************************/
+void rw_t3t_set_readonly_cplt (tNFC_STATUS status)
+{
+    tRW_T3T_CB *p_cb = &rw_cb.tcb.t3t;
+    tRW_DATA evt_data;
+
+    p_cb->rw_state = RW_T3T_STATE_IDLE;
+
+    /* Notify upper layer of format complete */
+    evt_data.status = status;
+    (*(rw_cb.p_cback)) (RW_T3T_SET_READ_ONLY_CPLT_EVT, &evt_data);
 }
 
 /*******************************************************************************
@@ -414,6 +465,13 @@ void rw_t3t_process_timeout (TIMER_LIST_ENT *p_tle)
             p_cb->flags &= ~RW_T3T_FL_W4_FMT_FELICA_LITE_POLL_RSP;
             RW_TRACE_ERROR0 ("Felica-Lite tag not detected");
             rw_t3t_format_cplt (NFC_STATUS_FAILED);
+        }
+        else if (p_cb->flags & RW_T3T_FL_W4_SRO_FELICA_LITE_POLL_RSP)
+        {
+            /* POLL timeout for configuring Felica Lite read only */
+            p_cb->flags &= ~RW_T3T_FL_W4_SRO_FELICA_LITE_POLL_RSP;
+            RW_TRACE_ERROR0 ("Felica-Lite tag not detected");
+            rw_t3t_set_readonly_cplt (NFC_STATUS_FAILED);
         }
         else if (p_cb->flags & RW_T3T_FL_W4_NDEF_DETECT_POLL_RSP)
         {
@@ -1051,6 +1109,56 @@ tNFC_STATUS rw_t3t_send_update_cmd (tRW_T3T_CB *p_cb, UINT8 num_blocks, tT3T_BLO
 
 /*****************************************************************************
 **
+** Function         rw_t3t_check_mc_block
+**
+** Description      Send command to check Memory Configuration Block
+**
+** Returns          tNFC_STATUS
+**
+*****************************************************************************/
+tNFC_STATUS rw_t3t_check_mc_block (tRW_T3T_CB *p_cb)
+{
+    BT_HDR *p_cmd_buf;
+    UINT8 *p, *p_cmd_start;
+
+    /* Read Memory Configuration block */
+    if ((p_cmd_buf = rw_t3t_get_cmd_buf ()) != NULL)
+    {
+        /* Construct T3T message */
+        p = p_cmd_start = (UINT8 *) (p_cmd_buf+1) + p_cmd_buf->offset;
+
+        /* Add CHECK opcode to message  */
+        UINT8_TO_STREAM (p, T3T_MSG_OPC_CHECK_CMD);
+
+        /* Add IDm to message */
+        ARRAY_TO_STREAM (p, p_cb->peer_nfcid2, NCI_NFCID2_LEN);
+
+        /* Add Service code list */
+        UINT8_TO_STREAM (p, 1);                       /* Number of services (only 1 service: NDEF) */
+        UINT16_TO_STREAM (p, T3T_MSG_NDEF_SC_RO);     /* Service code (little-endian format) */
+
+        /* Number of blocks */
+        UINT8_TO_STREAM (p, 1);                       /* Number of blocks (only 1 block: Memory Configuration Information ) */
+
+        /* Block List element: the Memory Configuration block (block 0x88) */
+        UINT8_TO_STREAM (p, T3T_MSG_MASK_TWO_BYTE_BLOCK_DESC_FORMAT);
+        UINT8_TO_STREAM (p, T3T_MSG_FELICALITE_BLOCK_ID_MC);
+
+        /* Calculate length of message */
+        p_cmd_buf->len = (UINT16) (p - p_cmd_start);
+
+        /* Send the T3T message */
+        return rw_t3t_send_cmd (p_cb, p_cb->cur_cmd, p_cmd_buf, RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS);
+    }
+    else
+    {
+        RW_TRACE_ERROR0 ("Unable to allocate buffer to read MC block");
+        return (NFC_STATUS_NO_BUFFERS);
+    }
+}
+
+/*****************************************************************************
+**
 ** Function         rw_t3t_send_raw_frame
 **
 ** Description      Send raw frame
@@ -1665,7 +1773,8 @@ void rw_t3t_act_handle_get_sc_rsp (tRW_T3T_CB *p_cb, BT_HDR *p_msg_rsp)
 **
 ** Function         rw_t3t_update_block
 **
-** Description      Send UPDATE command for single block (for formatting)
+** Description      Send UPDATE command for single block
+**                  (for formatting/configuring read only)
 **
 ** Returns          tNFC_STATUS
 **
@@ -1704,7 +1813,7 @@ tNFC_STATUS rw_t3t_update_block (tRW_T3T_CB *p_cb, UINT8 block_id, UINT8 *p_bloc
         p_cmd_buf->len = (UINT16) (p_dst - p_cmd_start);
 
         /* Send the T3T message */
-        status = rw_t3t_send_cmd (p_cb, RW_T3T_CMD_FORMAT, p_cmd_buf, RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS);
+        status = rw_t3t_send_cmd (p_cb, p_cb->cur_cmd, p_cmd_buf, RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS);
     }
     else
     {
@@ -1726,8 +1835,6 @@ tNFC_STATUS rw_t3t_update_block (tRW_T3T_CB *p_cb, UINT8 block_id, UINT8 *p_bloc
 *****************************************************************************/
 static void rw_t3t_handle_fmt_poll_rsp (tRW_T3T_CB *p_cb, UINT8 nci_status, UINT8 num_responses, UINT8 sensf_res_buf_size, UINT8 *p_sensf_res_buf)
 {
-    BT_HDR *p_cmd_buf;
-    UINT8 *p, *p_cmd_start;
     tRW_DATA evt_data;
 
     evt_data.status = NFC_STATUS_OK;
@@ -1739,42 +1846,10 @@ static void rw_t3t_handle_fmt_poll_rsp (tRW_T3T_CB *p_cb, UINT8 nci_status, UINT
         /* Get MemoryControl block */
         RW_TRACE_DEBUG0 ("Felica-Lite tag detected...getting Memory Control block.");
 
-        /* Read NDEF attribute block */
-        if ((p_cmd_buf = rw_t3t_get_cmd_buf ()) != NULL)
-        {
-            p_cb->rw_substate = RW_T3T_FMT_SST_CHECK_MC_BLK;
+        p_cb->rw_substate = RW_T3T_FMT_SST_CHECK_MC_BLK;
 
-            /* Construct T3T message */
-            p = p_cmd_start = (UINT8 *) (p_cmd_buf+1) + p_cmd_buf->offset;
-
-            /* Add CHECK opcode to message  */
-            UINT8_TO_STREAM (p, T3T_MSG_OPC_CHECK_CMD);
-
-            /* Add IDm to message */
-            ARRAY_TO_STREAM (p, p_cb->peer_nfcid2, NCI_NFCID2_LEN);
-
-            /* Add Service code list */
-            UINT8_TO_STREAM (p, 1);                       /* Number of services (only 1 service: NDEF) */
-            UINT16_TO_STREAM (p, T3T_MSG_NDEF_SC_RO);     /* Service code (little-endian format) */
-
-            /* Number of blocks */
-            UINT8_TO_STREAM (p, 1);                       /* Number of blocks (only 1 block: NDEF Attribute Information ) */
-
-            /* Block List element: the NDEF attribute information block (block 0) */
-            UINT8_TO_STREAM (p, T3T_MSG_MASK_TWO_BYTE_BLOCK_DESC_FORMAT);
-            UINT8_TO_STREAM (p, T3T_MSG_FELICALITE_BLOCK_ID_MC);
-
-            /* Calculate length of message */
-            p_cmd_buf->len = (UINT16) (p - p_cmd_start);
-
-            /* Send the T3T message */
-            evt_data.status = rw_t3t_send_cmd (p_cb, RW_T3T_CMD_FORMAT, p_cmd_buf, RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS);
-        }
-        else
-        {
-            RW_TRACE_ERROR0 ("Unable to allocate buffer to read MC block");
-            evt_data.status = NFC_STATUS_NO_BUFFERS;
-        }
+        /* Send command to check Memory Configuration block */
+        evt_data.status = rw_t3t_check_mc_block (p_cb);
     }
     else
     {
@@ -1833,6 +1908,9 @@ void rw_t3t_act_handle_fmt_rsp (tRW_T3T_CB *p_cb, BT_HDR *p_msg_rsp)
                 /* Set SYS_OP field to 0x01 (enable NDEF) */
                 p_mc[T3T_MSG_FELICALITE_MC_OFFSET_SYS_OP] = 0x01;
 
+                /* Set RF_PRM field to 0x07 (procedure of issuance) */
+                p_mc[T3T_MSG_FELICALITE_MC_OFFSET_RF_PRM] = 0x07;
+
                 /* Construct and send UPDATE message to write MC block */
                 p_cb->rw_substate = RW_T3T_FMT_SST_UPDATE_MC_BLK;
                 evt_data.status = rw_t3t_update_block (p_cb, T3T_MSG_FELICALITE_BLOCK_ID_MC, p_mc);
@@ -1887,6 +1965,195 @@ void rw_t3t_act_handle_fmt_rsp (tRW_T3T_CB *p_cb, BT_HDR *p_msg_rsp)
 
 
         rw_t3t_format_cplt (evt_data.status);
+    }
+
+    GKI_freebuf (p_msg_rsp);
+}
+
+/*****************************************************************************
+**
+** Function         rw_t3t_handle_sro_poll_rsp
+**
+** Description      Handle POLL response for configuring felica-lite read only
+**
+** Returns          Nothing
+**
+*****************************************************************************/
+static void rw_t3t_handle_sro_poll_rsp (tRW_T3T_CB *p_cb, UINT8 nci_status, UINT8 num_responses, UINT8 sensf_res_buf_size, UINT8 *p_sensf_res_buf)
+{
+    tRW_DATA evt_data;
+    UINT8 rw_t3t_ndef_attrib_info[T3T_MSG_BLOCKSIZE];
+    UINT8 *p;
+    UINT8 tempU8;
+    UINT16 checksum, i;
+    UINT32 tempU32 = 0;
+
+    evt_data.status = NFC_STATUS_OK;
+
+    /* Validate response for poll response */
+    if ((nci_status == NCI_STATUS_OK) && (num_responses > 0))
+    {
+        /* Tag responded for Felica-Lite poll */
+        if (p_cb->ndef_attrib.rwflag != T3T_MSG_NDEF_RWFLAG_RO)
+        {
+            /* First update attribute information block */
+            RW_TRACE_DEBUG0 ("Felica-Lite tag detected...update NDef attribution block.");
+
+            p_cb->rw_substate = RW_T3T_SRO_SST_UPDATE_NDEF_ATTRIB;
+
+            p = rw_t3t_ndef_attrib_info;
+
+            UINT8_TO_STREAM (p, p_cb->ndef_attrib.version);
+
+            /* Update NDEF info */
+            UINT8_TO_STREAM (p, p_cb->ndef_attrib.nbr);              /* NBr: number of blocks that can be read using one Check command */
+            UINT8_TO_STREAM (p, p_cb->ndef_attrib.nbw);              /* Nbw: number of blocks that can be written using one Update command */
+            UINT16_TO_BE_STREAM (p, p_cb->ndef_attrib.nmaxb);        /* Nmaxb: maximum number of blocks available for NDEF data */
+            UINT32_TO_BE_STREAM (p, tempU32);
+            UINT8_TO_STREAM (p, p_cb->ndef_attrib.writef);           /* WriteFlag: 00h if writing data finished; 0Fh if writing data in progress */
+            UINT8_TO_STREAM (p, 0x00);                               /* RWFlag: 00h NDEF is read-only */
+
+            tempU8 = (UINT8) (p_cb->ndef_attrib.ln >> 16);
+            /* Get length (3-byte, big-endian) */
+            UINT8_TO_STREAM (p, tempU8);                               /* Ln: high-byte */
+            UINT16_TO_BE_STREAM (p, p_cb->ndef_attrib.ln);           /* Ln: lo-word */
+
+            /* Calculate and append Checksum */
+            checksum = 0;
+            for (i = 0; i < T3T_MSG_NDEF_ATTR_INFO_SIZE; i++)
+            {
+                checksum+=rw_t3t_ndef_attrib_info[i];
+            }
+            UINT16_TO_BE_STREAM (p, checksum);
+
+            evt_data.status = rw_t3t_update_block (p_cb, 0, (UINT8 *) rw_t3t_ndef_attrib_info);
+        }
+        else if (p_cb->cur_cmd == RW_T3T_CMD_SET_READ_ONLY_HARD)
+        {
+            /* NDEF is already read only, Read and update MemoryControl block */
+            RW_TRACE_DEBUG0 ("Felica-Lite tag detected...getting Memory Control block.");
+            p_cb->rw_substate = RW_T3T_SRO_SST_CHECK_MC_BLK;
+
+            /* Send command to check Memory Configuration block */
+            evt_data.status = rw_t3t_check_mc_block (p_cb);
+        }
+    }
+    else
+    {
+        RW_TRACE_ERROR0 ("Felica-Lite tag not detected");
+        evt_data.status = NFC_STATUS_FAILED;
+    }
+
+    /* If error, notify upper layer */
+    if (evt_data.status != NFC_STATUS_OK)
+    {
+        rw_t3t_set_readonly_cplt (evt_data.status);
+    }
+}
+
+/*****************************************************************************
+**
+** Function         rw_t3t_act_handle_sro_rsp
+**
+** Description      Handle response for setting read only codes
+**
+** Returns          Nothing
+**
+*****************************************************************************/
+void rw_t3t_act_handle_sro_rsp (tRW_T3T_CB *p_cb, BT_HDR *p_msg_rsp)
+{
+    UINT8 *p_t3t_rsp = (UINT8 *) (p_msg_rsp+1) + p_msg_rsp->offset;
+    UINT8 *p_mc;
+    tRW_DATA evt_data;
+
+    evt_data.status = NFC_STATUS_OK;
+
+    if (p_cb->rw_substate == RW_T3T_SRO_SST_UPDATE_NDEF_ATTRIB)
+    {
+        /* Validate response opcode */
+        if (  (p_t3t_rsp[T3T_MSG_RSP_OFFSET_RSPCODE] != T3T_MSG_OPC_UPDATE_RSP)
+            ||(p_t3t_rsp[T3T_MSG_RSP_OFFSET_STATUS1] != T3T_MSG_RSP_STATUS_OK)  )
+
+        {
+            RW_TRACE_ERROR2 ("Response error: rsp_code=%02X, status=%02X", p_t3t_rsp[T3T_MSG_RSP_OFFSET_RSPCODE], p_t3t_rsp[T3T_MSG_RSP_OFFSET_STATUS1]);
+            evt_data.status = NFC_STATUS_FAILED;
+        }
+        else
+        {
+            p_cb->ndef_attrib.rwflag = T3T_MSG_NDEF_RWFLAG_RO;
+            if (p_cb->cur_cmd == RW_T3T_CMD_SET_READ_ONLY_HARD)
+            {
+                p_cb->rw_substate = RW_T3T_SRO_SST_CHECK_MC_BLK;
+
+                /* Send command to check Memory Configuration block */
+                evt_data.status = rw_t3t_check_mc_block (p_cb);
+            }
+            else
+            {
+                rw_t3t_set_readonly_cplt (evt_data.status);
+            }
+        }
+    }
+    else if (p_cb->rw_substate == RW_T3T_SRO_SST_CHECK_MC_BLK)
+    {
+        /* Check tags's response for reading MemoryControl block, Validate response opcode */
+        if (p_t3t_rsp[T3T_MSG_RSP_OFFSET_RSPCODE] != T3T_MSG_OPC_CHECK_RSP)
+        {
+            RW_TRACE_ERROR2 ("Response error: expecting rsp_code %02X, but got %02X", T3T_MSG_OPC_CHECK_RSP, p_t3t_rsp[T3T_MSG_RSP_OFFSET_RSPCODE]);
+            evt_data.status = NFC_STATUS_FAILED;
+        }
+        /* Validate status code and NFCID2 response from tag */
+        else if (  (p_t3t_rsp[T3T_MSG_RSP_OFFSET_STATUS1] != T3T_MSG_RSP_STATUS_OK)                           /* verify response status code */
+                 ||(memcmp (p_cb->peer_nfcid2, &p_t3t_rsp[T3T_MSG_RSP_OFFSET_IDM], NCI_NFCID2_LEN) != 0)  )   /* verify response IDm */
+        {
+            evt_data.status = NFC_STATUS_FAILED;
+        }
+        else
+        {
+            /* Check if memory configuration (MC) block to see if SYS_OP=1 (NDEF enabled) */
+            p_mc = &p_t3t_rsp[T3T_MSG_RSP_OFFSET_CHECK_DATA];  /* Point to MC data of CHECK response */
+
+            if (p_mc[T3T_MSG_FELICALITE_MC_OFFSET_SYS_OP] != 0x01)
+            {
+                /* Tag is not currently enabled for NDEF */
+                evt_data.status = NFC_STATUS_FAILED;
+            }
+            else
+            {
+                /* Set MC_SP field with MC[0] = 0x00 & MC[1] = 0xC0 (Hardlock) to change access permission from RW to RO */
+                p_mc[T3T_MSG_FELICALITE_MC_OFFSET_MC_SP]     = 0x00;
+                /* Not changing the access permission of Subtraction Register and MC[0:1] */
+                p_mc[T3T_MSG_FELICALITE_MC_OFFSET_MC_SP + 1] = 0xC0;
+
+               /* Set RF_PRM field to 0x07 (procedure of issuance) */
+                p_mc[T3T_MSG_FELICALITE_MC_OFFSET_RF_PRM] = 0x07;
+
+                /* Construct and send UPDATE message to write MC block */
+                p_cb->rw_substate = RW_T3T_SRO_SST_UPDATE_MC_BLK;
+                evt_data.status = rw_t3t_update_block (p_cb, T3T_MSG_FELICALITE_BLOCK_ID_MC, p_mc);
+            }
+        }
+    }
+    else if (p_cb->rw_substate == RW_T3T_SRO_SST_UPDATE_MC_BLK)
+    {
+        /* Validate response opcode */
+        if (  (p_t3t_rsp[T3T_MSG_RSP_OFFSET_RSPCODE] != T3T_MSG_OPC_UPDATE_RSP)
+            ||(p_t3t_rsp[T3T_MSG_RSP_OFFSET_STATUS1] != T3T_MSG_RSP_STATUS_OK)  )
+
+        {
+            RW_TRACE_ERROR2 ("Response error: rsp_code=%02X, status=%02X", p_t3t_rsp[T3T_MSG_RSP_OFFSET_RSPCODE], p_t3t_rsp[T3T_MSG_RSP_OFFSET_STATUS1]);
+            evt_data.status = NFC_STATUS_FAILED;
+        }
+        else
+        {
+            rw_t3t_set_readonly_cplt (evt_data.status);
+        }
+    }
+
+    /* If error, notify upper layer */
+    if (evt_data.status != NFC_STATUS_OK)
+    {
+        rw_t3t_set_readonly_cplt (evt_data.status);
     }
 
     GKI_freebuf (p_msg_rsp);
@@ -1987,6 +2254,11 @@ void rw_t3t_data_cback (UINT8 conn_id, BT_HDR *p_msg)
 
             case RW_T3T_CMD_FORMAT:
                 rw_t3t_act_handle_fmt_rsp (p_cb, p_msg);
+                break;
+
+            case RW_T3T_CMD_SET_READ_ONLY_SOFT:
+            case RW_T3T_CMD_SET_READ_ONLY_HARD:
+                rw_t3t_act_handle_sro_rsp (p_cb, p_msg);
                 break;
 
             default:
@@ -2709,5 +2981,68 @@ tNFC_STATUS RW_T3tFormatNDef (void)
 
 
 
+    return (retval);
+}
+
+/*****************************************************************************
+**
+** Function         RW_T3tSetReadOnly
+**
+** Description      This function performs NDEF read-only procedure
+**                  Note: Only Felica-Lite tags are supported by this API.
+**                        RW_T3tDetectNDef() must be called before using this
+**
+**                  The RW_T3T_SET_READ_ONLY_CPLT_EVT event will be returned.
+**
+** Returns          NFC_STATUS_OK if success
+**                  NFC_STATUS_FAILED if T3T is busy or other error
+**
+*****************************************************************************/
+tNFC_STATUS RW_T3tSetReadOnly (BOOLEAN b_hard_lock)
+{
+    tNFC_STATUS retval = NFC_STATUS_OK;
+    tRW_T3T_CB  *p_cb  = &rw_cb.tcb.t3t;
+    tRW_DATA    evt_data;
+
+    RW_TRACE_API0 ("RW_T4tSetTagReadOnly ()");
+
+    /* Check if we are in valid state to handle this API */
+    if (p_cb->rw_state != RW_T3T_STATE_IDLE)
+    {
+        RW_TRACE_ERROR1 ("Error: invalid state to handle API (0x%x)", p_cb->rw_state);
+        return (NFC_STATUS_FAILED);
+    }
+
+    if (p_cb->ndef_attrib.status != NFC_STATUS_OK)       /* NDEF detection not performed yet? */
+    {
+        RW_TRACE_ERROR0 ("Error: NDEF detection not performed yet");
+        return (NFC_STATUS_NOT_INITIALIZED);
+    }
+
+    if ((!b_hard_lock) && (p_cb->ndef_attrib.rwflag == T3T_MSG_NDEF_RWFLAG_RO))/* Tag's NDEF memory is read-only already */
+    {
+        evt_data.status = NFC_STATUS_OK;
+        (*(rw_cb.p_cback)) (RW_T4T_SET_TO_RO_EVT, &evt_data);
+        return (retval);
+    }
+    else
+    {
+        /* Poll tag, to see if Felica-Lite system is supported */
+        if ((retval = (tNFC_STATUS) nci_snd_t3t_polling (T3T_SYSTEM_CODE_FELICA_LITE, T3T_POLL_RC_SC, 0)) == NCI_STATUS_OK)
+        {
+            if (b_hard_lock)
+                p_cb->cur_cmd     = RW_T3T_CMD_SET_READ_ONLY_HARD;
+            else
+                p_cb->cur_cmd     = RW_T3T_CMD_SET_READ_ONLY_SOFT;
+            p_cb->cur_tout    = RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS;
+            p_cb->cur_poll_rc = T3T_POLL_RC_SC;
+            p_cb->rw_state    = RW_T3T_STATE_COMMAND_PENDING;
+            p_cb->rw_substate = RW_T3T_SRO_SST_POLL_FELICA_LITE;
+            p_cb->flags |= RW_T3T_FL_W4_SRO_FELICA_LITE_POLL_RSP;
+
+            /* start timer for waiting for responses */
+            rw_t3t_start_poll_timer (p_cb);
+        }
+    }
     return (retval);
 }

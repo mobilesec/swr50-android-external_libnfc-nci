@@ -1254,6 +1254,7 @@ void GKI_exit_task (UINT8 task_id)
 void GKI_sched_lock(void)
 {
     GKI_TRACE_0("GKI_sched_lock");
+    GKI_disable ();
     return;
 }
 
@@ -1274,6 +1275,7 @@ void GKI_sched_lock(void)
 void GKI_sched_unlock(void)
 {
     GKI_TRACE_0("GKI_sched_unlock");
+    GKI_enable ();
 }
 
 /*******************************************************************************

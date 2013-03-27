@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 #include "OverrideLog.h"
+#define LOG_TAG "NfcNciHal"
 #include "gki.h"
 extern "C"
 {
@@ -23,6 +24,7 @@ extern "C"
 }
 #include "nfc_hal_nv_ci.h"
 #include "nfc_hal_int.h"
+#include "config.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -31,8 +33,9 @@ extern "C"
 
 
 //directory of HAL's non-volatile storage
-static const char* bcm_nfc_location = "/data/nfc";
+static const char* default_location = "/data/nfc";
 static const char* filename_prefix = "/halStorage.bin";
+static const std::string get_storage_location ();
 
 
 /*******************************************************************************
@@ -57,7 +60,7 @@ static const char* filename_prefix = "/halStorage.bin";
 *******************************************************************************/
 void nfc_hal_nv_co_read (UINT8 *p_buf, UINT16 nbytes, UINT8 block)
 {
-    std::string fn (bcm_nfc_location);
+    std::string fn = get_storage_location();
     char filename[256];
 
     fn.append (filename_prefix);
@@ -70,7 +73,7 @@ void nfc_hal_nv_co_read (UINT8 *p_buf, UINT16 nbytes, UINT8 block)
 
     ALOGD ("%s: buffer len=%u; file=%s", __FUNCTION__, nbytes, filename);
     int fileStream = open (filename, O_RDONLY);
-    if (fileStream > 0)
+    if (fileStream >= 0)
     {
         size_t actualRead = read (fileStream, p_buf, nbytes);
         if (actualRead > 0)
@@ -113,7 +116,7 @@ void nfc_hal_nv_co_read (UINT8 *p_buf, UINT16 nbytes, UINT8 block)
 *******************************************************************************/
 void nfc_hal_nv_co_write (const UINT8 *p_buf, UINT16 nbytes, UINT8 block)
 {
-    std::string fn (bcm_nfc_location);
+    std::string fn = get_storage_location();
     char filename[256];
     int fileStream = 0;
 
@@ -127,7 +130,7 @@ void nfc_hal_nv_co_write (const UINT8 *p_buf, UINT16 nbytes, UINT8 block)
     ALOGD ("%s: bytes=%u; file=%s", __FUNCTION__, nbytes, filename);
 
     fileStream = open (filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    if (fileStream > 0)
+    if (fileStream >= 0)
     {
         size_t actualWritten = write (fileStream, p_buf, nbytes);
         ALOGD ("%s: %d bytes written", __FUNCTION__, actualWritten);
@@ -146,4 +149,68 @@ void nfc_hal_nv_co_write (const UINT8 *p_buf, UINT16 nbytes, UINT8 block)
         ALOGE ("%s: fail to open, error = %d", __FUNCTION__, errno);
         nfc_hal_nv_ci_write (NFC_HAL_NV_CO_FAIL);
     }
+}
+
+
+/*******************************************************************************
+**
+** Function         get_storage_location
+**
+** Description      Get the absolute directory path of the HAL's storage location.
+**
+** Parameters       none
+**
+** Returns          Absolute path.
+**
+*******************************************************************************/
+const std::string get_storage_location ()
+{
+    char buffer [100];
+    memset (buffer, 0, sizeof(buffer));
+    if (!GetStrValue (NAME_NFA_STORAGE, buffer, sizeof(buffer)))
+        return default_location;
+    else
+        return std::string (buffer);
+}
+
+
+/*******************************************************************************
+**
+** Function         delete_hal_non_volatile_store
+**
+** Description      Delete all the content of the HAL's storage location.
+**
+** Parameters       none
+**
+** Returns          none
+**
+*******************************************************************************/
+void delete_hal_non_volatile_store ()
+{
+    static bool firstTime = true;
+    std::string fn = get_storage_location();
+    char filename[256];
+    int stat = 0;
+
+    if (firstTime == false)
+        return;
+    firstTime = false;
+
+    ALOGD ("%s", __FUNCTION__);
+
+    fn.append (filename_prefix);
+    if (fn.length() > 200)
+    {
+        ALOGE ("%s: filename too long", __FUNCTION__);
+        return;
+    }
+
+    sprintf (filename, "%s%u", fn.c_str(), DH_NV_BLOCK);
+    remove (filename);
+    sprintf (filename, "%s%u", fn.c_str(), HC_F3_NV_BLOCK);
+    remove (filename);
+    sprintf (filename, "%s%u", fn.c_str(), HC_F4_NV_BLOCK);
+    remove (filename);
+    sprintf (filename, "%s%u", fn.c_str(), HC_F2_NV_BLOCK);
+    remove (filename);
 }

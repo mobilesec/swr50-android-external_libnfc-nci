@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright (C) 2009-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -47,13 +48,20 @@ enum
 typedef UINT8 tNFC_HAL_XTAL_INDEX;
 
 /* Broadcom specific device initialization before sending NCI reset */
-#define NFC_HAL_DEV_INIT_FLAGS_SET_XTAL_FREQ  0x02    /* set crystal frequency    */
-typedef UINT8 tNFC_HAL_DEV_INIT_FLAGS;
 
 typedef struct
 {
-    tNFC_HAL_DEV_INIT_FLAGS flags;
+    UINT32                  brcm_hw_id;
     UINT16                  xtal_freq;
+    UINT8                   xtal_index;
+} tNFC_HAL_DEV_INIT_XTAL_CFG;
+
+#define NFC_HAL_DEV_INIT_MAX_XTAL_CFG       5
+
+typedef struct
+{
+    UINT8                       num_xtal_cfg;
+    tNFC_HAL_DEV_INIT_XTAL_CFG  xtal_cfg[NFC_HAL_DEV_INIT_MAX_XTAL_CFG];
 } tNFC_HAL_DEV_INIT_CFG;
 
 /*****************************************************************************
@@ -117,11 +125,8 @@ void HAL_NfcPreInitDone (tHAL_NFC_STATUS status);
 **
 ** Function         HAL_NfcReInit
 **
-** Description      This function is called to send an RESET and GET_PATCH_VERSION
-**                  command to NFCC.
-**
-**                  p_cback         - The callback function to receive the command
-**                                    status
+** Description      This function is called to restart initialization after REG_PU
+**                  toggled because of failure to detect NVM type or download patchram.
 **
 ** Note             This function should be called only during the HAL init process
 **
@@ -129,7 +134,7 @@ void HAL_NfcPreInitDone (tHAL_NFC_STATUS status);
 **                  HAL_NFC_STATUS_FAILED otherwise
 **
 *******************************************************************************/
-tHAL_NFC_STATUS HAL_NfcReInit (tNFC_HAL_NCI_CBACK *p_cback);
+tHAL_NFC_STATUS HAL_NfcReInit (void);
 
 /*******************************************************************************
 **

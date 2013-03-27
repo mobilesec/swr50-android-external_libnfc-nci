@@ -25,6 +25,7 @@
 #include "nfa_nv_co.h"
 #include "nfa_nv_ci.h"
 #include "config.h"
+#include "nfc_hal_nv_co.h"
 
 #define LOG_TAG "BrcmNfcNfa"
 #define PRINT(s) __android_log_write(ANDROID_LOG_DEBUG, "BrcmNci", s)
@@ -35,6 +36,7 @@ static char log_line[MAX_LOGCAT_LINE];
 extern UINT32 ScrProtocolTraceFlag;         // = SCR_PROTO_TRACE_ALL; // 0x017F;
 static const char* sTable = "0123456789abcdef";
 extern char bcm_nfc_location[];
+static const char* sNfaStorageBin = "/nfaStorage.bin";
 
 /*******************************************************************************
 **
@@ -92,8 +94,11 @@ NFC_API extern void nfa_mem_co_free(void *pBuffer)
 NFC_API extern void nfa_nv_co_read(UINT8 *pBuffer, UINT16 nbytes, UINT8 block)
 {
     char filename[256], filename2[256];
+
+    memset (filename, 0, sizeof(filename));
+    memset (filename2, 0, sizeof(filename2));
     strcpy(filename2, bcm_nfc_location);
-    strcat(filename2, "/nfaStorage.bin");
+    strncat(filename2, sNfaStorageBin, sizeof(filename2)-strlen(filename2)-1);
     if (strlen(filename2) > 200)
     {
         ALOGE ("%s: filename too long", __FUNCTION__);
@@ -103,7 +108,7 @@ NFC_API extern void nfa_nv_co_read(UINT8 *pBuffer, UINT16 nbytes, UINT8 block)
 
     ALOGD ("%s: buffer len=%u; file=%s", __FUNCTION__, nbytes, filename);
     int fileStream = open (filename, O_RDONLY);
-    if (fileStream > 0)
+    if (fileStream >= 0)
     {
         size_t actualRead = read (fileStream, pBuffer, nbytes);
         if (actualRead > 0)
@@ -146,8 +151,11 @@ NFC_API extern void nfa_nv_co_read(UINT8 *pBuffer, UINT16 nbytes, UINT8 block)
 NFC_API extern void nfa_nv_co_write(const UINT8 *pBuffer, UINT16 nbytes, UINT8 block)
 {
     char filename[256], filename2[256];
+
+    memset (filename, 0, sizeof(filename));
+    memset (filename2, 0, sizeof(filename2));
     strcpy(filename2, bcm_nfc_location);
-    strcat(filename2, "/nfaStorage.bin");
+    strncat(filename2, sNfaStorageBin, sizeof(filename2)-strlen(filename2)-1);
     if (strlen(filename2) > 200)
     {
         ALOGE ("%s: filename too long", __FUNCTION__);
@@ -159,7 +167,7 @@ NFC_API extern void nfa_nv_co_write(const UINT8 *pBuffer, UINT16 nbytes, UINT8 b
     int fileStream = 0;
 
     fileStream = open (filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    if (fileStream > 0)
+    if (fileStream >= 0)
     {
         size_t actualWritten = write (fileStream, pBuffer, nbytes);
         ALOGD ("%s: %d bytes written", __FUNCTION__, actualWritten);
@@ -178,6 +186,47 @@ NFC_API extern void nfa_nv_co_write(const UINT8 *pBuffer, UINT16 nbytes, UINT8 b
         ALOGE ("%s: fail to open, error = %d", __FUNCTION__, errno);
         nfa_nv_ci_write (NFA_NV_CO_FAIL);
     }
+}
+
+/*******************************************************************************
+**
+** Function         delete_stack_non_volatile_store
+**
+** Description      Delete all the content of the stack's storage location.
+**
+** Parameters       none
+**
+** Returns          none
+**
+*******************************************************************************/
+void delete_stack_non_volatile_store ()
+{
+    static BOOLEAN firstTime = TRUE;
+    char filename[256], filename2[256];
+
+    if (firstTime == FALSE)
+        return;
+    firstTime = FALSE;
+
+    ALOGD ("%s", __FUNCTION__);
+
+    memset (filename, 0, sizeof(filename));
+    memset (filename2, 0, sizeof(filename2));
+    strcpy(filename2, bcm_nfc_location);
+    strncat(filename2, sNfaStorageBin, sizeof(filename2)-strlen(filename2)-1);
+    if (strlen(filename2) > 200)
+    {
+        ALOGE ("%s: filename too long", __FUNCTION__);
+        return;
+    }
+    sprintf (filename, "%s%u", filename2, DH_NV_BLOCK);
+    remove (filename);
+    sprintf (filename, "%s%u", filename2, HC_F3_NV_BLOCK);
+    remove (filename);
+    sprintf (filename, "%s%u", filename2, HC_F4_NV_BLOCK);
+    remove (filename);
+    sprintf (filename, "%s%u", filename2, HC_F2_NV_BLOCK);
+    remove (filename);
 }
 
 /*******************************************************************************

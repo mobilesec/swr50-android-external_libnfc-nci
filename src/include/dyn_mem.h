@@ -87,6 +87,10 @@
 #define SMP_DYNAMIC_MEMORY  FALSE
 #endif
 
+#ifndef BRCM_DYNAMIC_MEMORY
+#define BRCM_DYNAMIC_MEMORY  FALSE
+#endif
+
 /****************************************************************************
 ** Define memory usage for each PROFILE component (if not defined in buildcfg.h)
 **  The default for each component is to use static memory allocations.

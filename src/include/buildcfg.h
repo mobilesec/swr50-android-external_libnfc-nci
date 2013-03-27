@@ -22,22 +22,11 @@
 #include <stdio.h>
 #include "data_types.h"
 
-#include "btdisp_lock.h"
 #ifndef NFC_CONTORLLER_ID
 #define NFC_CONTORLLER_ID       (1)
 #endif
 
-#ifdef ANDROID_USE_LOGCAT
-#undef ANDROID_USE_LOGCAT
-#endif
-
 #define BTE_APPL_MAX_USERIAL_DEV_NAME           (256)
-
-#define ANDROID_USE_LOGCAT      TRUE
-
-#ifdef BT_TRACE_PROTOCOL
-#undef BT_TRACE_PROTOCOL
-#endif
 
 #ifdef BT_TRACE_VERBOSE
 #undef BT_TRACE_VERBOSE

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -266,7 +267,7 @@ tNFA_DM_API_REG_NDEF_HDLR *nfa_dm_ndef_find_next_handler (tNFA_DM_API_REG_NDEF_H
             {
                 /* This is a handler for a specific URI type */
                 /* Check if this recurd is WKT URI */
-                if ((type_name_len == 1) && (*p_type_name == 'U'))
+                if ((p_payload) && (type_name_len == 1) && (*p_type_name == 'U'))
                 {
                     /* Check if URI prefix abrieviation matches */
                     if ((payload_len>1) && (p_payload[0] == p_cb->p_ndef_handler[i]->uri_id))

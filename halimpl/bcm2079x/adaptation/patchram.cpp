@@ -24,18 +24,14 @@ extern "C"
     #include "nfc_hal_post_reset.h"
 }
 #include <string>
+#include <cutils/properties.h>
 #include "spdhelper.h"
+#include "StartupConfig.h"
 
 #define LOG_TAG "NfcNciHal"
 
-/* Location of patchfiles */
-#ifndef NFCA_PATCHFILE_LOCATION
-#define NFCA_PATCHFILE_LOCATION ("/system/vendor/firmware/")
-#endif
-
 #define FW_PRE_PATCH                        "FW_PRE_PATCH"
 #define FW_PATCH                            "FW_PATCH"
-#define NFA_CONFIG_FORMAT                   "NFA_CONFIG_FORMAT"
 #define MAX_RF_DATA_CREDITS                 "MAX_RF_DATA_CREDITS"
 
 #define MAX_BUFFER      (512)
@@ -44,33 +40,64 @@ static char sPatchFn[MAX_BUFFER+1];
 static void * sPrmBuf = NULL;
 static void * sI2cFixPrmBuf = NULL;
 
-#define NFA_DM_START_UP_CFG_PARAM_MAX_LEN   100
-static UINT8 nfa_dm_start_up_cfg[NFA_DM_START_UP_CFG_PARAM_MAX_LEN];
-extern UINT8 *p_nfc_hal_dm_start_up_cfg;
-static UINT8 nfa_dm_start_up_vsc_cfg[NFA_DM_START_UP_CFG_PARAM_MAX_LEN];
-extern UINT8 *p_nfc_hal_dm_start_up_vsc_cfg;
-extern UINT8 *p_nfc_hal_dm_lptd_cfg;
-static UINT8 nfa_dm_lptd_cfg[LPTD_PARAM_LEN];
+#define CONFIG_MAX_LEN 256
+static UINT8 sConfig [CONFIG_MAX_LEN];
+static StartupConfig sStartupConfig;
+static StartupConfig sLptdConfig;
+extern UINT8 *p_nfc_hal_dm_start_up_cfg; //defined in the HAL
+static UINT8 nfa_dm_start_up_vsc_cfg[CONFIG_MAX_LEN];
+extern UINT8 *p_nfc_hal_dm_start_up_vsc_cfg; //defined in the HAL
+extern UINT8 *p_nfc_hal_dm_lptd_cfg; //defined in the HAL
 extern tSNOOZE_MODE_CONFIG gSnoozeModeCfg;
-extern BOOLEAN nfc_hal_prm_nvm_required; //true: don't download firmware if controller cannot detect EERPOM
-static void HalNciCallback (tNFC_HAL_NCI_EVT event, UINT16 data_len, UINT8 *p_data);
+extern tNFC_HAL_CFG *p_nfc_hal_cfg;
+static void mayDisableSecureElement (StartupConfig& config);
 
+/* Default patchfile (in NCD format) */
+#ifndef NFA_APP_DEFAULT_PATCHFILE_NAME
+#define NFA_APP_DEFAULT_PATCHFILE_NAME      "\0"
+#endif
+
+/* Default patchfile (in NCD format) */
+#ifndef NFA_APP_DEFAULT_I2C_PATCHFILE_NAME
+#define NFA_APP_DEFAULT_I2C_PATCHFILE_NAME  "\0"
+#endif
+
+#define BRCM_43341B0_ID 0x43341b00
 
 tNFC_POST_RESET_CB nfc_post_reset_cb =
 {
-    "/vendor/firmware/bcm2079x_firmware.ncd",
+    /* Default Patch & Pre-Patch */
+    NFA_APP_DEFAULT_PATCHFILE_NAME,
     NULL,
-    "/vendor/firmware/bcm2079x_pre_firmware.ncd",
+    NFA_APP_DEFAULT_I2C_PATCHFILE_NAME,
     NULL,
+
+    /* Default UART baud rate */
     NFC_HAL_DEFAULT_BAUD,
 
-    {0, 0},                     /* tBRCM_DEV_INIT_CONFIG dev_init_config */
+    /* Default tNFC_HAL_DEV_INIT_CFG (flags, num_xtal_cfg, {brcm_hw_id, xtal-freq, xtal-index} ) */
+    {
+        1, /* number of valid entries */
+        {
+            {BRCM_43341B0_ID, 37400, NFC_HAL_XTAL_INDEX_37400},
+            {0, 0, 0},
+            {0, 0, 0},
+            {0, 0, 0},
+            {0, 0, 0},
+        }
+    },
 
+    /* Default low power mode settings */
     NFC_HAL_LP_SNOOZE_MODE_NONE,    /* Snooze Mode          */
     NFC_HAL_LP_IDLE_THRESHOLD_HOST, /* Idle Threshold Host  */
     NFC_HAL_LP_IDLE_THRESHOLD_HC,   /* Idle Threshold HC    */
     NFC_HAL_LP_ACTIVE_LOW,          /* NFC_WAKE Active Mode */
-    NFC_HAL_LP_ACTIVE_HIGH          /* DH_WAKE Active Mode  */
+    NFC_HAL_LP_ACTIVE_HIGH,         /* DH_WAKE Active Mode  */
+
+    NFA_APP_MAX_NUM_REINIT,         /* max retry to get NVM type */
+    0,                              /* current retry count */
+    TRUE,                           /* debug mode for downloading patchram */
+    FALSE                           /* skip downloading patchram after reinit because of patch download failure */
 };
 
 
@@ -276,21 +303,34 @@ void prmCallback(UINT8 event)
 *******************************************************************************/
 static void getNfaValues()
 {
-    unsigned long num;
+    unsigned long num = 0;
+    int actualLen = 0;
 
-    if ( GetStrValue ( NAME_NFA_DM_START_UP_CFG, (char*)nfa_dm_start_up_cfg, sizeof ( nfa_dm_start_up_cfg ) ) )
+    p_nfc_hal_cfg->nfc_hal_prm_nvm_required = TRUE; //don't download firmware if controller cannot detect EERPOM
+    sStartupConfig.initialize ();
+    sLptdConfig.initialize ();
+
+
+    actualLen = GetStrValue (NAME_NFA_DM_START_UP_CFG, (char*)sConfig, sizeof(sConfig));
+    if (actualLen >= 8)
     {
-        p_nfc_hal_dm_start_up_cfg = &nfa_dm_start_up_cfg[0];
         ALOGD ( "START_UP_CFG[0] = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
-                                                                            nfa_dm_start_up_cfg[0],
-                                                                            nfa_dm_start_up_cfg[1],
-                                                                            nfa_dm_start_up_cfg[2],
-                                                                            nfa_dm_start_up_cfg[3],
-                                                                            nfa_dm_start_up_cfg[4],
-                                                                            nfa_dm_start_up_cfg[5],
-                                                                            nfa_dm_start_up_cfg[6],
-                                                                            nfa_dm_start_up_cfg[7] );
+                sConfig[0],
+                sConfig[1],
+                sConfig[2],
+                sConfig[3],
+                sConfig[4],
+                sConfig[5],
+                sConfig[6],
+                sConfig[7] );
+        sStartupConfig.append (sConfig, actualLen);
     }
+
+    // Set antenna tuning configuration if configured.
+    actualLen = GetStrValue(NAME_PREINIT_DSP_CFG, (char*)sConfig, sizeof(sConfig));
+    if (actualLen)
+        sStartupConfig.append (sConfig, actualLen);
+
     if ( GetStrValue ( NAME_NFA_DM_START_UP_VSC_CFG, (char*)nfa_dm_start_up_vsc_cfg, sizeof (nfa_dm_start_up_vsc_cfg) ) )
     {
         p_nfc_hal_dm_start_up_vsc_cfg = &nfa_dm_start_up_vsc_cfg[0];
@@ -304,8 +344,16 @@ static void getNfaValues()
                                                                             nfa_dm_start_up_vsc_cfg[6],
                                                                             nfa_dm_start_up_vsc_cfg[7] );
     }
-    if ( GetStrValue ( NAME_LPTD_CFG, (char*)&nfa_dm_lptd_cfg[0], sizeof( nfa_dm_lptd_cfg ) ) )
-        p_nfc_hal_dm_lptd_cfg = &nfa_dm_lptd_cfg[0];
+
+    actualLen = GetStrValue(NAME_LPTD_CFG, (char*)sConfig, sizeof(sConfig));
+    if (actualLen)
+    {
+        sLptdConfig.append (sConfig, actualLen);
+        p_nfc_hal_dm_lptd_cfg = const_cast<UINT8*> (sLptdConfig.getInternalBuffer ());
+    }
+
+    mayDisableSecureElement (sStartupConfig);
+    p_nfc_hal_dm_start_up_cfg = const_cast<UINT8*> (sStartupConfig.getInternalBuffer ());
 }
 
 /*******************************************************************************
@@ -376,11 +424,7 @@ static void StartPatchDownload(UINT32 chipid)
             if ((fd = fopen(sPatchFn, "rb")) != NULL)
             {
                 UINT32 lenPrmBuffer = getFileLength(fd);
-                tNFC_HAL_PRM_FORMAT patch_format = NFC_HAL_PRM_FORMAT_NCD;
-
-                GetNumValue((char*)NFA_CONFIG_FORMAT, &patch_format, sizeof(patch_format));
-
-                ALOGD("%s Downloading patchfile %s (size: %lu) format=%u", __FUNCTION__, sPatchFn, lenPrmBuffer, patch_format);
+                ALOGD("%s Downloading patchfile %s (size: %lu) format=%u", __FUNCTION__, sPatchFn, lenPrmBuffer, NFC_HAL_PRM_FORMAT_NCD);
                 if ((sPrmBuf = malloc(lenPrmBuffer)) != NULL)
                 {
                     fread(sPrmBuf, lenPrmBuffer, 1, fd);
@@ -388,7 +432,7 @@ static void StartPatchDownload(UINT32 chipid)
                     if (!SpdHelper::isPatchBad((UINT8*)sPrmBuf, lenPrmBuffer))
                     {
                         /* Download patch using static memeory mode */
-                        HAL_NfcPrmDownloadStart(patch_format, 0, (UINT8*)sPrmBuf, lenPrmBuffer, 0, prmCallback);
+                        HAL_NfcPrmDownloadStart(NFC_HAL_PRM_FORMAT_NCD, 0, (UINT8*)sPrmBuf, lenPrmBuffer, 0, prmCallback);
                         bDownloadStarted = true;
                     }
                 }
@@ -430,7 +474,7 @@ static void StartPatchDownload(UINT32 chipid)
 *******************************************************************************/
 void nfc_hal_post_reset_init (UINT32 brcm_hw_id, UINT8 nvm_type)
 {
-    ALOGD("%s: brcm_hw_id=0x%x, nvm_type=%d", __FUNCTION__, brcm_hw_id, nvm_type);
+    ALOGD("%s: brcm_hw_id=0x%lx, nvm_type=%d", __FUNCTION__, brcm_hw_id, nvm_type);
     tHAL_NFC_STATUS stat = HAL_NFC_STATUS_FAILED;
     UINT8 max_credits = 1;
 
@@ -438,7 +482,7 @@ void nfc_hal_post_reset_init (UINT32 brcm_hw_id, UINT8 nvm_type)
     {
         ALOGD("%s: No NVM detected, FAIL the init stage to force a retry", __FUNCTION__);
         USERIAL_PowerupDevice (0);
-        stat = HAL_NfcReInit (HalNciCallback);
+        stat = HAL_NfcReInit ();
     }
     else
     {
@@ -456,46 +500,27 @@ void nfc_hal_post_reset_init (UINT32 brcm_hw_id, UINT8 nvm_type)
 
 /*******************************************************************************
 **
-** Function:    HalNciCallback
+** Function:        mayDisableSecureElement
 **
-** Description: Determine whether controller has detected EEPROM.
+** Description:     Optionally adjust a TLV to disable secure element.  This feature
+**                  is enabled by setting the system property
+**                  nfc.disable_secure_element to a bit mask represented by a hex
+**                  octet: C0 = do not detect any secure element.
+**                         40 = do not detect secure element in slot 0.
+**                         80 = do not detect secure element in slot 1.
 **
-** Returns:     none
+**                  config: a sequence of TLV's.
 **
 *******************************************************************************/
-void HalNciCallback (tNFC_HAL_NCI_EVT event, UINT16 dataLen, UINT8* data)
+void mayDisableSecureElement (StartupConfig& config)
 {
-    ALOGD ("%s: enter; event=%X; data len=%u", __FUNCTION__, event, dataLen);
-    if (event == NFC_VS_GET_PATCH_VERSION_EVT)
+    unsigned int bitmask = 0;
+    char valueStr [PROPERTY_VALUE_MAX] = {0};
+    int len = property_get ("nfc.disable_secure_element", valueStr, "");
+    if (len > 0)
     {
-        if (dataLen <= NCI_GET_PATCH_VERSION_NVM_OFFSET)
-        {
-            ALOGE("%s: response too short to detect NVM type", __FUNCTION__);
-            HAL_NfcPreInitDone (HAL_NFC_STATUS_FAILED);
-        }
-        else
-        {
-            UINT8 nvramType = *(data + NCI_GET_PATCH_VERSION_NVM_OFFSET);
-            if (nvramType == NCI_SPD_NVM_TYPE_NONE)
-            {
-                //controller did not find EEPROM, so re-initialize
-                ALOGD("%s: no nvram, try again", __FUNCTION__);
-                USERIAL_PowerupDevice (0);
-                HAL_NfcReInit (HalNciCallback);
-            }
-            else
-            {
-                UINT8 max_credits = 1;
-                ALOGD("%s: found nvram", __FUNCTION__, nvramType);
-                if (GetNumValue(MAX_RF_DATA_CREDITS, &max_credits, sizeof(max_credits)) && (max_credits > 0))
-                {
-                    ALOGD("%s : max_credits=%d", __FUNCTION__, max_credits);
-                    HAL_NfcSetMaxRfDataCredits(max_credits);
-                }
-                HAL_NfcPreInitDone (HAL_NFC_STATUS_OK);
-            }
-        }
+        sscanf (valueStr, "%x", &bitmask); //read system property as a hex octet
+        ALOGD ("%s: disable 0x%02X", __FUNCTION__, (UINT8) bitmask);
+        config.disableSecureElement ((UINT8) (bitmask & 0xC0));
     }
-    ALOGD("%s: exit", __FUNCTION__);
 }
-

@@ -20,7 +20,6 @@
 #include <memory.h>
 #include <stdio.h>
 #include "data_types.h"
-#include "btdisp_lock.h"
 
 
 #define BTE_APPL_MAX_USERIAL_DEV_NAME           (256)
@@ -31,9 +30,10 @@ extern "C" {
 
 
 extern UINT8 *scru_dump_hex (UINT8 *p, char *p_title, UINT32 len, UINT32 trace_layer, UINT32 trace_type);
+void DispNci (UINT8 *p, UINT16 len, BOOLEAN is_recv);
+#define DISP_NCI	(DispNci)
 
 
 #ifdef	__cplusplus
 };
 #endif
-

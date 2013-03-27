@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -391,7 +392,7 @@ UINT8 LLCP_RegisterServer (UINT8           reg_sap,
     if (reg_sap == LLCP_INVALID_SAP)
     {
         /* allocate a SAP between 0x10 and 0x1F */
-        for (sap = 0; sap <= LLCP_MAX_SERVER; sap++)
+        for (sap = 0; sap < LLCP_MAX_SERVER; sap++)
         {
             if (llcp_cb.server_cb[sap].p_app_cback == NULL)
             {
@@ -531,7 +532,7 @@ UINT8 LLCP_RegisterClient (UINT8           link_type,
     }
 
     /* allocate a SAP between 0x20 and 0x3F */
-    for (sap = 0; sap <= LLCP_MAX_CLIENT; sap++)
+    for (sap = 0; sap < LLCP_MAX_CLIENT; sap++)
     {
         if (llcp_cb.client_cb[sap].p_app_cback == NULL)
         {
@@ -1019,7 +1020,12 @@ tLLCP_STATUS LLCP_ConnectCfm (UINT8                    local_sap,
     LLCP_TRACE_API2 ("LLCP_ConnectCfm () Local SAP:0x%x, Remote SAP:0x%x)",
                      local_sap, remote_sap);
 
-    if ((p_params) && (p_params->miu > llcp_cb.lcb.local_link_miu))
+    if (!p_params)
+    {
+        LLCP_TRACE_ERROR0 ("LLCP_ConnectCfm (): tLLCP_CONNECTION_PARAMS must be provided");
+        return LLCP_STATUS_FAIL;
+    }
+    else if (p_params->miu > llcp_cb.lcb.local_link_miu)
     {
         LLCP_TRACE_ERROR0 ("LLCP_ConnectCfm (): Data link MIU shall not be bigger than local link MIU");
         return LLCP_STATUS_FAIL;

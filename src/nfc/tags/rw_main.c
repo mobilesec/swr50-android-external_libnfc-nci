@@ -16,13 +16,14 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains functions that interface with the NFC NCI transport.
  *  On the receive side, it routes events to the appropriate handler
  *  (callback). On the transmit side, it manages the command transmission.
  *
- ******************************************************************************/
+******************************************************************************/
 #include <string.h>
 #include "nfc_target.h"
 #include "bt_types.h"
@@ -232,7 +233,7 @@ tNFC_STATUS RW_SetActivatedTagType (tNFC_ACTIVATE_DEVT *p_activate_params, tRW_C
     case NFC_PROTOCOL_T1T:    /* Type1Tag    - NFC-A */
         if (p_activate_params->rf_tech_param.mode == NFC_DISCOVERY_TYPE_POLL_A)
         {
-            status = rw_t1t_select (p_activate_params->intf_param.intf_param.frame.param,
+            status = rw_t1t_select (p_activate_params->rf_tech_param.param.pa.hr,
                                     p_activate_params->rf_tech_param.param.pa.nfcid1);
         }
         break;

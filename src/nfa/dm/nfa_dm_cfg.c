@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2011-2012 Broadcom Corporation
+ *  Copyright (C) 2011-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -87,5 +88,10 @@ const tNFA_DM_CFG nfa_dm_cfg =
 tNFA_DM_CFG *p_nfa_dm_cfg = (tNFA_DM_CFG *) &nfa_dm_cfg;
 
 
+const tNFA_HCI_CFG nfa_hci_cfg =
+{
+    NFA_HCI_NETWK_INIT_IDLE_TIMEOUT, /* Max HCI Network IDLE time to wait for EE DISC REQ Ntf(s) */
+    NFA_HCI_RESPONSE_TIMEOUT         /* Maximum HCP Response time to any HCP Command */
+};
 
-
+tNFA_HCI_CFG *p_nfa_hci_cfg = (tNFA_HCI_CFG *) &nfa_hci_cfg;

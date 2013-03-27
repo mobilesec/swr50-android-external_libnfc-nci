@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains the action functions the NFA_RW state machine.
@@ -36,6 +37,7 @@ static tNFC_STATUS nfa_rw_start_ndef_detection(void);
 static tNFC_STATUS nfa_rw_config_tag_ro(BOOLEAN b_hard_lock);
 static BOOLEAN     nfa_rw_op_req_while_busy(tNFA_RW_MSG *p_data);
 static void        nfa_rw_error_cleanup (UINT8 event);
+static void        nfa_rw_presence_check (tNFA_RW_MSG *p_data);
 
 /*******************************************************************************
 **
@@ -129,18 +131,26 @@ static void nfa_rw_error_cleanup (UINT8 event)
 **
 ** Function         nfa_rw_check_start_presence_check_timer
 **
-** Description      Start timer for presence check
+** Description      Start timer to wait for specified time before presence check
 **
 ** Returns          Nothing
 **
 *******************************************************************************/
-static void nfa_rw_check_start_presence_check_timer (void)
+static void nfa_rw_check_start_presence_check_timer (UINT16 presence_check_start_delay)
 {
 #if (defined (NFA_DM_AUTO_PRESENCE_CHECK) && (NFA_DM_AUTO_PRESENCE_CHECK == TRUE))
     if (nfa_rw_cb.flags & NFA_RW_FL_NOT_EXCL_RF_MODE)
     {
-        NFA_TRACE_DEBUG0("Starting presence check timer...");
-        nfa_sys_start_timer(&nfa_rw_cb.tle, NFA_RW_PRESENCE_CHECK_TICK_EVT, NFA_RW_PRESENCE_CHECK_INTERVAL);
+        if (presence_check_start_delay)
+        {
+            NFA_TRACE_DEBUG0("Starting presence check timer...");
+            nfa_sys_start_timer(&nfa_rw_cb.tle, NFA_RW_PRESENCE_CHECK_TICK_EVT, presence_check_start_delay);
+        }
+        else
+        {
+            /* Presence check now */
+            nfa_rw_presence_check (NULL);
+        }
     }
 #endif   /* NFA_DM_AUTO_PRESENCE_CHECK  */
 }
@@ -491,7 +501,18 @@ static void nfa_rw_handle_t1t_evt (tRW_EVENT event, tRW_DATA *p_rw_data)
 
     case RW_T1T_NDEF_DETECT_EVT:
         nfa_rw_cb.tlv_st = NFA_RW_TLV_DETECT_ST_COMPLETE;
+
+        if (  (p_rw_data->status != NFC_STATUS_OK)
+            &&(nfa_rw_cb.cur_op == NFA_RW_OP_WRITE_NDEF)
+            &&(p_rw_data->ndef.flags & RW_NDEF_FL_FORMATABLE) && (!(p_rw_data->ndef.flags & RW_NDEF_FL_FORMATED)) && (p_rw_data->ndef.flags & RW_NDEF_FL_SUPPORTED)  )
+        {
+            /* Tag is in Initialized state, Format the tag first and then Write NDEF */
+            if (RW_T1tFormatNDef() == NFC_STATUS_OK)
+                break;
+        }
+
         nfa_rw_handle_ndef_detect(event, p_rw_data);
+
         break;
 
     case RW_T1T_NDEF_READ_EVT:
@@ -558,12 +579,32 @@ static void nfa_rw_handle_t1t_evt (tRW_EVENT event, tRW_DATA *p_rw_data)
         break;
 
     case RW_T1T_FORMAT_CPLT_EVT:
+
         if (p_rw_data->data.status == NFA_STATUS_OK)
             nfa_rw_cb.ndef_st = NFA_RW_NDEF_ST_UNKNOWN;
 
-        /* Command complete - perform cleanup, notify the app */
-        nfa_rw_command_complete();
-        nfa_dm_act_conn_cback_notify(NFA_FORMAT_CPLT_EVT, &conn_evt_data);
+        if (nfa_rw_cb.cur_op == NFA_RW_OP_WRITE_NDEF)
+        {
+            /* if format operation was done as part of ndef-write operation, now start NDEF Write */
+            if (  (p_rw_data->data.status != NFA_STATUS_OK)
+                ||((conn_evt_data.status = RW_T1tDetectNDef ()) != NFC_STATUS_OK)  )
+            {
+                /* Command complete - perform cleanup, notify app */
+                nfa_rw_command_complete();
+                nfa_rw_cb.ndef_st = NFA_RW_NDEF_ST_FALSE;
+
+
+                /* if format operation failed or ndef detection did not start, then notify app of ndef-write operation failure */
+                conn_evt_data.status = NFA_STATUS_FAILED;
+                nfa_dm_act_conn_cback_notify(NFA_WRITE_CPLT_EVT, &conn_evt_data);
+            }
+        }
+        else
+        {
+            /* Command complete - perform cleanup, notify the app */
+            nfa_rw_command_complete();
+            nfa_dm_act_conn_cback_notify(NFA_FORMAT_CPLT_EVT, &conn_evt_data);
+        }
         break;
 
     case RW_T1T_INTF_ERROR_EVT:
@@ -1620,8 +1661,17 @@ static BOOLEAN nfa_rw_write_ndef(tNFA_RW_MSG *p_data)
     }
     else if (nfa_rw_cb.ndef_st == NFA_RW_NDEF_ST_FALSE)
     {
-        /* Tag is not NDEF */
-        write_status = NFA_STATUS_FAILED;
+        if (nfa_rw_cb.protocol == NFC_PROTOCOL_T1T)
+        {
+            /* For Type 1 tag, NDEF can be written on Initialized tag
+            *  Perform ndef detection first to check if tag is in Initialized state to Write NDEF */
+            write_status = nfa_rw_start_ndef_detection();
+        }
+        else
+        {
+            /* Tag is not NDEF */
+            write_status = NFA_STATUS_FAILED;
+        }
     }
     else
     {
@@ -2170,11 +2220,15 @@ static BOOLEAN nfa_rw_i93_command (tNFA_RW_MSG *p_data)
         i93_command = I93_CMD_INVENTORY;
         if (p_data->op_req.params.i93_cmd.uid_present)
         {
-            status = RW_I93Inventory (p_data->op_req.params.i93_cmd.uid);
+            status = RW_I93Inventory (p_data->op_req.params.i93_cmd.afi_present,
+                                      p_data->op_req.params.i93_cmd.afi,
+                                      p_data->op_req.params.i93_cmd.uid);
         }
         else
         {
-            status = RW_I93Inventory (NULL);
+            status = RW_I93Inventory (p_data->op_req.params.i93_cmd.afi_present,
+                                      p_data->op_req.params.i93_cmd.afi,
+                                      NULL);
         }
         break;
 
@@ -2362,7 +2416,7 @@ BOOLEAN nfa_rw_activate_ntf(tNFA_RW_MSG *p_data)
 
         /* Notify app of NFA_ACTIVATED_EVT and start presence check timer */
         nfa_dm_notify_activation_status (NFA_STATUS_OK, NULL);
-        nfa_rw_check_start_presence_check_timer ();
+        nfa_rw_check_start_presence_check_timer (NFA_RW_PRESENCE_CHECK_INTERVAL);
         return TRUE;
     }
 
@@ -2474,7 +2528,7 @@ BOOLEAN nfa_rw_activate_ntf(tNFA_RW_MSG *p_data)
     if (activate_notify)
     {
         nfa_dm_notify_activation_status (NFA_STATUS_OK, &tag_params);
-        nfa_rw_check_start_presence_check_timer ();
+        nfa_rw_check_start_presence_check_timer (NFA_RW_PRESENCE_CHECK_INTERVAL);
     }
 
 
@@ -2525,6 +2579,7 @@ BOOLEAN nfa_rw_deactivate_ntf(tNFA_RW_MSG *p_data)
 BOOLEAN nfa_rw_handle_op_req (tNFA_RW_MSG *p_data)
 {
     BOOLEAN freebuf = TRUE;
+    UINT16  presence_check_start_delay = 0;
 
     /* Check if activated */
     if (!(nfa_rw_cb.flags & NFA_RW_FL_ACTIVATED))
@@ -2573,10 +2628,15 @@ BOOLEAN nfa_rw_handle_op_req (tNFA_RW_MSG *p_data)
         break;
 
     case NFA_RW_OP_SEND_RAW_FRAME:
+        presence_check_start_delay = p_data->op_req.params.send_raw_frame.p_data->layer_specific;
+
         NFC_SendData (NFC_RF_CONN_ID, p_data->op_req.params.send_raw_frame.p_data);
 
-        /* Command complete - perform cleanup */
-        nfa_rw_command_complete();
+        /* Clear the busy flag */
+        nfa_rw_cb.flags &= ~NFA_RW_FL_API_BUSY;
+
+        /* Start presence_check after specified delay */
+        nfa_rw_check_start_presence_check_timer (presence_check_start_delay);
         break;
 
     case NFA_RW_OP_PRESENCE_CHECK:
@@ -2782,5 +2842,5 @@ void nfa_rw_command_complete(void)
     nfa_rw_cb.flags &= ~NFA_RW_FL_API_BUSY;
 
     /* Restart presence_check timer */
-    nfa_rw_check_start_presence_check_timer ();
+    nfa_rw_check_start_presence_check_timer (NFA_RW_PRESENCE_CHECK_INTERVAL);
 }

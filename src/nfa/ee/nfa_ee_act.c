@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -82,7 +83,7 @@ const UINT8 nfa_ee_proto_list[NFA_EE_NUM_PROTO] =
 
 static void nfa_ee_check_restore_complete(void);
 static void nfa_ee_report_discover_req_evt(void);
-
+static void nfa_ee_build_discover_req_evt (tNFA_EE_DISCOVER_REQ *p_evt_data);
 /*******************************************************************************
 **
 ** Function         nfa_ee_conn_cback
@@ -296,15 +297,19 @@ void nfa_ee_api_register(tNFA_EE_MSG *p_data)
         for (xx = 0; xx < NFA_EE_MAX_CBACKS; xx++)
         {
             if (nfa_ee_cb.p_ee_cback[xx] == NULL)
-        {
-            nfa_ee_cb.p_ee_cback[xx]    = p_cback;
-            evt_data.ee_register        = NFA_STATUS_OK;
-            break;
+            {
+                nfa_ee_cb.p_ee_cback[xx]    = p_cback;
+                evt_data.ee_register        = NFA_STATUS_OK;
+                break;
+            }
         }
-    }
     }
     /* This callback is verified (not NULL) in NFA_EeRegister() */
     (*p_cback)(NFA_EE_REGISTER_EVT, &evt_data);
+
+    /* report NFCEE Discovery Request collected during booting up */
+    nfa_ee_build_discover_req_evt (&evt_data.discover_req);
+    (*p_cback)(NFA_EE_DISCOVER_REQ_EVT, &evt_data);
 }
 
 /*******************************************************************************
@@ -703,13 +708,13 @@ void nfa_ee_report_disc_done(BOOLEAN notify_enable_done)
             {
                 nfa_sys_cback_notify_enable_complete (NFA_ID_EE);
                 if (nfa_ee_cb.p_enable_cback)
-                    (*nfa_ee_cb.p_enable_cback)(FALSE);
+                    (*nfa_ee_cb.p_enable_cback)(NFA_EE_DISC_STS_ON);
             }
             else if ((nfa_ee_cb.em_state == NFA_EE_EM_STATE_RESTORING) && (nfa_ee_cb.ee_flags & NFA_EE_FLAG_NOTIFY_HCI) )
             {
                 nfa_ee_cb.ee_flags   &= ~NFA_EE_FLAG_NOTIFY_HCI;
                 if (nfa_ee_cb.p_enable_cback)
-                    (*nfa_ee_cb.p_enable_cback)(FALSE);
+                    (*nfa_ee_cb.p_enable_cback)(NFA_EE_DISC_STS_ON);
             }
         }
 
@@ -1033,6 +1038,7 @@ void nfa_ee_nci_disc_ntf(tNFA_EE_MSG *p_data)
             p_cb->ecb_flags &= ~NFA_EE_ECB_FLAGS_ORDER;
             nfa_ee_report_discover_req_evt();
         }
+
     }
 
     if (new_em_state != NFA_EE_EM_STATE_MAX)
@@ -1098,6 +1104,52 @@ static void nfa_ee_check_restore_complete(void)
 
 /*******************************************************************************
 **
+** Function         nfa_ee_build_discover_req_evt
+**
+** Description      Build NFA_EE_DISCOVER_REQ_EVT for all active NFCEE
+**
+** Returns          void
+**
+*******************************************************************************/
+static void nfa_ee_build_discover_req_evt (tNFA_EE_DISCOVER_REQ *p_evt_data)
+{
+    tNFA_EE_ECB           *p_cb;
+    tNFA_EE_DISCOVER_INFO *p_info;
+    UINT8                 xx;
+
+    if (!p_evt_data)
+        return;
+
+    p_evt_data->num_ee = 0;
+    p_cb               = nfa_ee_cb.ecb;
+    p_info             = p_evt_data->ee_disc_info;
+
+    for (xx = 0; xx < nfa_ee_cb.cur_ee; xx++, p_cb++)
+    {
+        if (  (p_cb->ee_status & NFA_EE_STATUS_INT_MASK)
+            ||(p_cb->ee_status != NFA_EE_STATUS_ACTIVE)
+            ||((p_cb->ecb_flags & NFA_EE_ECB_FLAGS_DISC_REQ) == 0)  )
+        {
+            continue;
+        }
+        p_info->ee_handle       = (tNFA_HANDLE)p_cb->nfcee_id | NFA_HANDLE_GROUP_EE;
+        p_info->la_protocol     = p_cb->la_protocol;
+        p_info->lb_protocol     = p_cb->lb_protocol;
+        p_info->lf_protocol     = p_cb->lf_protocol;
+        p_info->lbp_protocol    = p_cb->lbp_protocol;
+        p_evt_data->num_ee++;
+        p_info++;
+
+        NFA_TRACE_DEBUG6 ("[%d] ee_handle:0x%x, listen protocol A:%d, B:%d, F:%d, BP:%d",
+                          p_evt_data->num_ee, p_cb->nfcee_id,
+                          p_cb->la_protocol, p_cb->lb_protocol, p_cb->lf_protocol, p_cb->lbp_protocol);
+    }
+
+    p_evt_data->status     = NFA_STATUS_OK;
+}
+
+/*******************************************************************************
+**
 ** Function         nfa_ee_report_discover_req_evt
 **
 ** Description      Report NFA_EE_DISCOVER_REQ_EVT for all active NFCEE
@@ -1108,9 +1160,10 @@ static void nfa_ee_check_restore_complete(void)
 static void nfa_ee_report_discover_req_evt(void)
 {
     tNFA_EE_DISCOVER_REQ    evt_data;
-    tNFA_EE_DISCOVER_INFO   *p_info;
-    UINT8                   xx;
-    tNFA_EE_ECB  *p_cb = nfa_ee_cb.ecb;
+
+    if (nfa_ee_cb.p_enable_cback)
+        (*nfa_ee_cb.p_enable_cback) (NFA_EE_DISC_STS_REQ);
+
 
     /* if this is restoring NFCC */
     if (!nfa_dm_is_active ())
@@ -1119,28 +1172,7 @@ static void nfa_ee_report_discover_req_evt(void)
         return;
     }
 
-    evt_data.num_ee = 0;
-    p_cb            = nfa_ee_cb.ecb;
-    p_info          = evt_data.ee_disc_info;
-    for (xx = 0; xx < nfa_ee_cb.cur_ee; xx++, p_cb++)
-    {
-        if ((p_cb->ee_status & NFA_EE_STATUS_INT_MASK) || (p_cb->ee_status != NFA_EE_STATUS_ACTIVE) || ((p_cb->ecb_flags & NFA_EE_ECB_FLAGS_DISC_REQ) == 0))
-        {
-            continue;
-        }
-        p_info->la_protocol     = p_cb->la_protocol;
-        p_info->lb_protocol     = p_cb->lb_protocol;
-        p_info->lf_protocol     = p_cb->lf_protocol;
-        p_info->lbp_protocol    = p_cb->lbp_protocol;
-        evt_data.num_ee++;
-        p_info++;
-
-        NFA_TRACE_DEBUG6 ("[%d] ee_handle:0x%x, listen protocol A:%d, B:%d, F:%d, BP:%d",
-                          evt_data.num_ee, p_cb->nfcee_id,
-                          p_cb->la_protocol, p_cb->lb_protocol, p_cb->lf_protocol, p_cb->lbp_protocol);
-    }
-
-    evt_data.status     = NFA_STATUS_OK;
+    nfa_ee_build_discover_req_evt (&evt_data);
     nfa_ee_report_event(NULL, NFA_EE_DISCOVER_REQ_EVT, (tNFA_EE_CBACK_DATA *)&evt_data);
 }
 
@@ -1293,7 +1325,20 @@ void nfa_ee_nci_conn(tNFA_EE_MSG *p_data)
             p_cb->p_ee_cback = NULL;
             p_cb->conn_id    = 0;
             if (nfa_ee_cb.em_state == NFA_EE_EM_STATE_DISABLING)
-                nfa_ee_sys_disable();
+            {
+                if (nfa_ee_cb.ee_flags & NFA_EE_FLAG_WAIT_DISCONN)
+                {
+                    if (nfa_ee_cb.num_ee_expecting)
+                    {
+                        nfa_ee_cb.num_ee_expecting--;
+                    }
+                }
+                if (nfa_ee_cb.num_ee_expecting == 0)
+                {
+                    nfa_ee_cb.ee_flags &= ~NFA_EE_FLAG_WAIT_DISCONN;
+                    nfa_ee_check_disable();
+                }
+            }
             break;
 
         case NFC_DATA_CEVT:
@@ -1402,29 +1447,31 @@ void nfa_ee_nci_disc_req_ntf(tNFA_EE_MSG *p_data)
                 p_cb->la_protocol, p_cb->lb_protocol, p_cb->lf_protocol);
         }
         else
+        {
+            if (p_cbk->info[xx].tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_A)
             {
-                if (p_cbk->info[xx].tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_A)
-                {
-                    p_cb->la_protocol = 0;
-                }
-                else if (p_cbk->info[xx].tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_B)
-                {
-                    p_cb->lb_protocol = 0;
-                }
-                else if (p_cbk->info[xx].tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_F)
-                {
-                    p_cb->lf_protocol = 0;
-                }
-                else if (p_cbk->info[xx].tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_B_PRIME)
-                {
-                    p_cb->lbp_protocol = 0;
+                p_cb->la_protocol = 0;
             }
+            else if (p_cbk->info[xx].tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_B)
+            {
+                p_cb->lb_protocol = 0;
+            }
+            else if (p_cbk->info[xx].tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_F)
+            {
+                p_cb->lf_protocol = 0;
+            }
+            else if (p_cbk->info[xx].tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_B_PRIME)
+            {
+                p_cb->lbp_protocol = 0;
+        }
         }
     }
+
 
     /* Report NFA_EE_DISCOVER_REQ_EVT for all active NFCEE */
     if ((p_cb->ecb_flags & NFA_EE_ECB_FLAGS_ORDER) == 0)
         nfa_ee_report_discover_req_evt();
+
 }
 
 /*******************************************************************************
@@ -1771,7 +1818,7 @@ void nfa_ee_discv_timeout(tNFA_EE_MSG *p_data)
 {
     NFC_NfceeDiscover(FALSE);
     if (nfa_ee_cb.p_enable_cback)
-        (*nfa_ee_cb.p_enable_cback)(TRUE);
+        (*nfa_ee_cb.p_enable_cback)(NFA_EE_DISC_STS_OFF);
 }
 
 /*******************************************************************************

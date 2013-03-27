@@ -203,6 +203,7 @@ typedef struct
 #define BT_PSM_AVCTP_13                 0x001B /* Advanced Control - Browsing */
 #define BT_PSM_UDI_CP                   0x001D /* Unrestricted Digital Information Profile C-Plane  */
 #define BT_PSM_ATT                      0x001F /* Attribute Protocol  */
+#define BT_PSM_3DS                      0x0021 /* 3D sync */
 
 
 /* These macros extract the HCI opcodes from a buffer
@@ -425,6 +426,7 @@ typedef struct
 #define BT_EIR_OOB_COD_TYPE                 0x0D
 #define BT_EIR_OOB_SSP_HASH_C_TYPE          0x0E
 #define BT_EIR_OOB_SSP_RAND_R_TYPE          0x0F
+#define BT_EIR_3D_SYNC_TYPE                 0x3D
 #define BT_EIR_MANUFACTURER_SPECIFIC_TYPE   0xFF
 
 #define BT_OOB_COD_SIZE            3
@@ -583,7 +585,7 @@ typedef UINT8 tBT_DEVICE_TYPE;
 #define TRACE_LAYER_ATT             0x00250000
 #define TRACE_LAYER_SMP             0x00260000
 #define TRACE_LAYER_NFC             0x00270000
-#define TRACE_LAYER_NCI             0x00280000
+#define TRACE_LAYER_NCI             0x00280000 /*it's overwritten in nfc_types.h*/
 #define TRACE_LAYER_LLCP            0x00290000
 #define TRACE_LAYER_NDEF            0x002a0000
 #define TRACE_LAYER_RW              0x002b0000
@@ -592,8 +594,8 @@ typedef UINT8 tBT_DEVICE_TYPE;
 #define TRACE_LAYER_SNEP            0x002e0000
 #define TRACE_LAYER_CHO             0x002f0000
 #define TRACE_LAYER_NFA             0x00300000
-
-#define TRACE_LAYER_MAX_NUM         0x0031
+#define TRACE_LAYER_HAL             0x00310000 /*it's overwritten in nfc_types.h*/
+#define TRACE_LAYER_MAX_NUM         0x0032
 
 
 /* TRACE_ORIGINATOR                 0x0000^^00*/
@@ -690,9 +692,15 @@ typedef UINT8 tBT_DEVICE_TYPE;
 #define HID_PSM_INTERRUPT       0x0013
 
 #if defined(UCD_HID_INCLUDED) && (UCD_HID_INCLUDED == TRUE)
-#define UCD_PSM_MIN     0x8003
+#define UCD_PSM_MIN     0x8001
 #define UCD_PSM_MAX     0x8003
-#define UCD_PSM_HID     0x8003
+#define UCD_PSM_HID_CTRL 0x8001
+#define UCD_PSM_HID_INTR 0x8003
+#endif
+
+#if defined(HIDH_UCD_INCLUDED) && (HIDH_UCD_INCLUDED == TRUE)
+#define HID_UCD_PSM_CONTROL 0x8001
+#define HID_UCD_PSM_INTERRUPT 0x8003
 #endif
 
 /* Define a function for logging */

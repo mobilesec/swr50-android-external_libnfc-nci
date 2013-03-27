@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This is the public interface file for NFA, Broadcom's NFC application
@@ -29,6 +30,7 @@
 #include "nci_defs.h"
 #include "tags_defs.h"
 #include "nfc_api.h"
+#include "rw_api.h"
 #include "nfc_hal_api.h"
 #include "gki.h"
 
@@ -153,6 +155,17 @@ typedef UINT8 tNFA_PROTOCOL_MASK;
 #define NFA_T1T_CMD_UID_LEN         T1T_CMD_UID_LEN /* UID len for T1T cmds     */
 #define NFA_T2T_UID_LEN             T2T_UID_LEN     /* T2T UID length           */
 
+#define NFA_RW_NDEF_FL_READ_ONLY        RW_NDEF_FL_READ_ONLY     /* Tag is read only              */
+#define NFA_RW_NDEF_FL_FORMATED         RW_NDEF_FL_FORMATED      /* Tag formated for NDEF         */
+#define NFA_RW_NDEF_FL_SUPPORTED        RW_NDEF_FL_SUPPORTED     /* NDEF supported by the tag     */
+#define NFA_RW_NDEF_FL_UNKNOWN          RW_NDEF_FL_UNKNOWN       /* Unable to find if tag is ndef capable/formated/read only */
+#define NFA_RW_NDEF_FL_FORMATABLE       RW_NDEF_FL_FORMATABLE    /* Tag supports format operation */
+#define NFA_RW_NDEF_FL_SOFT_LOCKABLE    RW_NDEF_FL_SOFT_LOCKABLE /* Tag can be soft locked */
+#define NFA_RW_NDEF_FL_HARD_LOCKABLE    RW_NDEF_FL_HARD_LOCKABLE /* Tag can be hard locked */
+#define NFA_RW_NDEF_FL_OTP              RW_NDEF_FL_OTP           /* Tag is one time programmable */
+
+typedef UINT8 tNFA_RW_NDEF_FLAG;
+
 /* Data for NFA_DM_SET_CONFIG_EVT */
 typedef struct
 {
@@ -204,14 +217,6 @@ typedef union
 
 /* NFA_DM callback */
 typedef void (tNFA_DM_CBACK) (UINT8 event, tNFA_DM_CBACK_DATA *p_data);
-
-/* Data for data events */
-typedef struct
-{
-    tNFA_HANDLE handle;     /* Connection handle */
-    UINT16      len;        /* Length of data    */
-    UINT8       *p_buf;     /* Data buffer       */
-} tNFA_DATA;
 
 
 /* NFA Connection Callback Events */
@@ -321,7 +326,7 @@ typedef struct
     tNFA_NFC_PROTOCOL   protocol;           /* protocol used to detect NDEF                             */
     UINT32              max_size;           /* max number of bytes available for NDEF data              */
     UINT32              cur_size;           /* current size of stored NDEF data (in bytes)              */
-    UINT8               flags;              /* Flags to indicate NDEF capability,formated,formatable and read only */
+    tNFA_RW_NDEF_FLAG   flags;              /* Flags to indicate NDEF capability, is formated, soft/hard lockable, formatable, otp and read only */
 } tNFA_NDEF_DETECT;
 
 
@@ -484,6 +489,13 @@ typedef struct
     BOOLEAN auto_read_ndef;             /* Automatic NDEF read (when not in exclusive RF mode)      */
 } tNFA_DM_CFG;
 
+/* compile-time configuration structure for HCI */
+typedef struct
+{
+    UINT16 hci_netwk_enable_timeout; /* Maximum idle(no HCP Pkt) time to wait for EE DISC REQ Ntf(s) */
+    UINT16 hcp_response_timeout;     /* Maximum time to wait for EE DISC REQ NTF(s) after HOT PLUG EVT(s) */
+} tNFA_HCI_CFG;
+
 /*
 ** Exclusive RF mode listen configuration
 */
@@ -585,7 +597,7 @@ typedef UINT8 tNFA_NDEF_URI_ID;
 
 /* Events for tNFA_NDEF_CBACK */
 #define NFA_NDEF_REGISTER_EVT   0   /* NDEF record type registered. (In response to NFA_RegisterNDefTypeHandler)    */
-#define NFA_NDEF_DATA_EVT	    1   /* Received an NDEF message with the registered type. See [tNFA_DATA]       */
+#define NFA_NDEF_DATA_EVT	    1   /* Received an NDEF message with the registered type. See [tNFA_NDEF_DATA]       */
 typedef UINT8 tNFA_NDEF_EVT;
 
 /* Structure for NFA_NDEF_REGISTER_EVT event data */
@@ -968,12 +980,19 @@ NFC_API extern tNFA_STATUS NFA_Deactivate (BOOLEAN sleep_mode);
 ** Description      Send a raw frame over the activated interface with the NFCC.
 **                  This function can only be called after NFC link is activated.
 **
+**                  If the activated interface is a tag and auto-presence check is
+**                  enabled then presence_check_start_delay can be used to indicate
+**                  the delay in msec after which the next auto presence check
+**                  command can be sent. NFA_DM_DEFAULT_PRESENCE_CHECK_START_DELAY
+**                  can be used as the default value for the delay.
+**
 ** Returns          NFA_STATUS_OK if successfully initiated
 **                  NFA_STATUS_FAILED otherwise
 **
 *******************************************************************************/
 NFC_API extern tNFA_STATUS NFA_SendRawFrame (UINT8  *p_raw_data,
-                                             UINT16  data_len);
+                                             UINT16  data_len,
+                                             UINT16  presence_check_start_delay);
 
 /*******************************************************************************
 ** NDEF APIs

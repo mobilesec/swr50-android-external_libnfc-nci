@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -63,6 +64,9 @@ static void rw_t1t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
     BT_HDR                  *p_pkt;
     UINT8                   *p;
     tT1T_CMD_RSP_INFO       *p_cmd_rsp_info     = (tT1T_CMD_RSP_INFO *) rw_cb.tcb.t1t.p_cmd_rsp_info;
+#if (BT_TRACE_VERBOSE == TRUE)
+    UINT8                   begin_state         = p_t1t->state;
+#endif
 
     p_pkt = (BT_HDR *) (p_data->data.p_data);
     if (p_pkt == NULL)
@@ -190,6 +194,15 @@ static void rw_t1t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
     }
     else
         GKI_freebuf (p_pkt);
+
+#if (BT_TRACE_VERBOSE == TRUE)
+    if (begin_state != p_t1t->state)
+    {
+        RW_TRACE_DEBUG2 ("RW T1T state changed:<%s> -> <%s>",
+                          rw_t1t_get_state_name (begin_state),
+                          rw_t1t_get_state_name (p_t1t->state));
+    }
+#endif
 }
 
 /*******************************************************************************
@@ -673,6 +686,11 @@ void rw_t1t_handle_op_complete (void)
 
     p_t1t->state    = RW_T1T_STATE_IDLE;
 #if (defined (RW_NDEF_INCLUDED) && (RW_NDEF_INCLUDED == TRUE))
+    if (p_t1t->state != RW_T1T_STATE_READ_NDEF)
+    {
+        p_t1t->b_update = FALSE;
+        p_t1t->b_rseg   = FALSE;
+    }
     p_t1t->substate = RW_T1T_SUBSTATE_NONE;
 #endif
     return;

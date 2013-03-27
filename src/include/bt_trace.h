@@ -241,7 +241,7 @@ EXPORT_API extern void BTTRC_StackTrace6(tBTTRC_LAYER_ID layer_id,
 
 /* Enables or disables protocol trace information. */
 #ifndef BT_TRACE_PROTOCOL
-#define BT_TRACE_PROTOCOL   TRUE  /* Android requires TRUE */
+#define BT_TRACE_PROTOCOL   FALSE  /* Android requires FALSE */
 #endif
 
 /******************************************************************************

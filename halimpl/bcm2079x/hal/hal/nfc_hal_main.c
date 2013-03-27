@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  Functions for handling NFC HAL NCI Transport events
@@ -23,6 +24,7 @@
  ******************************************************************************/
 #include <string.h>
 #include "nfc_hal_int.h"
+#include "nfc_hal_post_reset.h"
 #include "userial.h"
 #include "upio.h"
 
@@ -43,11 +45,13 @@ NFC_HAL_TRANS_CFG_QUALIFIER tNFC_HAL_TRANS_CFG nfc_hal_trans_cfg =
 tNFC_HAL_CB nfc_hal_cb;
 #endif
 
+extern tNFC_HAL_CFG *p_nfc_hal_cfg;
 /****************************************************************************
 ** Internal function prototypes
 ****************************************************************************/
 static void nfc_hal_main_userial_cback (tUSERIAL_PORT port, tUSERIAL_EVT evt, tUSERIAL_EVT_DATA *p_data);
 static void nfc_hal_main_handle_terminate (void);
+static void nfc_hal_main_timeout_cback (void *p_tle);
 
 
 #if (NFC_HAL_DEBUG == TRUE)
@@ -55,14 +59,14 @@ const char * const nfc_hal_init_state_str[] =
 {
     "IDLE",             /* Initialization is done                */
     "W4_XTAL_SET",      /* Waiting for crystal setting rsp       */
-    "W4_RESET",         /* Waiting for reset rsp                 */
+    "POST_XTAL_SET",    /* Waiting for reset ntf after xtal set  */
+    "W4_NFCC_ENABLE",   /* Waiting for reset ntf atter REG_PU up */
     "W4_BUILD_INFO",    /* Waiting for build info rsp            */
     "W4_PATCH_INFO",    /* Waiting for patch info rsp            */
     "W4_APP_COMPL",     /* Waiting for complete from application */
     "W4_POST_INIT",     /* Waiting for complete of post init     */
     "W4_CONTROL",       /* Waiting for control release           */
     "W4_PREDISC",       /* Waiting for complete of prediscover   */
-    "W4_RE_INIT",       /* Waiting for reset rsp on ReInit       */
     "CLOSING"           /* Shutting down                         */
 };
 #endif
@@ -83,6 +87,7 @@ void nfc_hal_main_init (void)
 
     nfc_hal_cb.ncit_cb.nci_ctrl_size   = NFC_HAL_NCI_INIT_CTRL_PAYLOAD_SIZE;
     nfc_hal_cb.trace_level             = NFC_HAL_INITIAL_TRACE_LEVEL;
+    nfc_hal_cb.timer.p_cback           = nfc_hal_main_timeout_cback;
 }
 
 /*******************************************************************************
@@ -115,8 +120,14 @@ static void nfc_hal_main_open_transport (void)
 
     USERIAL_Open (USERIAL_NFC_PORT, &open_cfg, nfc_hal_main_userial_cback);
 
-    /* notify transport openned */
-    nfc_hal_dm_pre_init_nfcc ();
+    {
+        /* Wait for NFCC to enable - Core reset notification */
+        NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_NFCC_ENABLE);
+
+        /* NFCC Enable timeout */
+        nfc_hal_main_start_quick_timer (&nfc_hal_cb.timer, NFC_HAL_TTYPE_NFCC_ENABLE,
+                                        ((p_nfc_hal_cfg->nfc_hal_nfcc_enable_timeout)*QUICK_TIMER_TICKS_PER_SEC)/1000);
+    }
 }
 
 /*******************************************************************************
@@ -157,7 +168,7 @@ static void nfc_hal_main_userial_cback (tUSERIAL_PORT port, tUSERIAL_EVT evt, tU
     }
     else if (evt == USERIAL_ERR_EVT)
     {
-        NCI_TRACE_ERROR0 ("nfc_hal_main_userial_cback: USERIAL_ERR_EVT. Notifying NFC_TASK of transport error");
+        HAL_TRACE_ERROR0 ("nfc_hal_main_userial_cback: USERIAL_ERR_EVT. Notifying NFC_TASK of transport error");
         if (nfc_hal_cb.ncit_cb.nci_wait_rsp != NFC_HAL_WAIT_RSP_NONE)
         {
             nfc_hal_main_stop_quick_timer (&nfc_hal_cb.ncit_cb.nci_wait_rsp_timer);
@@ -170,11 +181,11 @@ static void nfc_hal_main_userial_cback (tUSERIAL_PORT port, tUSERIAL_EVT evt, tU
     }
     else if (evt == USERIAL_WAKEUP_EVT)
     {
-        NCI_TRACE_DEBUG1 ("nfc_hal_main_userial_cback: USERIAL_WAKEUP_EVT: %d", p_data->sigs);
+        HAL_TRACE_DEBUG1 ("nfc_hal_main_userial_cback: USERIAL_WAKEUP_EVT: %d", p_data->sigs);
     }
     else
     {
-        NCI_TRACE_DEBUG1 ("nfc_hal_main_userial_cback: unhandled userial evt: %i", evt);
+        HAL_TRACE_DEBUG1 ("nfc_hal_main_userial_cback: unhandled userial evt: %i", evt);
     }
 }
 
@@ -189,7 +200,7 @@ static void nfc_hal_main_userial_cback (tUSERIAL_PORT port, tUSERIAL_EVT evt, tU
 *******************************************************************************/
 void nfc_hal_main_pre_init_done (tHAL_NFC_STATUS status)
 {
-    NCI_TRACE_DEBUG1 ("nfc_hal_main_pre_init_done () status = %d", status);
+    HAL_TRACE_DEBUG1 ("nfc_hal_main_pre_init_done () status = %d", status);
 
     if (status != HAL_NFC_STATUS_OK)
     {
@@ -216,7 +227,7 @@ static void nfc_hal_main_timeout_cback (void *p_tle)
 {
     TIMER_LIST_ENT  *p_tlent = (TIMER_LIST_ENT *) p_tle;
 
-    NCI_TRACE_DEBUG0 ("nfc_hal_main_timeout_cback ()");
+    HAL_TRACE_DEBUG0 ("nfc_hal_main_timeout_cback ()");
 
     switch (p_tlent->event)
     {
@@ -224,8 +235,13 @@ static void nfc_hal_main_timeout_cback (void *p_tle)
         nfc_hal_main_open_transport ();
         break;
 
+    case NFC_HAL_TTYPE_NFCC_ENABLE:
+        /* NFCC should have enabled now, notify transport openned */
+        nfc_hal_dm_pre_init_nfcc ();
+        break;
+
     default:
-        NCI_TRACE_DEBUG1 ("nfc_hal_main_timeout_cback: unhandled timer event (0x%04x)", p_tlent->event);
+        HAL_TRACE_DEBUG1 ("nfc_hal_main_timeout_cback: unhandled timer event (0x%04x)", p_tlent->event);
         break;
     }
 }
@@ -373,6 +389,76 @@ static void nfc_hal_main_process_quick_timer_evt (void)
 
 /*******************************************************************************
 **
+** Function         nfc_hal_send_nci_msg_to_nfc_task
+**
+** Description      This function is called to send nci message to nfc task
+**
+** Returns          void
+**
+*******************************************************************************/
+void nfc_hal_send_nci_msg_to_nfc_task (NFC_HDR * p_msg)
+{
+#ifdef NFC_HAL_SHARED_GKI
+    /* Using shared NFC/HAL GKI resources - send message buffer directly to NFC_TASK for processing */
+    p_msg->event = BT_EVT_TO_NFC_NCI;
+    GKI_send_msg (NFC_TASK, NFC_MBOX_ID, p_msg);
+#else
+    /* Send NCI message to the stack */
+    nfc_hal_cb.p_data_cback (p_msg->len, (UINT8 *) ((p_msg + 1)
+                                 + p_msg->offset));
+    GKI_freebuf(p_msg);
+#endif
+}
+
+/*******************************************************************************
+**
+** Function         nfc_hal_send_credit_ntf_for_cid
+**
+** Description      This function is called to send credit ntf
+**                  for the specified connection id to nfc task
+**
+** Returns          void
+**
+*******************************************************************************/
+static void nfc_hal_send_credit_ntf_for_cid (UINT8 cid)
+{
+    NFC_HDR  *p_msg;
+    UINT8    *p, *ps;
+
+    /* Start of new message. Allocate a buffer for message */
+    if ((p_msg = (NFC_HDR *) GKI_getpoolbuf (NFC_HAL_NCI_POOL_ID)) != NULL)
+    {
+        /* Initialize NFC_HDR */
+        p_msg->len    = NCI_DATA_HDR_SIZE + 0x03;
+        p_msg->event  = 0;
+        p_msg->offset = 0;
+        p_msg->layer_specific = 0;
+
+        p = (UINT8 *) (p_msg + 1) + p_msg->offset;
+        ps = p;
+        NCI_MSG_BLD_HDR0(p, NCI_MT_NTF, NCI_GID_CORE);
+        NCI_MSG_BLD_HDR1(p, NCI_MSG_CORE_CONN_CREDITS);
+        UINT8_TO_STREAM (p, 0x03);
+
+        /* Number of credit entries */
+        *p++ = 0x01;
+        /* Connection id of the credit ntf */
+        *p++ = cid;
+        /* Number of credits */
+        *p = 0x01;
+#ifdef DISP_NCI
+        DISP_NCI (ps, (UINT16) p_msg->len, TRUE);
+#endif
+        nfc_hal_send_nci_msg_to_nfc_task (p_msg);
+    }
+    else
+    {
+        HAL_TRACE_ERROR0 ("Unable to allocate buffer for Sending credit ntf to stack");
+    }
+}
+
+/*******************************************************************************
+**
 ** Function         nfc_hal_main_send_message
 **
 ** Description      This function is calledto send an NCI message.
@@ -382,13 +468,14 @@ static void nfc_hal_main_process_quick_timer_evt (void)
 *******************************************************************************/
 static void nfc_hal_main_send_message (NFC_HDR *p_msg)
 {
-    UINT8   *ps;
+    UINT8   *ps, *pp, cid, pbf;
     UINT16  len = p_msg->len;
+    UINT16  data_len;
 #ifdef DISP_NCI
     UINT8   delta;
 #endif
 
-    NCI_TRACE_DEBUG1 ("nfc_hal_main_send_message() ls:0x%x", p_msg->layer_specific);
+    HAL_TRACE_DEBUG1 ("nfc_hal_main_send_message() ls:0x%x", p_msg->layer_specific);
     if (  (p_msg->layer_specific == NFC_HAL_WAIT_RSP_CMD)
         ||(p_msg->layer_specific == NFC_HAL_WAIT_RSP_VSC)  )
     {
@@ -404,11 +491,35 @@ static void nfc_hal_main_send_message (NFC_HDR *p_msg)
 
         /* send this packet to transport */
         ps = (UINT8 *) (p_msg + 1) + p_msg->offset;
+        pp = ps + 1;
 #ifdef DISP_NCI
         delta = p_msg->len - len;
         DISP_NCI (ps + delta, (UINT16) (p_msg->len - delta), FALSE);
 #endif
-        USERIAL_Write (USERIAL_NFC_PORT, ps, p_msg->len);
+        if (nfc_hal_cb.hci_cb.hcp_conn_id)
+        {
+            NCI_DATA_PRS_HDR(pp, pbf, cid, data_len);
+            if (cid == nfc_hal_cb.hci_cb.hcp_conn_id)
+            {
+                if (nfc_hal_hci_handle_hcp_pkt_to_hc (pp))
+                {
+                    HAL_TRACE_DEBUG0 ("nfc_hal_main_send_message() - Drop rsp to Fake cmd, Fake credit ntf");
+                    GKI_freebuf (p_msg);
+                    nfc_hal_send_credit_ntf_for_cid (cid);
+                    return;
+                }
+            }
+
+        }
+        /* check low power mode state */
+        if (nfc_hal_dm_power_mode_execute (NFC_HAL_LP_TX_DATA_EVT))
+        {
+            USERIAL_Write (USERIAL_NFC_PORT, ps, p_msg->len);
+        }
+        else
+        {
+            HAL_TRACE_ERROR0 ("nfc_hal_main_send_message(): drop data in low power mode");
+        }
         GKI_freebuf (p_msg);
     }
 }
@@ -431,7 +542,7 @@ UINT32 nfc_hal_main_task (UINT32 param)
     NFC_HDR  *p_msg;
     BOOLEAN  free_msg;
 
-    NCI_TRACE_DEBUG0 ("NFC_HAL_TASK started");
+    HAL_TRACE_DEBUG0 ("NFC_HAL_TASK started");
 
     /* Main loop */
     while (TRUE)
@@ -441,7 +552,7 @@ UINT32 nfc_hal_main_task (UINT32 param)
         /* Handle NFC_HAL_TASK_EVT_INITIALIZE (for initializing NCI transport) */
         if (event & NFC_HAL_TASK_EVT_INITIALIZE)
         {
-            NCI_TRACE_DEBUG0 ("NFC_HAL_TASK got NFC_HAL_TASK_EVT_INITIALIZE signal. Opening NFC transport...");
+            HAL_TRACE_DEBUG0 ("NFC_HAL_TASK got NFC_HAL_TASK_EVT_INITIALIZE signal. Opening NFC transport...");
 
             nfc_hal_main_open_transport ();
         }
@@ -449,28 +560,30 @@ UINT32 nfc_hal_main_task (UINT32 param)
         /* Check for terminate event */
         if (event & NFC_HAL_TASK_EVT_TERMINATE)
         {
-            NCI_TRACE_DEBUG0 ("NFC_HAL_TASK got NFC_HAL_TASK_EVT_TERMINATE");
+            HAL_TRACE_DEBUG0 ("NFC_HAL_TASK got NFC_HAL_TASK_EVT_TERMINATE");
             nfc_hal_main_handle_terminate ();
 
             /* Close uart */
             USERIAL_Close (USERIAL_NFC_PORT);
 
-            nfc_hal_cb.p_stack_cback (HAL_NFC_CLOSE_CPLT_EVT, HAL_NFC_STATUS_OK);
-            nfc_hal_cb.p_stack_cback = NULL;
+            if (nfc_hal_cb.p_stack_cback)
+            {
+                nfc_hal_cb.p_stack_cback (HAL_NFC_CLOSE_CPLT_EVT, HAL_NFC_STATUS_OK);
+                nfc_hal_cb.p_stack_cback = NULL;
+            }
             continue;
         }
 
         /* Check for power cycle event */
         if (event & NFC_HAL_TASK_EVT_POWER_CYCLE)
         {
-            NCI_TRACE_DEBUG0 ("NFC_HAL_TASK got NFC_HAL_TASK_EVT_POWER_CYCLE");
+            HAL_TRACE_DEBUG0 ("NFC_HAL_TASK got NFC_HAL_TASK_EVT_POWER_CYCLE");
             nfc_hal_main_handle_terminate ();
 
             /* Close uart */
             USERIAL_Close (USERIAL_NFC_PORT);
 
             /* power cycle timeout */
-            nfc_hal_cb.timer.p_cback = nfc_hal_main_timeout_cback;
             nfc_hal_main_start_quick_timer (&nfc_hal_cb.timer, NFC_HAL_TTYPE_POWER_CYCLE,
                                             (NFC_HAL_POWER_CYCLE_DELAY*QUICK_TIMER_TICKS_PER_SEC)/1000);
             continue;
@@ -549,15 +662,13 @@ UINT32 nfc_hal_main_task (UINT32 param)
                         if (nfc_hal_nci_preproc_rx_nci_msg (nfc_hal_cb.ncit_cb.p_rcv_msg))
                         {
                             /* Send NCI message to the stack */
-                            nfc_hal_cb.p_data_cback(nfc_hal_cb.ncit_cb.p_rcv_msg->len, (UINT8 *)((nfc_hal_cb.ncit_cb.p_rcv_msg + 1)
-                                                             + nfc_hal_cb.ncit_cb.p_rcv_msg->offset));
-
+                            nfc_hal_send_nci_msg_to_nfc_task (nfc_hal_cb.ncit_cb.p_rcv_msg);
                         }
-                    }
-
-                    if (nfc_hal_cb.ncit_cb.p_rcv_msg)
-                    {
-                        GKI_freebuf(nfc_hal_cb.ncit_cb.p_rcv_msg);
+                        else
+                        {
+                            if (nfc_hal_cb.ncit_cb.p_rcv_msg)
+                                GKI_freebuf(nfc_hal_cb.ncit_cb.p_rcv_msg);
+                        }
                         nfc_hal_cb.ncit_cb.p_rcv_msg = NULL;
                     }
                 }
@@ -571,7 +682,7 @@ UINT32 nfc_hal_main_task (UINT32 param)
         }
     }
 
-    NCI_TRACE_DEBUG0 ("nfc_hal_main_task terminated");
+    HAL_TRACE_DEBUG0 ("nfc_hal_main_task terminated");
 
     GKI_exit_task (GKI_get_taskid ());
     return 0;

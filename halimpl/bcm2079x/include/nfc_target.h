@@ -17,3 +17,40 @@
  ******************************************************************************/
 #pragma once
 #include "nfc_hal_target.h"
+
+/* the maximum number of NFCEE interface supported */
+#ifndef NFC_MAX_EE_INTERFACE
+#define NFC_MAX_EE_INTERFACE        3
+#endif
+
+/* the maximum number of NFCEE information supported. */
+#ifndef NFC_MAX_EE_INFO
+#define NFC_MAX_EE_INFO        8
+#endif
+
+/* the maximum number of NFCEE TLVs supported */
+#ifndef NFC_MAX_EE_TLVS
+#define NFC_MAX_EE_TLVS        1
+#endif
+
+/* the maximum size of NFCEE TLV list supported */
+#ifndef NFC_MAX_EE_TLV_SIZE
+#define NFC_MAX_EE_TLV_SIZE        150
+#endif
+
+/* Number of times reader/writer should attempt to resend a command on failure */
+#ifndef RW_MAX_RETRIES
+#define RW_MAX_RETRIES              5
+#endif
+
+/* Define to TRUE to include not openned Broadcom Vendor Specific implementation */
+
+/* API macros for DLL (needed to export API functions from DLLs) */
+#define NFC_API         EXPORT_API
+#define LLCP_API        EXPORT_API
+
+/* Max length of service name */
+#ifndef LLCP_MAX_SN_LEN
+#define LLCP_MAX_SN_LEN             255     /* max length of service name */
+#endif
+

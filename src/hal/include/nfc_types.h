@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2012 Broadcom Corporation
+ *  Copyright (C) 2012-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 #ifndef NFC_TYPES_H
 #define NFC_TYPES_H
@@ -129,6 +130,7 @@
 
 #define TRACE_CTRL_GENERAL          0x00000000
 #define TRACE_LAYER_NCI             0x00280000
+#define TRACE_LAYER_HAL             0x00310000
 #define TRACE_LAYER_GKI             0x001a0000
 #define TRACE_ORG_STACK             0x00000000
 #define TRACE_ORG_GKI               0x00000400
@@ -139,9 +141,7 @@
 #define TRACE_TYPE_EVENT            0x00000003
 #define TRACE_TYPE_DEBUG            0x00000004
 
-
-/* Define a function for logging */
-typedef void (BT_LOG_FUNC) (int trace_type, const char *fmt_str, ...);
+#define TRACE_TYPE_GENERIC          0x00000008
 
 #endif /* NFC_TYPES_H */
 

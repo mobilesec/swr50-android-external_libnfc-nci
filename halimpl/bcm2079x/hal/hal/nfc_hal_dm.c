@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2012 Broadcom Corporation
+ *  Copyright (C) 2012-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,11 +16,13 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  Vendor-specific handler for DM events
  *
  ******************************************************************************/
+#include <string.h>
 #include "nfc_hal_int.h"
 #include "nfc_hal_post_reset.h"
 #include "userial.h"
@@ -53,14 +55,6 @@ static UINT8 nfc_hal_dm_set_fw_fsm_cmd[NCI_MSG_HDR_SIZE + 1] =
 };
 #define NCI_SET_FWFSM_OFFSET_ENABLE      3
 
-const UINT8 nfc_hal_dm_core_reset_cmd[NCI_MSG_HDR_SIZE + NCI_CORE_PARAM_SIZE_RESET] =
-{
-    NCI_MTS_CMD|NCI_GID_CORE,
-    NCI_MSG_CORE_RESET,
-    NCI_CORE_PARAM_SIZE_RESET,
-    NCI_RESET_TYPE_RESET_CFG
-};
-
 #define NCI_PROP_PARAM_SIZE_XTAL_INDEX      3       /* length of parameters in XTAL_INDEX CMD */
 
 const UINT8 nfc_hal_dm_get_build_info_cmd[NCI_MSG_HDR_SIZE] =
@@ -77,7 +71,19 @@ const UINT8 nfc_hal_dm_get_patch_version_cmd [NCI_MSG_HDR_SIZE] =
     NCI_MSG_GET_PATCH_VERSION,
     0x00
 };
-#define NCI_PATCH_INFO_OFFSET_NVMTYPE  35  /* NVM Type offset in patch info RSP */
+#define NCI_PATCH_INFO_VERSION_LEN  16  /* Length of patch version string in PATCH_INFO */
+
+/* Version string for BCM20791B3 */
+const UINT8 NFC_HAL_DM_BCM20791B3_STR[]   = "20791B3";
+#define NFC_HAL_DM_BCM20791B3_STR_LEN     (sizeof (NFC_HAL_DM_BCM20791B3_STR)-1)
+
+/* Version string for BCM20791B4 */
+const UINT8 NFC_HAL_DM_BCM20791B4_STR[]   = "20791B4";
+#define NFC_HAL_DM_BCM20791B4_STR_LEN     (sizeof (NFC_HAL_DM_BCM20791B4_STR)-1)
+
+/* Version string for BCM43341B0 */
+const UINT8 NFC_HAL_DM_BCM43341B0_STR[]   = "43341B0";
+#define NFC_HAL_DM_BCM43341B0_STR_LEN     (sizeof (NFC_HAL_DM_BCM43341B0_STR)-1)
 
 /*****************************************************************************
 ** Extern function prototypes
@@ -86,6 +92,7 @@ extern UINT8 *p_nfc_hal_dm_lptd_cfg;
 extern UINT8 *p_nfc_hal_dm_pll_325_cfg;
 extern UINT8 *p_nfc_hal_dm_start_up_cfg;
 extern UINT8 *p_nfc_hal_dm_start_up_vsc_cfg;
+extern tNFC_HAL_CFG *p_nfc_hal_cfg;
 
 /*****************************************************************************
 ** Local function prototypes
@@ -159,45 +166,13 @@ tHAL_NFC_STATUS nfc_hal_dm_set_config (UINT8 tlv_size,
         }
         else
         {
-            NCI_TRACE_ERROR0 ("nfc_hal_dm_set_config ():Bad TLV");
+            HAL_TRACE_ERROR0 ("nfc_hal_dm_set_config ():Bad TLV");
         }
 
         GKI_freebuf (p_buff);
     }
 
     return status;
-}
-
-/*******************************************************************************
-**
-** Function         nfc_hal_dm_get_xtal_index
-**
-** Description      Convert xtal frequency to index
-**
-** Returns          xtal index
-**
-*******************************************************************************/
-static tNFC_HAL_XTAL_INDEX nfc_hal_dm_get_xtal_index (UINT16 xtal_freq)
-{
-    tNFC_HAL_XTAL_INDEX xtal_index;
-
-    switch (xtal_freq)
-    {
-    case  9600: xtal_index = NFC_HAL_XTAL_INDEX_9600;  break;
-    case 13000: xtal_index = NFC_HAL_XTAL_INDEX_13000; break;
-    case 16200: xtal_index = NFC_HAL_XTAL_INDEX_16200; break;
-    case 19200: xtal_index = NFC_HAL_XTAL_INDEX_19200; break;
-    case 24000: xtal_index = NFC_HAL_XTAL_INDEX_24000; break;
-    case 26000: xtal_index = NFC_HAL_XTAL_INDEX_26000; break;
-    case 38400: xtal_index = NFC_HAL_XTAL_INDEX_38400; break;
-    case 52000: xtal_index = NFC_HAL_XTAL_INDEX_52000; break;
-    case 37400: xtal_index = NFC_HAL_XTAL_INDEX_37400; break;
-    default :   xtal_index = NFC_HAL_XTAL_INDEX_MAX;
-                NCI_TRACE_DEBUG1 ("nfc_hal_dm_get_xtal_index ():No matched index for %d", xtal_freq);
-                break;
-    }
-
-    return xtal_index;
 }
 
 /*******************************************************************************
@@ -254,7 +229,7 @@ void nfc_hal_dm_send_startup_vsc (void)
     UINT8  *p, *p_end;
     UINT16 len;
 
-    NCI_TRACE_DEBUG0 ("nfc_hal_dm_send_startup_vsc ()");
+    HAL_TRACE_DEBUG0 ("nfc_hal_dm_send_startup_vsc ()");
 
     /* VSC must have NCI header at least */
     if (nfc_hal_cb.dev_cb.next_startup_vsc + NCI_MSG_HDR_SIZE - 1 <= *p_nfc_hal_dm_start_up_vsc_cfg)
@@ -277,7 +252,7 @@ void nfc_hal_dm_send_startup_vsc (void)
         }
     }
 
-    NCI_TRACE_ERROR0 ("nfc_hal_dm_send_startup_vsc (): Bad start-up VSC");
+    HAL_TRACE_ERROR0 ("nfc_hal_dm_send_startup_vsc (): Bad start-up VSC");
 
     NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_IDLE);
     nfc_hal_cb.p_stack_cback (HAL_NFC_POST_INIT_CPLT_EVT, HAL_NFC_STATUS_FAILED);
@@ -294,10 +269,7 @@ void nfc_hal_dm_send_startup_vsc (void)
 *******************************************************************************/
 void nfc_hal_dm_config_nfcc (void)
 {
-    UINT8   *p;
-    UINT8   xtal_index;
-
-    NCI_TRACE_DEBUG1 ("nfc_hal_dm_config_nfcc (): next_dm_config = %d", nfc_hal_cb.dev_cb.next_dm_config);
+    HAL_TRACE_DEBUG1 ("nfc_hal_dm_config_nfcc (): next_dm_config = %d", nfc_hal_cb.dev_cb.next_dm_config);
 
     if ((p_nfc_hal_dm_lptd_cfg[0]) && (nfc_hal_cb.dev_cb.next_dm_config <= NFC_HAL_DM_CONFIG_LPTD))
     {
@@ -319,23 +291,19 @@ void nfc_hal_dm_config_nfcc (void)
 
     if ((p_nfc_hal_dm_pll_325_cfg) && (nfc_hal_cb.dev_cb.next_dm_config <= NFC_HAL_DM_CONFIG_PLL_325))
     {
-        xtal_index = nfc_hal_dm_get_xtal_index (nfc_post_reset_cb.dev_init_config.xtal_freq);
-        if (xtal_index < NFC_HAL_XTAL_INDEX_MAX)
+        nfc_hal_cb.dev_cb.next_dm_config = NFC_HAL_DM_CONFIG_START_UP;
+
+        if (nfc_hal_dm_set_config (NFC_HAL_PLL_325_SETCONFIG_PARAM_LEN,
+                                   p_nfc_hal_dm_pll_325_cfg,
+                                   nfc_hal_dm_config_nfcc_cback) == HAL_NFC_STATUS_OK)
         {
-            nfc_hal_cb.dev_cb.next_dm_config = NFC_HAL_DM_CONFIG_START_UP;
-            p = p_nfc_hal_dm_pll_325_cfg + (xtal_index * NFC_HAL_PLL_325_SETCONFIG_PARAM_LEN);
-            if (nfc_hal_dm_set_config (NFC_HAL_PLL_325_SETCONFIG_PARAM_LEN,
-                                       p,
-                                       nfc_hal_dm_config_nfcc_cback) == HAL_NFC_STATUS_OK)
-            {
-                return;
-            }
-            else
-            {
-                NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_IDLE);
-                nfc_hal_cb.p_stack_cback (HAL_NFC_POST_INIT_CPLT_EVT, HAL_NFC_STATUS_FAILED);
-                return;
-            }
+            return;
+        }
+        else
+        {
+            NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_IDLE);
+            nfc_hal_cb.p_stack_cback (HAL_NFC_POST_INIT_CPLT_EVT, HAL_NFC_STATUS_FAILED);
+            return;
         }
     }
 
@@ -399,6 +367,35 @@ void nfc_hal_dm_config_nfcc (void)
 
 /*******************************************************************************
 **
+** Function:    nfc_hal_dm_get_xtal_index
+**
+** Description: Return Xtal index and frequency
+**
+** Returns:     tNFC_HAL_XTAL_INDEX
+**
+*******************************************************************************/
+tNFC_HAL_XTAL_INDEX nfc_hal_dm_get_xtal_index (UINT32 brcm_hw_id, UINT16 *p_xtal_freq)
+{
+    UINT8 xx;
+
+    HAL_TRACE_DEBUG1("nfc_hal_dm_get_xtal_index() brcm_hw_id:0x%x", brcm_hw_id);
+
+    for (xx = 0; xx < nfc_post_reset_cb.dev_init_config.num_xtal_cfg; xx++)
+    {
+        if (brcm_hw_id == nfc_post_reset_cb.dev_init_config.xtal_cfg[xx].brcm_hw_id)
+        {
+            *p_xtal_freq = nfc_post_reset_cb.dev_init_config.xtal_cfg[xx].xtal_freq;
+            return (nfc_post_reset_cb.dev_init_config.xtal_cfg[xx].xtal_index);
+        }
+    }
+
+    /* if not found */
+    *p_xtal_freq = 0;
+    return (NFC_HAL_XTAL_INDEX_MAX);
+}
+
+/*******************************************************************************
+**
 ** Function         nfc_hal_dm_set_xtal_freq_index
 **
 ** Description      Set crystal frequency index
@@ -411,37 +408,18 @@ void nfc_hal_dm_set_xtal_freq_index (void)
     UINT8 nci_brcm_xtal_index_cmd[NCI_MSG_HDR_SIZE + NCI_PROP_PARAM_SIZE_XTAL_INDEX];
     UINT8 *p;
     tNFC_HAL_XTAL_INDEX xtal_index;
+    UINT16              xtal_freq;
 
-    NCI_TRACE_DEBUG1 ("nfc_hal_dm_set_xtal_freq_index (): xtal_freq = %d", nfc_post_reset_cb.dev_init_config.xtal_freq);
+    HAL_TRACE_DEBUG1 ("nfc_hal_dm_set_xtal_freq_index (): brcm_hw_id = 0x%x", nfc_hal_cb.dev_cb.brcm_hw_id);
 
-    xtal_index = nfc_hal_dm_get_xtal_index (nfc_post_reset_cb.dev_init_config.xtal_freq);
-
-    switch (xtal_index)
-    {
-    case NFC_HAL_XTAL_INDEX_9600:
-    case NFC_HAL_XTAL_INDEX_13000:
-    case NFC_HAL_XTAL_INDEX_19200:
-    case NFC_HAL_XTAL_INDEX_26000:
-    case NFC_HAL_XTAL_INDEX_38400:
-    case NFC_HAL_XTAL_INDEX_52000:
-
-        {
-            /* no need to set xtal index for these frequency */
-            NCI_TRACE_DEBUG0 ("nfc_hal_dm_set_xtal_freq_index (): no need to set xtal index");
-
-            nfc_post_reset_cb.dev_init_config.flags &= ~NFC_HAL_DEV_INIT_FLAGS_SET_XTAL_FREQ;
-            nfc_hal_dm_send_reset_cmd ();
-            return;
-        }
-        break;
-    }
+    xtal_index = nfc_hal_dm_get_xtal_index (nfc_hal_cb.dev_cb.brcm_hw_id, &xtal_freq);
 
     p = nci_brcm_xtal_index_cmd;
     UINT8_TO_STREAM  (p, (NCI_MTS_CMD|NCI_GID_PROP));
     UINT8_TO_STREAM  (p, NCI_MSG_GET_XTAL_INDEX_FROM_DH);
     UINT8_TO_STREAM  (p, NCI_PROP_PARAM_SIZE_XTAL_INDEX);
     UINT8_TO_STREAM  (p, xtal_index);
-    UINT16_TO_STREAM (p, nfc_post_reset_cb.dev_init_config.xtal_freq);
+    UINT16_TO_STREAM (p, xtal_freq);
 
     NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_XTAL_SET);
 
@@ -450,19 +428,19 @@ void nfc_hal_dm_set_xtal_freq_index (void)
 
 /*******************************************************************************
 **
-** Function         nfc_hal_dm_send_reset_cmd
+** Function         nfc_hal_dm_send_get_build_info_cmd
 **
-** Description      Send CORE RESET CMD
+** Description      Send NCI_MSG_GET_BUILD_INFO CMD
 **
 ** Returns          void
 **
 *******************************************************************************/
-void nfc_hal_dm_send_reset_cmd (void)
+void nfc_hal_dm_send_get_build_info_cmd (void)
 {
-    /* Proceed with start up sequence: send CORE_RESET_CMD */
-    NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_RESET);
+    NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_BUILD_INFO);
 
-    nfc_hal_dm_send_nci_cmd (nfc_hal_dm_core_reset_cmd, NCI_MSG_HDR_SIZE + NCI_CORE_PARAM_SIZE_RESET, NULL);
+    /* get build information to find out HW */
+    nfc_hal_dm_send_nci_cmd (nfc_hal_dm_get_build_info_cmd, NCI_MSG_HDR_SIZE, NULL);
 }
 
 /*******************************************************************************
@@ -480,9 +458,13 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
     UINT8 reset_reason, reset_type;
     UINT8 mt, pbf, gid, op_code;
     UINT8 *p_old, old_gid, old_oid, old_mt;
+    UINT8 u8;
     tNFC_HAL_NCI_CBACK *p_cback = NULL;
+    UINT8   chipverlen;
+    UINT8   chipverstr[NCI_SPD_HEADER_CHIPVER_LEN];
+    UINT16  xtal_freq;
 
-    NCI_TRACE_DEBUG1 ("nfc_hal_dm_proc_msg_during_init(): init state:%d", nfc_hal_cb.dev_cb.initializing_state);
+    HAL_TRACE_DEBUG1 ("nfc_hal_dm_proc_msg_during_init(): init state:%d", nfc_hal_cb.dev_cb.initializing_state);
 
     p = (UINT8 *) (p_msg + 1) + p_msg->offset;
 
@@ -513,28 +495,28 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
     {
         if (op_code == NCI_MSG_CORE_RESET)
         {
-            if (mt == NCI_MT_RSP)
+            if (mt == NCI_MT_NTF)
             {
-                if (nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_RE_INIT)
+                if (  (nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_NFCC_ENABLE)
+                    ||(nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_POST_XTAL_SET)  )
                 {
-                    NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_APP_COMPLETE);
-                    nfc_hal_dm_send_nci_cmd (nfc_hal_dm_get_patch_version_cmd, NCI_MSG_HDR_SIZE, nfc_hal_cb.p_reinit_cback);
+                    /*
+                    ** Core reset ntf in the following cases;
+                    ** 1) after power up (raising REG_PU)
+                    ** 2) after setting xtal index
+                    ** Start pre-initializing NFCC
+                    */
+                    nfc_hal_main_stop_quick_timer (&nfc_hal_cb.timer);
+                    nfc_hal_dm_pre_init_nfcc ();
                 }
                 else
                 {
-                    NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_BUILD_INFO);
-
-                    /* get build information to find out HW */
-                    nfc_hal_dm_send_nci_cmd (nfc_hal_dm_get_build_info_cmd, NCI_MSG_HDR_SIZE, NULL);
+                    /* Core reset ntf after post-patch download, Call reset notification callback */
+                    p++;                                /* Skip over param len */
+                    STREAM_TO_UINT8 (reset_reason, p);
+                    STREAM_TO_UINT8 (reset_type, p);
+                    nfc_hal_prm_spd_reset_ntf (reset_reason, reset_type);
                 }
-            }
-            else
-            {
-                /* Call reset notification callback */
-                p++;                                /* Skip over param len */
-                STREAM_TO_UINT8 (reset_reason, p);
-                STREAM_TO_UINT8 (reset_type, p);
-                nfc_hal_prm_spd_reset_ntf (reset_reason, reset_type);
             }
         }
         else if (p_cback)
@@ -555,11 +537,11 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
         {
             if (op_code == (NCI_RSP_BIT|NCI_MSG_GET_XTAL_INDEX_FROM_DH))
             {
-                /* wait for crystal setting in NFCC */
-                GKI_delay (100);
+                /* start timer in case that NFCC doesn't send RESET NTF after loading patch from NVM */
+                NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_POST_XTAL_SET);
 
-                /* Crytal frequency configured. Proceed with start up sequence: send CORE_RESET_CMD */
-                nfc_hal_dm_send_reset_cmd ();
+                nfc_hal_main_start_quick_timer (&nfc_hal_cb.timer, NFC_HAL_TTYPE_NFCC_ENABLE,
+                                                ((p_nfc_hal_cfg->nfc_hal_post_xtal_timeout)*QUICK_TIMER_TICKS_PER_SEC)/1000);
             }
         }
         else if (  (op_code == NFC_VS_GET_BUILD_INFO_EVT)
@@ -569,6 +551,41 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
 
             STREAM_TO_UINT32 (nfc_hal_cb.dev_cb.brcm_hw_id, p);
 
+            STREAM_TO_UINT8 (chipverlen, p);
+            memset (chipverstr, 0, NCI_SPD_HEADER_CHIPVER_LEN);
+
+            STREAM_TO_ARRAY (chipverstr, p, chipverlen);
+
+            if ((chipverlen == NFC_HAL_DM_BCM20791B3_STR_LEN) && (memcmp (NFC_HAL_DM_BCM20791B3_STR, chipverstr, NFC_HAL_DM_BCM20791B3_STR_LEN) == 0))
+            {
+                /* BCM2079B3 FW - eSE restarted for patch download */
+                nfc_hal_cb.hci_cb.hci_fw_workaround         = TRUE;
+                nfc_hal_cb.hci_cb.hci_fw_validate_netwk_cmd = TRUE;
+            }
+            else if (  ((chipverlen == NFC_HAL_DM_BCM20791B4_STR_LEN) && (memcmp (NFC_HAL_DM_BCM20791B4_STR, chipverstr, NFC_HAL_DM_BCM20791B4_STR_LEN) == 0))
+                     ||((chipverlen == NFC_HAL_DM_BCM43341B0_STR_LEN) && (memcmp (NFC_HAL_DM_BCM43341B0_STR, chipverstr, NFC_HAL_DM_BCM43341B0_STR_LEN) == 0))  )
+            {
+                /* BCM43341B0/BCM2079B4 FW - eSE restarted for patch download */
+                nfc_hal_cb.hci_cb.hci_fw_workaround         = TRUE;
+                nfc_hal_cb.hci_cb.hci_fw_validate_netwk_cmd = FALSE;
+            }
+            else
+            {
+                /* BCM2079B5 FW - eSE not be restarted for patch download from UICC */
+                nfc_hal_cb.hci_cb.hci_fw_workaround         = FALSE;
+                nfc_hal_cb.hci_cb.hci_fw_validate_netwk_cmd = FALSE;
+            }
+
+            /* if NFCC needs to set Xtal frequency before getting patch version */
+            if (nfc_hal_dm_get_xtal_index (nfc_hal_cb.dev_cb.brcm_hw_id, &xtal_freq) < NFC_HAL_XTAL_INDEX_MAX)
+            {
+                {
+                    /* set Xtal index before getting patch version */
+                    nfc_hal_dm_set_xtal_freq_index ();
+                    return;
+                }
+            }
+
             NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_PATCH_INFO);
 
             nfc_hal_dm_send_nci_cmd (nfc_hal_dm_get_patch_version_cmd, NCI_MSG_HDR_SIZE, NULL);
@@ -576,12 +593,66 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
         else if (  (op_code == NFC_VS_GET_PATCH_VERSION_EVT)
                  &&(nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_PATCH_INFO)  )
         {
-            p += NCI_PATCH_INFO_OFFSET_NVMTYPE;
+            /* Store NVM info to control block */
 
-            NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_APP_COMPLETE);
+            /* Skip over rsp len */
+            p++;
+
+            /* Get project id */
+            STREAM_TO_UINT16 (nfc_hal_cb.nvm_cb.project_id, p);
+
+            /* RFU */
+            p++;
+
+            /* Get chip version string */
+            STREAM_TO_UINT8 (u8, p);
+            p += NCI_PATCH_INFO_VERSION_LEN;
+
+            /* Get major/minor version */
+            STREAM_TO_UINT16 (nfc_hal_cb.nvm_cb.ver_major, p);
+            STREAM_TO_UINT16 (nfc_hal_cb.nvm_cb.ver_minor, p);
+
+            /* Skip over max_size and patch_max_size */
+            p += 4;
+
+            /* Get current lpm patch size */
+            STREAM_TO_UINT16 (nfc_hal_cb.nvm_cb.lpm_size, p);
+            STREAM_TO_UINT16 (nfc_hal_cb.nvm_cb.fpm_size, p);
+
+            /* clear all flags which may be set during previous initialization */
+            nfc_hal_cb.nvm_cb.flags = 0;
+
+            /* Set patch present flag */
+            if ((nfc_hal_cb.nvm_cb.fpm_size) || (nfc_hal_cb.nvm_cb.lpm_size))
+                nfc_hal_cb.nvm_cb.flags |= NFC_HAL_NVM_FLAGS_PATCH_PRESENT;
+
+            /* LPMPatchCodeHasBadCRC (if not bad crc, then indicate LPM patch is present in nvm) */
+            STREAM_TO_UINT8 (u8, p);
+            if (u8)
+            {
+                /* LPM patch in NVM fails CRC check */
+                nfc_hal_cb.nvm_cb.flags |= NFC_HAL_NVM_FLAGS_LPM_BAD;
+            }
+
+
+            /* FPMPatchCodeHasBadCRC (if not bad crc, then indicate LPM patch is present in nvm) */
+            STREAM_TO_UINT8 (u8, p);
+            if (u8)
+            {
+                /* FPM patch in NVM fails CRC check */
+                nfc_hal_cb.nvm_cb.flags |= NFC_HAL_NVM_FLAGS_FPM_BAD;
+            }
+
+            /* Check if downloading patch to RAM only (no NVM) */
+            STREAM_TO_UINT8 (nfc_hal_cb.nvm_cb.nvm_type, p);
+            if (nfc_hal_cb.nvm_cb.nvm_type == NCI_SPD_NVM_TYPE_NONE)
+            {
+                nfc_hal_cb.nvm_cb.flags |= NFC_HAL_NVM_FLAGS_NO_NVM;
+            }
 
             /* let platform update baudrate or download patch */
-            nfc_hal_post_reset_init (nfc_hal_cb.dev_cb.brcm_hw_id, *p);
+            NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_APP_COMPLETE);
+            nfc_hal_post_reset_init (nfc_hal_cb.dev_cb.brcm_hw_id, nfc_hal_cb.nvm_cb.nvm_type);
         }
         else if (p_cback)
         {
@@ -591,7 +662,7 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
         }
         else if (op_code == NFC_VS_SEC_PATCH_AUTH_EVT)
         {
-            NCI_TRACE_DEBUG0 ("signature!!");
+            HAL_TRACE_DEBUG0 ("signature!!");
             nfc_hal_prm_nci_command_complete_cback ((tNFC_HAL_NCI_EVT) (op_code),
                                                     p_msg->len,
                                                     (UINT8 *) (p_msg + 1) + p_msg->offset);
@@ -613,11 +684,11 @@ void nfc_hal_dm_send_nci_cmd (const UINT8 *p_data, UINT16 len, tNFC_HAL_NCI_CBAC
     NFC_HDR *p_buf;
     UINT8  *ps;
 
-    NCI_TRACE_DEBUG1 ("nfc_hal_dm_send_nci_cmd (): nci_wait_rsp = 0x%x", nfc_hal_cb.ncit_cb.nci_wait_rsp);
+    HAL_TRACE_DEBUG1 ("nfc_hal_dm_send_nci_cmd (): nci_wait_rsp = 0x%x", nfc_hal_cb.ncit_cb.nci_wait_rsp);
 
     if (nfc_hal_cb.ncit_cb.nci_wait_rsp != NFC_HAL_WAIT_RSP_NONE)
     {
-        NCI_TRACE_ERROR0 ("nfc_hal_dm_send_nci_cmd(): no command window");
+        HAL_TRACE_ERROR0 ("nfc_hal_dm_send_nci_cmd(): no command window");
         return;
     }
 
@@ -714,11 +785,11 @@ void nfc_hal_dm_send_bt_cmd (const UINT8 *p_data, UINT16 len, tNFC_HAL_BTVSC_CPL
 {
     NFC_HDR *p_buf;
 
-    NCI_TRACE_DEBUG1 ("nfc_hal_dm_send_bt_cmd (): nci_wait_rsp = 0x%x", nfc_hal_cb.ncit_cb.nci_wait_rsp);
+    HAL_TRACE_DEBUG1 ("nfc_hal_dm_send_bt_cmd (): nci_wait_rsp = 0x%x", nfc_hal_cb.ncit_cb.nci_wait_rsp);
 
     if (nfc_hal_cb.ncit_cb.nci_wait_rsp != NFC_HAL_WAIT_RSP_NONE)
     {
-        NCI_TRACE_ERROR0 ("nfc_hal_dm_send_bt_cmd(): no command window");
+        HAL_TRACE_ERROR0 ("nfc_hal_dm_send_bt_cmd(): no command window");
         return;
     }
 
@@ -757,7 +828,7 @@ void nfc_hal_dm_send_bt_cmd (const UINT8 *p_data, UINT16 len, tNFC_HAL_BTVSC_CPL
 *******************************************************************************/
 void nfc_hal_dm_set_nfc_wake (UINT8 cmd)
 {
-    NCI_TRACE_DEBUG1 ("nfc_hal_dm_set_nfc_wake () %s",
+    HAL_TRACE_DEBUG1 ("nfc_hal_dm_set_nfc_wake () %s",
                       (cmd == NFC_HAL_ASSERT_NFC_WAKE ? "ASSERT" : "DEASSERT"));
 
     /*
@@ -790,7 +861,7 @@ BOOLEAN nfc_hal_dm_power_mode_execute (tNFC_HAL_LP_EVT event)
 {
     BOOLEAN send_to_nfcc = FALSE;
 
-    NCI_TRACE_DEBUG1 ("nfc_hal_dm_power_mode_execute () event = %d", event);
+    HAL_TRACE_DEBUG1 ("nfc_hal_dm_power_mode_execute () event = %d", event);
 
     if (nfc_hal_cb.dev_cb.power_mode == NFC_HAL_POWER_MODE_FULL)
     {
@@ -834,7 +905,7 @@ BOOLEAN nfc_hal_dm_power_mode_execute (tNFC_HAL_LP_EVT event)
 *******************************************************************************/
 static void nci_brcm_lp_timeout_cback (void *p_tle)
 {
-    NCI_TRACE_DEBUG0 ("nci_brcm_lp_timeout_cback ()");
+    HAL_TRACE_DEBUG0 ("nci_brcm_lp_timeout_cback ()");
 
     nfc_hal_dm_power_mode_execute (NFC_HAL_LP_TIMEOUT_EVT);
 }
@@ -851,16 +922,22 @@ static void nci_brcm_lp_timeout_cback (void *p_tle)
 *******************************************************************************/
 void nfc_hal_dm_pre_init_nfcc (void)
 {
-    NCI_TRACE_DEBUG0 ("nfc_hal_dm_pre_init_nfcc ()");
+    HAL_TRACE_DEBUG0 ("nfc_hal_dm_pre_init_nfcc ()");
 
-    if (nfc_post_reset_cb.dev_init_config.flags & NFC_HAL_DEV_INIT_FLAGS_SET_XTAL_FREQ)
+    /* if it was waiting for core reset notification after raising REG_PU */
+    if (nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_NFCC_ENABLE)
     {
-        nfc_hal_dm_set_xtal_freq_index ();
+        nfc_hal_dm_send_get_build_info_cmd ();
     }
-    else
+    /* if it was waiting for core reset notification after setting Xtal */
+    else if (nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_POST_XTAL_SET)
     {
-        /* Send RESET CMD if application registered callback for device initialization */
-        nfc_hal_dm_send_reset_cmd ();
+        {
+            /* Core reset ntf after xtal setting indicating NFCC loaded patch from NVM */
+            NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_PATCH_INFO);
+
+            nfc_hal_dm_send_nci_cmd (nfc_hal_dm_get_patch_version_cmd, NCI_MSG_HDR_SIZE, NULL);
+        }
     }
 }
 
@@ -876,7 +953,7 @@ void nfc_hal_dm_pre_init_nfcc (void)
 *******************************************************************************/
 void nfc_hal_dm_shutting_down_nfcc (void)
 {
-    NCI_TRACE_DEBUG0 ("nfc_hal_dm_shutting_down_nfcc ()");
+    HAL_TRACE_DEBUG0 ("nfc_hal_dm_shutting_down_nfcc ()");
 
     nfc_hal_cb.dev_cb.initializing_state = NFC_HAL_INIT_STATE_CLOSING;
 
@@ -888,7 +965,7 @@ void nfc_hal_dm_shutting_down_nfcc (void)
     }
 
     nfc_hal_cb.ncit_cb.nci_wait_rsp = NFC_HAL_WAIT_RSP_NONE;
-    nfc_hal_cb.hci_cb.b_check_clear_all_pipe_cmd = FALSE;
+    nfc_hal_cb.hci_cb.hcp_conn_id = 0;
 
     nfc_hal_cb.dev_cb.power_mode  = NFC_HAL_POWER_MODE_FULL;
     nfc_hal_cb.dev_cb.snooze_mode = NFC_HAL_LP_SNOOZE_MODE_NONE;
@@ -898,6 +975,7 @@ void nfc_hal_dm_shutting_down_nfcc (void)
     nfc_hal_main_stop_quick_timer (&nfc_hal_cb.dev_cb.lp_timer);
     nfc_hal_main_stop_quick_timer (&nfc_hal_cb.prm.timer);
     nfc_hal_main_stop_quick_timer (&nfc_hal_cb.hci_cb.hci_timer);
+    nfc_hal_main_stop_quick_timer (&nfc_hal_cb.timer);
 }
 
 /*******************************************************************************
@@ -912,13 +990,16 @@ void nfc_hal_dm_shutting_down_nfcc (void)
 *******************************************************************************/
 void nfc_hal_dm_init (void)
 {
-    NCI_TRACE_DEBUG0 ("nfc_hal_dm_init ()");
+    HAL_TRACE_DEBUG0 ("nfc_hal_dm_init ()");
 
     nfc_hal_cb.dev_cb.lp_timer.p_cback = nci_brcm_lp_timeout_cback;
 
     nfc_hal_cb.ncit_cb.nci_wait_rsp_timer.p_cback = nfc_hal_nci_cmd_timeout_cback;
 
     nfc_hal_cb.hci_cb.hci_timer.p_cback = nfc_hal_hci_timeout_cback;
+
+    nfc_post_reset_cb.spd_nvm_detection_cur_count = 0;
+    nfc_post_reset_cb.spd_skip_on_power_cycle     = FALSE;
 
 }
 
@@ -933,7 +1014,7 @@ void nfc_hal_dm_init (void)
 *******************************************************************************/
 void HAL_NfcPreInitDone (tHAL_NFC_STATUS status)
 {
-    NCI_TRACE_DEBUG1 ("HAL_NfcPreInitDone () status=%d", status);
+    HAL_TRACE_DEBUG1 ("HAL_NfcPreInitDone () status=%d", status);
 
     if (nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_APP_COMPLETE)
     {
@@ -947,11 +1028,8 @@ void HAL_NfcPreInitDone (tHAL_NFC_STATUS status)
 **
 ** Function         HAL_NfcReInit
 **
-** Description      This function is called to send an RESET and GET_PATCH_VERSION
-**                  command to NFCC.
-**
-**                  p_cback         - The callback function to receive the command
-**                                    status
+** Description      This function is called to restart initialization after REG_PU
+**                  toggled because of failure to detect NVM type or download patchram.
 **
 ** Note             This function should be called only during the HAL init process
 **
@@ -959,17 +1037,22 @@ void HAL_NfcPreInitDone (tHAL_NFC_STATUS status)
 **                  HAL_NFC_STATUS_FAILED otherwise
 **
 *******************************************************************************/
-tHAL_NFC_STATUS HAL_NfcReInit (tNFC_HAL_NCI_CBACK *p_cback)
+tHAL_NFC_STATUS HAL_NfcReInit (void)
 {
     tHAL_NFC_STATUS status = HAL_NFC_STATUS_FAILED;
-    NCI_TRACE_DEBUG1 ("HAL_NfcReInit () init st=0x%x", nfc_hal_cb.dev_cb.initializing_state);
+
+    HAL_TRACE_DEBUG1 ("HAL_NfcReInit () init st=0x%x", nfc_hal_cb.dev_cb.initializing_state);
     if (nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_APP_COMPLETE)
     {
-        /* Proceed with start up sequence: send CORE_RESET_CMD */
-        NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_RE_INIT);
-        nfc_hal_cb.p_reinit_cback = p_cback;
+        {
+            /* Wait for NFCC to enable - Core reset notification */
+            NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_NFCC_ENABLE);
 
-        nfc_hal_dm_send_nci_cmd (nfc_hal_dm_core_reset_cmd, NCI_MSG_HDR_SIZE + NCI_CORE_PARAM_SIZE_RESET, NULL);
+            /* NFCC Enable timeout */
+            nfc_hal_main_start_quick_timer (&nfc_hal_cb.timer, NFC_HAL_TTYPE_NFCC_ENABLE,
+                                            ((p_nfc_hal_cfg->nfc_hal_nfcc_enable_timeout)*QUICK_TIMER_TICKS_PER_SEC)/1000);
+        }
+
         status = HAL_NFC_STATUS_OK;
     }
     return status;
@@ -1056,7 +1139,7 @@ tHAL_NFC_STATUS HAL_NfcSetSnoozeMode (UINT8 snooze_mode,
     UINT8 cmd[NFC_HAL_BT_HCI_CMD_HDR_SIZE + HCI_BRCM_WRITE_SLEEP_MODE_LENGTH];
     UINT8 *p;
 
-    NCI_TRACE_API1 ("HAL_NfcSetSnoozeMode (): snooze_mode = %d", snooze_mode);
+    HAL_TRACE_API1 ("HAL_NfcSetSnoozeMode (): snooze_mode = %d", snooze_mode);
 
     nfc_hal_cb.dev_cb.new_snooze_mode      = snooze_mode;
     nfc_hal_cb.dev_cb.nfc_wake_active_mode = nfc_wake_active_mode;

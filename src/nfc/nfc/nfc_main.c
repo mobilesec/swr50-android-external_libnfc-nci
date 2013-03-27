@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains functions that interface with the NFC NCI transport.
@@ -36,6 +37,7 @@
 #include "nci_hmsgs.h"
 #include "rw_int.h"
 #include "ce_int.h"
+
 
 #if (NFC_RW_ONLY == FALSE)
 #include "ce_api.h"
@@ -198,6 +200,8 @@ static void nfc_main_notify_enable_status (tNFC_STATUS nfc_status)
         }
     }
 }
+
+
 
 /*******************************************************************************
 **

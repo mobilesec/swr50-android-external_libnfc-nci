@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -85,25 +86,92 @@ static const tNFA_SYS_REG nfa_hci_sys_reg =
 ** Returns          None
 **
 *******************************************************************************/
-void nfa_hci_ee_info_cback (BOOLEAN disable_discover)
+void nfa_hci_ee_info_cback (tNFA_EE_DISC_STS status)
 {
-    NFA_TRACE_DEBUG1 ("nfa_hci_ee_info_cback (): %d", disable_discover);
+    UINT8           num_nfcee = 3;
+    tNFA_EE_INFO    ee_info[3];
 
-    /* Notify EE Discovery is complete */
+    NFA_TRACE_DEBUG1 ("nfa_hci_ee_info_cback (): %d", status);
 
-    if (disable_discover)
+    switch (status)
     {
-        nfa_hci_cb.w4_hci_netwk_init = FALSE;
-        if (nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_NETWK_ENABLE)
-        {
-            nfa_sys_stop_timer (&nfa_hci_cb.timer);
-            nfa_hciu_send_get_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_HOST_LIST_INDEX);
-        }
-    }
-    else
-    {
-        nfa_hci_cb.ee_disc_cmplt = TRUE;
+    case NFA_EE_DISC_STS_ON:
+        /* NFCEE Discovery is in progress */
+        nfa_hci_cb.ee_disc_cmplt      = TRUE;
+        nfa_hci_cb.ee_disable_disc    = FALSE;
+        nfa_hci_cb.num_ee_dis_req_ntf = 0;
+        nfa_hci_cb.num_hot_plug_evts  = 0;
+        nfa_hci_cb.conn_id            = 0;
         nfa_hci_startup ();
+        break;
+
+    case NFA_EE_DISC_STS_OFF:
+        nfa_hci_cb.ee_disable_disc  = TRUE;
+        /* Discovery operation is complete, retrieve discovery result */
+        NFA_EeGetInfo (&num_nfcee, ee_info);
+        nfa_hci_cb.num_nfcee        = num_nfcee;
+
+        if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_NETWK_ENABLE)
+            ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE_NETWK_ENABLE)  )
+        {
+            if (  (nfa_hci_cb.num_nfcee <= 1)
+                ||(nfa_hci_cb.num_ee_dis_req_ntf == (nfa_hci_cb.num_nfcee - 1))
+                ||(nfa_hci_cb.num_hot_plug_evts  == (nfa_hci_cb.num_nfcee - 1))  )
+            {
+                /* No UICC Host is detected or
+                 * HOT_PLUG_EVT(s) and or EE DISC REQ Ntf(s) are already received
+                 * Get Host list and notify SYS on Initialization complete */
+                nfa_sys_stop_timer (&nfa_hci_cb.timer);
+                if (  (nfa_hci_cb.num_nfcee > 1)
+                    &&(nfa_hci_cb.num_ee_dis_req_ntf != (nfa_hci_cb.num_nfcee - 1))  )
+                {
+                    /* Received HOT PLUG EVT, we will also wait for EE DISC REQ Ntf(s) */
+                    nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hci_netwk_enable_timeout);
+                }
+                else
+                {
+                    nfa_hci_cb.w4_hci_netwk_init = FALSE;
+                    nfa_hciu_send_get_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_HOST_LIST_INDEX);
+                }
+            }
+        }
+        else if (nfa_hci_cb.num_nfcee <= 1)
+        {
+            /* No UICC Host is detected, HCI NETWORK is enabled */
+            nfa_hci_cb.w4_hci_netwk_init = FALSE;
+        }
+        break;
+
+    case NFA_EE_DISC_STS_REQ:
+        nfa_hci_cb.num_ee_dis_req_ntf++;
+
+        if (nfa_hci_cb.ee_disable_disc)
+        {
+            /* Already received Discovery Ntf */
+            if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_NETWK_ENABLE)
+                ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE_NETWK_ENABLE)  )
+            {
+                /* Received DISC REQ Ntf while waiting for other Host in the network to bootup after DH host bootup is complete */
+                if (nfa_hci_cb.num_ee_dis_req_ntf == (nfa_hci_cb.num_nfcee - 1))
+                {
+                    /* Received expected number of EE DISC REQ Ntf(s) */
+                    nfa_sys_stop_timer (&nfa_hci_cb.timer);
+                    nfa_hci_cb.w4_hci_netwk_init = FALSE;
+                    nfa_hciu_send_get_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_HOST_LIST_INDEX);
+                }
+            }
+            else if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_STARTUP)
+                     ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)  )
+            {
+                /* Received DISC REQ Ntf during DH host bootup */
+                if (nfa_hci_cb.num_ee_dis_req_ntf == (nfa_hci_cb.num_nfcee - 1))
+                {
+                    /* Received expected number of EE DISC REQ Ntf(s) */
+                    nfa_hci_cb.w4_hci_netwk_init = FALSE;
+                }
+            }
+        }
+        break;
     }
 }
 
@@ -355,9 +423,16 @@ void nfa_hci_proc_nfcc_power_mode (UINT8 nfcc_power_mode)
         nfa_hci_cb.b_low_power_mode = FALSE;
         if (nfa_hci_cb.hci_state == NFA_HCI_STATE_IDLE)
         {
-            nfa_hci_cb.hci_state     = NFA_HCI_STATE_RESTORE;
-            nfa_hci_cb.ee_disc_cmplt = FALSE;
-            nfa_hci_cb.conn_id       = 0;
+            nfa_hci_cb.hci_state          = NFA_HCI_STATE_RESTORE;
+            nfa_hci_cb.ee_disc_cmplt      = FALSE;
+            nfa_hci_cb.ee_disable_disc    = TRUE;
+            if (nfa_hci_cb.num_nfcee > 1)
+                nfa_hci_cb.w4_hci_netwk_init  = TRUE;
+            else
+                nfa_hci_cb.w4_hci_netwk_init  = FALSE;
+            nfa_hci_cb.conn_id            = 0;
+            nfa_hci_cb.num_ee_dis_req_ntf = 0;
+            nfa_hci_cb.num_hot_plug_evts  = 0;
         }
         else
         {
@@ -390,12 +465,30 @@ void nfa_hci_dh_startup_complete (void)
 {
     if (nfa_hci_cb.w4_hci_netwk_init)
     {
-        nfa_hci_cb.hci_state = NFA_HCI_STATE_WAIT_NETWK_ENABLE;
-        /* No HCP packet to DH for a specified period of time indicates all host in the network is initialized */
-        nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, NFA_HCI_NETWK_INIT_TIMEOUT);
+        if (nfa_hci_cb.hci_state == NFA_HCI_STATE_STARTUP)
+        {
+            nfa_hci_cb.hci_state = NFA_HCI_STATE_WAIT_NETWK_ENABLE;
+            /* No HCP packet to DH for a specified period of time indicates all host in the network is initialized */
+            nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hci_netwk_enable_timeout);
+        }
+        else if (nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)
+        {
+            nfa_hci_cb.hci_state = NFA_HCI_STATE_RESTORE_NETWK_ENABLE;
+            /* No HCP packet to DH for a specified period of time indicates all host in the network is initialized */
+            nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hci_netwk_enable_timeout);
+        }
+    }
+    else if (  (nfa_hci_cb.num_nfcee > 1)
+             &&(nfa_hci_cb.num_ee_dis_req_ntf != (nfa_hci_cb.num_nfcee - 1))  )
+    {
+        /* Received HOT PLUG EVT, we will also wait for EE DISC REQ Ntf(s) */
+        nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hci_netwk_enable_timeout);
     }
     else
+    {
+        /* Received EE DISC REQ Ntf(s) */
         nfa_hciu_send_get_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_HOST_LIST_INDEX);
+    }
 }
 
 /*******************************************************************************
@@ -415,7 +508,8 @@ void nfa_hci_startup_complete (tNFA_STATUS status)
 
     nfa_sys_stop_timer (&nfa_hci_cb.timer);
 
-    if (nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)
+    if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)
+        ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE_NETWK_ENABLE)  )
     {
         nfa_ee_proc_hci_info_cback ();
         nfa_sys_cback_notify_nfcc_power_mode_proc_complete (NFA_ID_HCI);
@@ -464,7 +558,6 @@ void nfa_hci_startup (void)
     if (nfa_hci_cb.nv_read_cmplt && nfa_hci_cb.ee_disc_cmplt && (nfa_hci_cb.conn_id == 0))
     {
         NFA_EeGetInfo (&num_nfcee, ee_info);
-        nfa_hci_cb.num_nfcee = num_nfcee;
 
         while ((count < num_nfcee) && (!found))
         {
@@ -597,11 +690,13 @@ static void nfa_hci_conn_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p
     if ((event != NFC_DATA_CEVT) || (p_pkt == NULL))
             return;
 
-    if (nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_NETWK_ENABLE)
+    if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_NETWK_ENABLE)
+        ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE_NETWK_ENABLE)  )
     {
         /* Received HCP Packet before timeout, Other Host initialization is not complete */
         nfa_sys_stop_timer (&nfa_hci_cb.timer);
-        nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, NFA_HCI_NETWK_INIT_TIMEOUT);
+        if (nfa_hci_cb.w4_hci_netwk_init)
+            nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hci_netwk_enable_timeout);
     }
 
     p       = (UINT8 *) (p_pkt + 1) + p_pkt->offset;
@@ -684,11 +779,11 @@ static void nfa_hci_conn_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p
 
     /* If we got a response, cancel the response timer. Also, if waiting for */
     /* a single response, we can go back to idle state                       */
-    if (nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_RSP)
+    if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_RSP)
+        &&((nfa_hci_cb.type == NFA_HCI_RESPONSE_TYPE) || (nfa_hci_cb.w4_rsp_evt && (nfa_hci_cb.type == NFA_HCI_EVENT_TYPE)))  )
     {
         nfa_sys_stop_timer (&nfa_hci_cb.timer);
         nfa_hci_cb.hci_state  = NFA_HCI_STATE_IDLE;
-        nfa_hci_cb.w4_rsp_evt = FALSE;
     }
 
     switch (pipe)
@@ -719,6 +814,11 @@ static void nfa_hci_conn_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p
         if (pipe >= NFA_HCI_FIRST_DYNAMIC_PIPE)
             nfa_hci_handle_dyn_pipe_pkt (pipe, p, pkt_len);
         break;
+    }
+
+    if ((nfa_hci_cb.type == NFA_HCI_RESPONSE_TYPE) || (nfa_hci_cb.w4_rsp_evt && (nfa_hci_cb.type == NFA_HCI_EVENT_TYPE)))
+    {
+        nfa_hci_cb.w4_rsp_evt = FALSE;
     }
 
     /* Send a message to ouselves to check for anything to do */
@@ -753,6 +853,7 @@ void nfa_hci_handle_nv_read (UINT8 block, tNFA_STATUS status)
             ||(!(memcmp (nfa_hci_cb.cfg.admin_gate.session_id, default_session, NFA_HCI_SESSION_ID_LEN)))
             ||(!(memcmp (nfa_hci_cb.cfg.admin_gate.session_id, reset_session, NFA_HCI_SESSION_ID_LEN)))  )
         {
+            nfa_hci_cb.b_hci_netwk_reset = TRUE;
             /* Set a new session id so that we clear all pipes later after seeing a difference with the HC Session ID */
             memcpy (&session_id[(NFA_HCI_SESSION_ID_LEN / 2)], nfa_hci_cb.cfg.admin_gate.session_id, (NFA_HCI_SESSION_ID_LEN / 2));
             os_tick = GKI_get_os_tick_count ();
@@ -791,9 +892,18 @@ void nfa_hci_rsp_timeout (tNFA_HCI_EVENT_DATA *p_evt_data)
         break;
 
     case NFA_HCI_STATE_WAIT_NETWK_ENABLE:
-        /* HCI Network is enabled */
-        nfa_hci_cb.w4_hci_netwk_init = FALSE;
-        nfa_hciu_send_get_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_HOST_LIST_INDEX);
+    case NFA_HCI_STATE_RESTORE_NETWK_ENABLE:
+
+        if (nfa_hci_cb.w4_hci_netwk_init)
+        {
+            /* HCI Network is enabled */
+            nfa_hci_cb.w4_hci_netwk_init = FALSE;
+            nfa_hciu_send_get_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_HOST_LIST_INDEX);
+        }
+        else
+        {
+            nfa_hci_startup_complete (NFA_STATUS_FAILED);
+        }
         break;
 
     case NFA_HCI_STATE_REMOVE_GATE:

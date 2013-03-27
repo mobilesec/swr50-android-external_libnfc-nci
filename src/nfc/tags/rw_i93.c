@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains the implementation for ISO 15693 in Reader/Writer
@@ -533,12 +534,12 @@ BOOLEAN rw_i93_send_to_lower (BT_HDR *p_msg)
 ** Returns          tNFC_STATUS
 **
 *******************************************************************************/
-tNFC_STATUS rw_i93_send_cmd_inventory (UINT8 *p_uid)
+tNFC_STATUS rw_i93_send_cmd_inventory (UINT8 *p_uid, BOOLEAN including_afi, UINT8 afi)
 {
     BT_HDR      *p_cmd;
-    UINT8       *p;
+    UINT8       *p, flags;
 
-    RW_TRACE_DEBUG0 ("rw_i93_send_cmd_inventory ()");
+    RW_TRACE_DEBUG2 ("rw_i93_send_cmd_inventory () including_afi:%d, AFI:0x%02X", including_afi, afi);
 
     p_cmd = (BT_HDR *) GKI_getpoolbuf (NFC_RW_POOL_ID);
 
@@ -553,10 +554,23 @@ tNFC_STATUS rw_i93_send_cmd_inventory (UINT8 *p_uid)
     p = (UINT8 *) (p_cmd + 1) + p_cmd->offset;
 
     /* Flags */
-    UINT8_TO_STREAM (p, (I93_FLAG_SLOT_ONE | I93_FLAG_INVENTORY_SET | RW_I93_FLAG_SUB_CARRIER | RW_I93_FLAG_DATA_RATE));
+    flags = (I93_FLAG_SLOT_ONE | I93_FLAG_INVENTORY_SET | RW_I93_FLAG_SUB_CARRIER | RW_I93_FLAG_DATA_RATE);
+    if (including_afi)
+    {
+        flags |= I93_FLAG_AFI_PRESENT;
+    }
+
+    UINT8_TO_STREAM (p, flags);
 
     /* Command Code */
     UINT8_TO_STREAM (p, I93_CMD_INVENTORY);
+
+    if (including_afi)
+    {
+        /* Parameters */
+        UINT8_TO_STREAM (p, afi);    /* Optional AFI */
+        p_cmd->len++;
+    }
 
     if (p_uid)
     {
@@ -3201,7 +3215,7 @@ tNFC_STATUS rw_i93_select (UINT8 *p_uid)
 **
 ** Function         RW_I93Inventory
 **
-** Description      This function send Inventory command
+** Description      This function send Inventory command with/without AFI
 **                  If UID is provided then set UID[0]:MSB, ... UID[7]:LSB
 **
 **                  RW_I93_RESPONSE_EVT will be returned
@@ -3212,11 +3226,11 @@ tNFC_STATUS rw_i93_select (UINT8 *p_uid)
 **                  NFC_STATUS_FAILED if other error
 **
 *******************************************************************************/
-tNFC_STATUS RW_I93Inventory (UINT8 *p_uid)
+tNFC_STATUS RW_I93Inventory (BOOLEAN including_afi, UINT8 afi, UINT8 *p_uid)
 {
     tNFC_STATUS status;
 
-    RW_TRACE_API0 ("RW_I93Inventory ()");
+    RW_TRACE_API2 ("RW_I93Inventory (), including_afi:%d, AFI:0x%02X", including_afi, afi);
 
     if (rw_cb.tcb.i93.state != RW_I93_STATE_IDLE)
     {
@@ -3225,14 +3239,7 @@ tNFC_STATUS RW_I93Inventory (UINT8 *p_uid)
         return NFC_STATUS_BUSY;
     }
 
-    if (p_uid)
-    {
-        status = rw_i93_send_cmd_inventory (p_uid);
-    }
-    else
-    {
-        status = rw_i93_send_cmd_inventory (NULL);
-    }
+    status = rw_i93_send_cmd_inventory (p_uid, including_afi, afi);
 
     if (status == NFC_STATUS_OK)
     {
@@ -3813,7 +3820,7 @@ tNFC_STATUS RW_I93DetectNDef (void)
 
     if (rw_cb.tcb.i93.uid[0] != I93_UID_FIRST_BYTE)
     {
-        status = rw_i93_send_cmd_inventory (NULL);
+        status = rw_i93_send_cmd_inventory (NULL, FALSE, 0x00);
         sub_state = RW_I93_SUBSTATE_WAIT_UID;
     }
     else if (  (rw_cb.tcb.i93.num_block == 0)
@@ -4004,7 +4011,7 @@ tNFC_STATUS RW_I93FormatNDef (void)
     }
     else
     {
-        status = rw_i93_send_cmd_inventory (rw_cb.tcb.i93.uid);
+        status = rw_i93_send_cmd_inventory (rw_cb.tcb.i93.uid, FALSE, 0x00);
         sub_state = RW_I93_SUBSTATE_WAIT_UID;
     }
 
@@ -4110,7 +4117,8 @@ tNFC_STATUS RW_I93PresenceCheck (void)
     }
     else
     {
-        status = rw_i93_send_cmd_inventory (rw_cb.tcb.i93.uid);
+        /* The support of AFI by the VICC is optional, so do not include AFI */
+        status = rw_i93_send_cmd_inventory (rw_cb.tcb.i93.uid, FALSE, 0x00);
 
         if (status == NFC_STATUS_OK)
         {

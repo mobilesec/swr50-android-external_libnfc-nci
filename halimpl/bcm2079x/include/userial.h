@@ -254,6 +254,7 @@ UDRV_API extern void    USERIAL_Ioctl(tUSERIAL_PORT, tUSERIAL_OP, tUSERIAL_IOCTL
 UDRV_API extern void    USERIAL_Close(tUSERIAL_PORT);
 UDRV_API extern BOOLEAN USERIAL_Feature(tUSERIAL_FEATURE);
 UDRV_API extern BOOLEAN USERIAL_IsClosed();
+UDRV_API extern void    USERIAL_SetPowerOffDelays(int,int);
 UDRV_API extern void    USERIAL_PowerupDevice(tUSERIAL_PORT port);
 
 /*******************************************************************************

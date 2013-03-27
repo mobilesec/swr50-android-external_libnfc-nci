@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -47,13 +48,11 @@ void nfa_nv_ci_read (UINT16 num_bytes_read, tNFA_NV_CO_STATUS status, UINT8 bloc
 
         if (  (status == NFA_STATUS_OK)
             &&(num_bytes_read != 0) )
-        {
             p_msg->nv_read.status = NFA_STATUS_OK;
-            p_msg->nv_read.size   = num_bytes_read;
-        }
         else
             p_msg->nv_read.status = NFA_STATUS_FAILED;
 
+        p_msg->nv_read.size  = num_bytes_read;
         p_msg->nv_read.block = block;
         nfa_sys_sendmsg (p_msg);
     }

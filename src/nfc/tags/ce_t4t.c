@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -264,7 +265,7 @@ static BOOLEAN ce_t4t_update_binary (UINT16 offset, UINT8 length, UINT8 *p_data)
     tCE_T4T_MEM *p_t4t = &ce_cb.mem.t4t;
     UINT8       *p;
     UINT8        file_length[2];
-    UINT16       starting_offset, status_words;
+    UINT16       starting_offset;
     tCE_DATA     ce_data;
 
     CE_TRACE_DEBUG3 ("ce_t4t_update_binary (): Offset:0x%04X, Length:0x%04X, selected status = 0x%02X",
@@ -290,8 +291,6 @@ static BOOLEAN ce_t4t_update_binary (UINT16 offset, UINT8 length, UINT8 *p_data)
 
     if (length > 0)
         memcpy (p_t4t->p_scratch_buf + offset - T4T_FILE_LENGTH_SIZE, p_data, length);
-
-    status_words = T4T_RSP_CMD_CMPLTED;
 
     /* if this is the last step: writing non-zero length in NLEN */
     if ((starting_offset == 0) && (p_t4t->nlen > 0))
@@ -322,16 +321,14 @@ static BOOLEAN ce_t4t_update_binary (UINT16 offset, UINT8 length, UINT8 *p_data)
             (*ce_cb.p_cback) (CE_T4T_NDEF_UPDATE_START_EVT, NULL);
     }
 
-    if (!ce_t4t_send_status (status_words))
+    if (!ce_t4t_send_status (T4T_RSP_CMD_CMPLTED))
     {
         return FALSE;
     }
-
-    if (status_words == T4T_RSP_CMD_CMPLTED)
+    else
     {
         return TRUE;
     }
-    return FALSE;
 }
 
 /*******************************************************************************
@@ -658,7 +655,7 @@ static void ce_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
         CE_TRACE_DEBUG0 ("CET4T: Forward raw frame to registered AID");
 
         /* forward raw frame to upper layer */
-        if (ce_cb.mem.t4t.selected_aid_idx < NFC_MAX_AID_LEN)
+        if (ce_cb.mem.t4t.selected_aid_idx < CE_T4T_MAX_REG_AID)
         {
             ce_data.raw_frame.status = NFC_STATUS_OK;
             ce_data.raw_frame.p_data = p_c_apdu;

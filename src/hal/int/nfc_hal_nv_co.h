@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2003-2012 Broadcom Corporation
+ *  Copyright (C) 2003-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -53,7 +54,7 @@ typedef UINT8 tNFC_HAL_NV_CO_STATUS;
 #define  DH_NV_BLOCK            0x01
 #define  HC_F3_NV_BLOCK         0x02
 #define  HC_F4_NV_BLOCK         0x03
-#define  HC_DH_NV_BLOCK         0x04
+#define  HC_F2_NV_BLOCK         0x04
 
 /*****************************************************************************
 **  Function Declarations

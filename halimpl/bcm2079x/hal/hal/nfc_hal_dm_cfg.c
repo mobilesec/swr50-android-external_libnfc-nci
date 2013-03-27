@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2011-2012 Broadcom Corporation
+ *  Copyright (C) 2011-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains compile-time configurable constants for BRCM HAL
@@ -28,7 +29,7 @@
 
 /* the SetConfig at start up*/
 UINT8 nfc_hal_start_up_cfg[] = {
-    /* TLV len */   28,
+    /* TLV len */   31,
     /* B0 */        NCI_PARAM_ID_EMVCO_ENABLE,
     /* B1 */        1,
     /* B2 */        1,     /* (1 = enable emvco mode, 0 = disable emvco mode) Default = 0.*/
@@ -41,12 +42,12 @@ UINT8 nfc_hal_start_up_cfg[] = {
     /* B9 */        0x00,
     /* B10*/        0x00,
     /* B11*/        0x00,
-    /* B12*/        0x02,
+    /* B12*/        0x0E,
     /* B13*/        0xE8,
-    /* B14*/        0x03,
-    /* B15*/        0x00,
+    /* B14*/        0xF0,
+    /* B15*/        0x55,
     /* B16*/        0x00,
-    /* B17*/        0x00,
+    /* B17*/        0x0F, /* CE3 SO delay in sec */
     /* B18*/        0x00,
     /* B19*/        0x00,
     /* B20*/        0x00,
@@ -56,7 +57,10 @@ UINT8 nfc_hal_start_up_cfg[] = {
     /* B24*/        0x00,
     /* B25*/        0x00,
     /* B26*/        0x00,
-    /* B27*/        0x00
+    /* B27*/        0x00,
+    /* B28*/        NCI_PARAM_ID_ACT_ORDER, /* polling sequence */
+    /* B29*/        1,
+    /* B30*/        1,     /* (1 = active mode polling before passive, 0 = passive polling first) Default = 0.*/
 };
 
 UINT8 *p_nfc_hal_dm_start_up_cfg = (UINT8 *) nfc_hal_start_up_cfg;
@@ -112,22 +116,25 @@ const UINT8 nfc_hal_dm_lptd_cfg[] =
 
 UINT8 *p_nfc_hal_dm_lptd_cfg = (UINT8 *) &nfc_hal_dm_lptd_cfg[0];
 
-/* This must be configured before setting reader mode for 20791. No need to configure for 43341. */
-const UINT8 nfc_hal_dm_pll_325_cfg[NFC_HAL_XTAL_INDEX_MAX][NFC_HAL_PLL_325_SETCONFIG_PARAM_LEN] =
+/*
+** NFCC has a table which has 9 XTAL frequencies: 9.6, 13, 16.2,  19.2, 24, 26, 38.4, 52 and 37.4 in MHz.
+** For these 9 xtal frequencies, host doesn't need to configure PLL325.
+** For 43341, host doesn't need to configure it at all.
+*/
+UINT8 *p_nfc_hal_dm_pll_325_cfg = NULL;
+
+tNFC_HAL_CFG nfc_hal_cfg =
 {
-    {NCI_PARAM_ID_PLL325_CFG_PARAM, NCI_PARAM_LEN_PLL325_CFG_PARAM, 0x9A, 0x99, 0x99, 0x99, 0xD7, 0x03, 0x00, 0x87, 0x04, 0x1C, 0x0F, 0x00, 0x0B, FALSE}, /*  9.6 MHz */
-    {NCI_PARAM_ID_PLL325_CFG_PARAM, NCI_PARAM_LEN_PLL325_CFG_PARAM, 0xEF, 0x90, 0xA8, 0x22, 0xD0, 0x03, 0x00, 0x64, 0x06, 0x26, 0x0F, 0x00, 0x08, FALSE}, /* 13.0 MHz */
-    {NCI_PARAM_ID_PLL325_CFG_PARAM, NCI_PARAM_LEN_PLL325_CFG_PARAM, 0x5B, 0xB0, 0x05, 0x5B, 0xD8, 0x03, 0x00, 0x50, 0x07, 0x30, 0x0F, 0x00, 0x06, FALSE}, /* 16.2 MHz */
-    {NCI_PARAM_ID_PLL325_CFG_PARAM, NCI_PARAM_LEN_PLL325_CFG_PARAM, 0xCD, 0xCC, 0xCC, 0xCC, 0xD7, 0x03, 0x00, 0x43, 0x09, 0x39, 0x0F, 0x00, 0x04, FALSE}, /* 19.2 MHz */
-    {NCI_PARAM_ID_PLL325_CFG_PARAM, NCI_PARAM_LEN_PLL325_CFG_PARAM, 0xD7, 0xA3, 0x70, 0x3D, 0xD0, 0x03, 0x00, 0x36, 0x0B, 0x47, 0x0F, 0x00, 0x03, FALSE}, /* 24.0 MHz */
-    {NCI_PARAM_ID_PLL325_CFG_PARAM, NCI_PARAM_LEN_PLL325_CFG_PARAM, 0x78, 0x48, 0x54, 0x11, 0xD0, 0x03, 0x00, 0x32, 0x0C, 0x4D, 0x0F, 0x00, 0x02, FALSE}, /* 26.0 MHz */
-    {NCI_PARAM_ID_PLL325_CFG_PARAM, NCI_PARAM_LEN_PLL325_CFG_PARAM, 0xCD, 0xCC, 0xCC, 0xCC, 0xD7, 0x03, 0x00, 0x43, 0x09, 0x39, 0x0F, 0x00, 0x04, TRUE},  /* 38.4 MHz */
-    {NCI_PARAM_ID_PLL325_CFG_PARAM, NCI_PARAM_LEN_PLL325_CFG_PARAM, 0x78, 0x48, 0x54, 0x11, 0xD0, 0x03, 0x00, 0x32, 0x0C, 0x4D, 0x0F, 0x00, 0x02, TRUE},  /* 52.0 MHz */
-    {NCI_PARAM_ID_PLL325_CFG_PARAM, NCI_PARAM_LEN_PLL325_CFG_PARAM, 0x29, 0xB4, 0xE2, 0x9C, 0xCF, 0x03, 0x00, 0x45, 0x08, 0x37, 0x0F, 0x00, 0x04, TRUE}   /* 37.4 MHz */
+    FALSE,                                  /* set nfc_hal_prm_nvm_required to TRUE, if the platform wants to abort PRM process without NVM */
+    (UINT16) NFC_HAL_NFCC_ENABLE_TIMEOUT,   /* max time to wait for RESET NTF after setting REG_PU to high
+                                            ** If NFCC doesn't have NVM or cannot load patch from NVM without Xtal setting
+                                            ** then set it to short to optimize bootup time because NFCC cannot send RESET NTF.
+                                            ** Otherwise, it depends on NVM type and size of patchram.
+                                            */
+    (UINT16) NFC_HAL_NFCC_ENABLE_TIMEOUT,   /* max time to wait for RESET NTF after setting Xtal frequency
+                                            ** It depends on NVM type and size of patchram.
+                                            */
+    (HAL_NFC_HCI_UICC0_HOST | HAL_NFC_HCI_UICC1_HOST)  /* Set bit(s) for supported UICC(s) */
 };
 
-UINT8 *p_nfc_hal_dm_pll_325_cfg = (UINT8 *) nfc_hal_dm_pll_325_cfg;
-
-
-/* set nfc_hal_prm_nvm_required to TRUE, if the platform wants to abort PRM process without NVM */
-BOOLEAN nfc_hal_prm_nvm_required = FALSE;
+tNFC_HAL_CFG *p_nfc_hal_cfg= (tNFC_HAL_CFG *) &nfc_hal_cfg;

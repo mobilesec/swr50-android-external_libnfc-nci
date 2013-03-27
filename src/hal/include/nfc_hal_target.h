@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2012 Broadcom Corporation
+ *  Copyright (C) 2012-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,27 +15,16 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 #ifndef NFC_HAL_TARGET_H
 #define NFC_HAL_TARGET_H
 
+#include "gki.h"
 #include "data_types.h"
-
-#ifdef BUILDCFG
-#include "buildcfg_hal.h"
-#endif
 
 /****************************************************************************
 ** NCI related configuration
 ****************************************************************************/
-
-/* GKI pool for NCI messages */
-#ifndef NFC_HAL_NCI_POOL_ID
-#define NFC_HAL_NCI_POOL_ID                     GKI_POOL_ID_1
-#endif
-
-#ifndef NFC_HAL_NCI_POOL_BUF_SIZE
-#define NFC_HAL_NCI_POOL_BUF_SIZE               GKI_BUF1_SIZE
-#endif
 
 /* Initial Max Control Packet Payload Size (until receiving payload size in INIT_CORE_RSP) */
 #ifndef NFC_HAL_NCI_INIT_CTRL_PAYLOAD_SIZE
@@ -83,6 +72,11 @@
 #define NFC_HAL_POWER_CYCLE_DELAY               100
 #endif
 
+/* time (in ms) between power off and on NFCC */
+#ifndef NFC_HAL_NFCC_ENABLE_TIMEOUT
+#define NFC_HAL_NFCC_ENABLE_TIMEOUT             1000
+#endif
+
 #ifndef NFC_HAL_PRM_DEBUG
 #define NFC_HAL_PRM_DEBUG                       TRUE
 #endif
@@ -109,9 +103,9 @@
 #define NFC_HAL_PRM_MIN_NCI_CMD_PAYLOAD_SIZE    (32)
 #endif
 
-/* amount of time to wait for RESET NTF after patch download */
-#ifndef NFC_HAL_PRM_RESET_NTF_DELAY
-#define NFC_HAL_PRM_RESET_NTF_DELAY             (10000)
+/* amount of time to wait for authenticating/committing patch to NVM */
+#ifndef NFC_HAL_PRM_COMMIT_DELAY
+#define NFC_HAL_PRM_COMMIT_DELAY                (30000)
 #endif
 
 /* amount of time to wait after downloading preI2C patch before downloading LPM/FPM patch */
@@ -164,81 +158,123 @@
 #ifndef NFC_HAL_TRACE_PROTOCOL
 #define NFC_HAL_TRACE_PROTOCOL                  TRUE
 #endif
+
+/* Legacy protocol-trace-enable macro */
+#ifndef BT_TRACE_PROTOCOL
 #define BT_TRACE_PROTOCOL                       (NFC_HAL_TRACE_PROTOCOL)
-
-#define LogMsg_0 LogMsg
-#define LogMsg_1 LogMsg
-#define LogMsg_2 LogMsg
-#define LogMsg_3 LogMsg
-#define LogMsg_4 LogMsg
-#define LogMsg_5 LogMsg
-#define LogMsg_6 LogMsg
-
-/* Trace macros */
-#define BT_TRACE_0(l,t,m)                           LogMsg_0((TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t)),(m))
-#define BT_TRACE_1(l,t,m,p1)                        LogMsg_1(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINT32)(p1))
-#define BT_TRACE_2(l,t,m,p1,p2)                     LogMsg_2(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINT32)(p1),   \
-                                                        (UINT32)(p2))
-#define BT_TRACE_3(l,t,m,p1,p2,p3)                  LogMsg_3(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINT32)(p1),   \
-                                                        (UINT32)(p2),(UINT32)(p3))
-#define BT_TRACE_4(l,t,m,p1,p2,p3,p4)               LogMsg_4(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINT32)(p1),   \
-                                                        (UINT32)(p2),(UINT32)(p3),(UINT32)(p4))
-#define BT_TRACE_5(l,t,m,p1,p2,p3,p4,p5)            LogMsg_5(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINT32)(p1),   \
-                                                        (UINT32)(p2),(UINT32)(p3),(UINT32)(p4), \
-                                                        (UINT32)(p5))
-#define BT_TRACE_6(l,t,m,p1,p2,p3,p4,p5,p6)         LogMsg_6(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINT32)(p1),   \
-                                                        (UINT32)(p2),(UINT32)(p3),(UINT32)(p4), \
-                                                        (UINT32)(p5),(UINT32)(p6))
-
-#define NCI_TRACE_ERROR0(m)                     {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) BT_TRACE_0(TRACE_LAYER_NCI, TRACE_TYPE_ERROR, m);}
-#define NCI_TRACE_ERROR1(m,p1)                  {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) BT_TRACE_1(TRACE_LAYER_NCI, TRACE_TYPE_ERROR, m,p1);}
-#define NCI_TRACE_ERROR2(m,p1,p2)               {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) BT_TRACE_2(TRACE_LAYER_NCI, TRACE_TYPE_ERROR, m,p1,p2);}
-#define NCI_TRACE_ERROR3(m,p1,p2,p3)            {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) BT_TRACE_3(TRACE_LAYER_NCI, TRACE_TYPE_ERROR, m,p1,p2,p3);}
-#define NCI_TRACE_ERROR4(m,p1,p2,p3,p4)         {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) BT_TRACE_4(TRACE_LAYER_NCI, TRACE_TYPE_ERROR, m,p1,p2,p3,p4);}
-#define NCI_TRACE_ERROR5(m,p1,p2,p3,p4,p5)      {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) BT_TRACE_5(TRACE_LAYER_NCI, TRACE_TYPE_ERROR, m,p1,p2,p3,p4,p5);}
-#define NCI_TRACE_ERROR6(m,p1,p2,p3,p4,p5,p6)   {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) BT_TRACE_6(TRACE_LAYER_NCI, TRACE_TYPE_ERROR, m,p1,p2,p3,p4,p5,p6);}
-
-#define NCI_TRACE_WARNING0(m)                   {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) BT_TRACE_0(TRACE_LAYER_NCI, TRACE_TYPE_WARNING, m);}
-#define NCI_TRACE_WARNING1(m,p1)                {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) BT_TRACE_1(TRACE_LAYER_NCI, TRACE_TYPE_WARNING, m,p1);}
-#define NCI_TRACE_WARNING2(m,p1,p2)             {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) BT_TRACE_2(TRACE_LAYER_NCI, TRACE_TYPE_WARNING, m,p1,p2);}
-#define NCI_TRACE_WARNING3(m,p1,p2,p3)          {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) BT_TRACE_3(TRACE_LAYER_NCI, TRACE_TYPE_WARNING, m,p1,p2,p3);}
-#define NCI_TRACE_WARNING4(m,p1,p2,p3,p4)       {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) BT_TRACE_4(TRACE_LAYER_NCI, TRACE_TYPE_WARNING, m,p1,p2,p3,p4);}
-#define NCI_TRACE_WARNING5(m,p1,p2,p3,p4,p5)    {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) BT_TRACE_5(TRACE_LAYER_NCI, TRACE_TYPE_WARNING, m,p1,p2,p3,p4,p5);}
-#define NCI_TRACE_WARNING6(m,p1,p2,p3,p4,p5,p6) {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) BT_TRACE_6(TRACE_LAYER_NCI, TRACE_TYPE_WARNING, m,p1,p2,p3,p4,p5,p6);}
-
-#define NCI_TRACE_API0(m)                       {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) BT_TRACE_0(TRACE_LAYER_NCI, TRACE_TYPE_API, m);}
-#define NCI_TRACE_API1(m,p1)                    {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) BT_TRACE_1(TRACE_LAYER_NCI, TRACE_TYPE_API, m,p1);}
-#define NCI_TRACE_API2(m,p1,p2)                 {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) BT_TRACE_2(TRACE_LAYER_NCI, TRACE_TYPE_API, m,p1,p2);}
-#define NCI_TRACE_API3(m,p1,p2,p3)              {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) BT_TRACE_3(TRACE_LAYER_NCI, TRACE_TYPE_API, m,p1,p2,p3);}
-#define NCI_TRACE_API4(m,p1,p2,p3,p4)           {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) BT_TRACE_4(TRACE_LAYER_NCI, TRACE_TYPE_API, m,p1,p2,p3,p4);}
-#define NCI_TRACE_API5(m,p1,p2,p3,p4,p5)        {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) BT_TRACE_5(TRACE_LAYER_NCI, TRACE_TYPE_API, m,p1,p2,p3,p4,p5);}
-#define NCI_TRACE_API6(m,p1,p2,p3,p4,p5,p6)     {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) BT_TRACE_6(TRACE_LAYER_NCI, TRACE_TYPE_API, m,p1,p2,p3,p4,p5,p6);}
-
-#define NCI_TRACE_EVENT0(m)                     {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) BT_TRACE_0(TRACE_LAYER_NCI, TRACE_TYPE_EVENT, m);}
-#define NCI_TRACE_EVENT1(m,p1)                  {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) BT_TRACE_1(TRACE_LAYER_NCI, TRACE_TYPE_EVENT, m, p1);}
-#define NCI_TRACE_EVENT2(m,p1,p2)               {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) BT_TRACE_2(TRACE_LAYER_NCI, TRACE_TYPE_EVENT, m,p1,p2);}
-#define NCI_TRACE_EVENT3(m,p1,p2,p3)            {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) BT_TRACE_3(TRACE_LAYER_NCI, TRACE_TYPE_EVENT, m,p1,p2,p3);}
-#define NCI_TRACE_EVENT4(m,p1,p2,p3,p4)         {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) BT_TRACE_4(TRACE_LAYER_NCI, TRACE_TYPE_EVENT, m,p1,p2,p3,p4);}
-#define NCI_TRACE_EVENT5(m,p1,p2,p3,p4,p5)      {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) BT_TRACE_5(TRACE_LAYER_NCI, TRACE_TYPE_EVENT, m,p1,p2,p3,p4,p5);}
-#define NCI_TRACE_EVENT6(m,p1,p2,p3,p4,p5,p6)   {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) BT_TRACE_6(TRACE_LAYER_NCI, TRACE_TYPE_EVENT, m,p1,p2,p3,p4,p5,p6);}
-
-#define NCI_TRACE_DEBUG0(m)                     {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) BT_TRACE_0(TRACE_LAYER_NCI, TRACE_TYPE_DEBUG, m);}
-#define NCI_TRACE_DEBUG1(m,p1)                  {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) BT_TRACE_1(TRACE_LAYER_NCI, TRACE_TYPE_DEBUG, m,p1);}
-#define NCI_TRACE_DEBUG2(m,p1,p2)               {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) BT_TRACE_2(TRACE_LAYER_NCI, TRACE_TYPE_DEBUG, m,p1,p2);}
-#define NCI_TRACE_DEBUG3(m,p1,p2,p3)            {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) BT_TRACE_3(TRACE_LAYER_NCI, TRACE_TYPE_DEBUG, m,p1,p2,p3);}
-#define NCI_TRACE_DEBUG4(m,p1,p2,p3,p4)         {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) BT_TRACE_4(TRACE_LAYER_NCI, TRACE_TYPE_DEBUG, m,p1,p2,p3,p4);}
-#define NCI_TRACE_DEBUG5(m,p1,p2,p3,p4,p5)      {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) BT_TRACE_5(TRACE_LAYER_NCI, TRACE_TYPE_DEBUG, m,p1,p2,p3,p4,p5);}
-#define NCI_TRACE_DEBUG6(m,p1,p2,p3,p4,p5,p6)   {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) BT_TRACE_6(TRACE_LAYER_NCI, TRACE_TYPE_DEBUG, m,p1,p2,p3,p4,p5,p6);}
-
-#ifdef __cplusplus
-extern "C"
-{
 #endif
 
-extern void LogMsg (UINT32 trace_set_mask, const char *fmt_str, ...);
-
-#ifdef __cplusplus
-}
+/* Enable HAL tracing by default */
+#ifndef NFC_HAL_USE_TRACES
+#define NFC_HAL_USE_TRACES                      TRUE
 #endif
+
+/* HAL trace macros */
+#if (NFC_HAL_USE_TRACES == TRUE)
+#define NCI_TRACE_0(l,t,m)                           LogMsg((TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t)),(m))
+#define NCI_TRACE_1(l,t,m,p1)                        LogMsg(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINTPTR)(p1))
+#define NCI_TRACE_2(l,t,m,p1,p2)                     LogMsg(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINTPTR)(p1),   \
+                                                        (UINTPTR)(p2))
+#define NCI_TRACE_3(l,t,m,p1,p2,p3)                  LogMsg(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINTPTR)(p1),   \
+                                                        (UINTPTR)(p2),(UINTPTR)(p3))
+#define NCI_TRACE_4(l,t,m,p1,p2,p3,p4)               LogMsg(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINTPTR)(p1),   \
+                                                        (UINTPTR)(p2),(UINTPTR)(p3),(UINTPTR)(p4))
+#define NCI_TRACE_5(l,t,m,p1,p2,p3,p4,p5)            LogMsg(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINTPTR)(p1),   \
+                                                        (UINTPTR)(p2),(UINTPTR)(p3),(UINTPTR)(p4), \
+                                                        (UINTPTR)(p5))
+#define NCI_TRACE_6(l,t,m,p1,p2,p3,p4,p5,p6)         LogMsg(TRACE_CTRL_GENERAL | (l) | TRACE_ORG_STACK | (t),(m),(UINTPTR)(p1),   \
+                                                        (UINTPTR)(p2),(UINTPTR)(p3),(UINTPTR)(p4), \
+                                                        (UINTPTR)(p5),(UINTPTR)(p6))
+
+#define HAL_TRACE_ERROR0(m)                     {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) NCI_TRACE_0(TRACE_LAYER_HAL, TRACE_TYPE_ERROR, m);}
+#define HAL_TRACE_ERROR1(m,p1)                  {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) NCI_TRACE_1(TRACE_LAYER_HAL, TRACE_TYPE_ERROR, m,p1);}
+#define HAL_TRACE_ERROR2(m,p1,p2)               {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) NCI_TRACE_2(TRACE_LAYER_HAL, TRACE_TYPE_ERROR, m,p1,p2);}
+#define HAL_TRACE_ERROR3(m,p1,p2,p3)            {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) NCI_TRACE_3(TRACE_LAYER_HAL, TRACE_TYPE_ERROR, m,p1,p2,p3);}
+#define HAL_TRACE_ERROR4(m,p1,p2,p3,p4)         {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) NCI_TRACE_4(TRACE_LAYER_HAL, TRACE_TYPE_ERROR, m,p1,p2,p3,p4);}
+#define HAL_TRACE_ERROR5(m,p1,p2,p3,p4,p5)      {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) NCI_TRACE_5(TRACE_LAYER_HAL, TRACE_TYPE_ERROR, m,p1,p2,p3,p4,p5);}
+#define HAL_TRACE_ERROR6(m,p1,p2,p3,p4,p5,p6)   {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_ERROR) NCI_TRACE_6(TRACE_LAYER_HAL, TRACE_TYPE_ERROR, m,p1,p2,p3,p4,p5,p6);}
+
+#define HAL_TRACE_WARNING0(m)                   {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) NCI_TRACE_0(TRACE_LAYER_HAL, TRACE_TYPE_WARNING, m);}
+#define HAL_TRACE_WARNING1(m,p1)                {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) NCI_TRACE_1(TRACE_LAYER_HAL, TRACE_TYPE_WARNING, m,p1);}
+#define HAL_TRACE_WARNING2(m,p1,p2)             {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) NCI_TRACE_2(TRACE_LAYER_HAL, TRACE_TYPE_WARNING, m,p1,p2);}
+#define HAL_TRACE_WARNING3(m,p1,p2,p3)          {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) NCI_TRACE_3(TRACE_LAYER_HAL, TRACE_TYPE_WARNING, m,p1,p2,p3);}
+#define HAL_TRACE_WARNING4(m,p1,p2,p3,p4)       {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) NCI_TRACE_4(TRACE_LAYER_HAL, TRACE_TYPE_WARNING, m,p1,p2,p3,p4);}
+#define HAL_TRACE_WARNING5(m,p1,p2,p3,p4,p5)    {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) NCI_TRACE_5(TRACE_LAYER_HAL, TRACE_TYPE_WARNING, m,p1,p2,p3,p4,p5);}
+#define HAL_TRACE_WARNING6(m,p1,p2,p3,p4,p5,p6) {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_WARNING) NCI_TRACE_6(TRACE_LAYER_HAL, TRACE_TYPE_WARNING, m,p1,p2,p3,p4,p5,p6);}
+
+#define HAL_TRACE_API0(m)                       {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) NCI_TRACE_0(TRACE_LAYER_HAL, TRACE_TYPE_API, m);}
+#define HAL_TRACE_API1(m,p1)                    {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) NCI_TRACE_1(TRACE_LAYER_HAL, TRACE_TYPE_API, m,p1);}
+#define HAL_TRACE_API2(m,p1,p2)                 {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) NCI_TRACE_2(TRACE_LAYER_HAL, TRACE_TYPE_API, m,p1,p2);}
+#define HAL_TRACE_API3(m,p1,p2,p3)              {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) NCI_TRACE_3(TRACE_LAYER_HAL, TRACE_TYPE_API, m,p1,p2,p3);}
+#define HAL_TRACE_API4(m,p1,p2,p3,p4)           {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) NCI_TRACE_4(TRACE_LAYER_HAL, TRACE_TYPE_API, m,p1,p2,p3,p4);}
+#define HAL_TRACE_API5(m,p1,p2,p3,p4,p5)        {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) NCI_TRACE_5(TRACE_LAYER_HAL, TRACE_TYPE_API, m,p1,p2,p3,p4,p5);}
+#define HAL_TRACE_API6(m,p1,p2,p3,p4,p5,p6)     {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_API) NCI_TRACE_6(TRACE_LAYER_HAL, TRACE_TYPE_API, m,p1,p2,p3,p4,p5,p6);}
+
+#define HAL_TRACE_EVENT0(m)                     {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) NCI_TRACE_0(TRACE_LAYER_HAL, TRACE_TYPE_EVENT, m);}
+#define HAL_TRACE_EVENT1(m,p1)                  {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) NCI_TRACE_1(TRACE_LAYER_HAL, TRACE_TYPE_EVENT, m, p1);}
+#define HAL_TRACE_EVENT2(m,p1,p2)               {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) NCI_TRACE_2(TRACE_LAYER_HAL, TRACE_TYPE_EVENT, m,p1,p2);}
+#define HAL_TRACE_EVENT3(m,p1,p2,p3)            {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) NCI_TRACE_3(TRACE_LAYER_HAL, TRACE_TYPE_EVENT, m,p1,p2,p3);}
+#define HAL_TRACE_EVENT4(m,p1,p2,p3,p4)         {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) NCI_TRACE_4(TRACE_LAYER_HAL, TRACE_TYPE_EVENT, m,p1,p2,p3,p4);}
+#define HAL_TRACE_EVENT5(m,p1,p2,p3,p4,p5)      {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) NCI_TRACE_5(TRACE_LAYER_HAL, TRACE_TYPE_EVENT, m,p1,p2,p3,p4,p5);}
+#define HAL_TRACE_EVENT6(m,p1,p2,p3,p4,p5,p6)   {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_EVENT) NCI_TRACE_6(TRACE_LAYER_HAL, TRACE_TYPE_EVENT, m,p1,p2,p3,p4,p5,p6);}
+
+#define HAL_TRACE_DEBUG0(m)                     {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) NCI_TRACE_0(TRACE_LAYER_HAL, TRACE_TYPE_DEBUG, m);}
+#define HAL_TRACE_DEBUG1(m,p1)                  {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) NCI_TRACE_1(TRACE_LAYER_HAL, TRACE_TYPE_DEBUG, m,p1);}
+#define HAL_TRACE_DEBUG2(m,p1,p2)               {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) NCI_TRACE_2(TRACE_LAYER_HAL, TRACE_TYPE_DEBUG, m,p1,p2);}
+#define HAL_TRACE_DEBUG3(m,p1,p2,p3)            {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) NCI_TRACE_3(TRACE_LAYER_HAL, TRACE_TYPE_DEBUG, m,p1,p2,p3);}
+#define HAL_TRACE_DEBUG4(m,p1,p2,p3,p4)         {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) NCI_TRACE_4(TRACE_LAYER_HAL, TRACE_TYPE_DEBUG, m,p1,p2,p3,p4);}
+#define HAL_TRACE_DEBUG5(m,p1,p2,p3,p4,p5)      {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) NCI_TRACE_5(TRACE_LAYER_HAL, TRACE_TYPE_DEBUG, m,p1,p2,p3,p4,p5);}
+#define HAL_TRACE_DEBUG6(m,p1,p2,p3,p4,p5,p6)   {if (nfc_hal_cb.trace_level >= BT_TRACE_LEVEL_DEBUG) NCI_TRACE_6(TRACE_LAYER_HAL, TRACE_TYPE_DEBUG, m,p1,p2,p3,p4,p5,p6);}
+
+#else /* Disable HAL tracing */
+
+#define HAL_TRACE_0(l,t,m)
+#define HAL_TRACE_1(l,t,m,p1)
+#define HAL_TRACE_2(l,t,m,p1,p2)
+#define HAL_TRACE_3(l,t,m,p1,p2,p3)
+#define HAL_TRACE_4(l,t,m,p1,p2,p3,p4)
+#define HAL_TRACE_5(l,t,m,p1,p2,p3,p4,p5)
+#define HAL_TRACE_6(l,t,m,p1,p2,p3,p4,p5,p6)
+
+#define HAL_TRACE_ERROR0(m)
+#define HAL_TRACE_ERROR1(m,p1)
+#define HAL_TRACE_ERROR2(m,p1,p2)
+#define HAL_TRACE_ERROR3(m,p1,p2,p3)
+#define HAL_TRACE_ERROR4(m,p1,p2,p3,p4)
+#define HAL_TRACE_ERROR5(m,p1,p2,p3,p4,p5)
+#define HAL_TRACE_ERROR6(m,p1,p2,p3,p4,p5,p6)
+
+#define HAL_TRACE_WARNING0(m)
+#define HAL_TRACE_WARNING1(m,p1)
+#define HAL_TRACE_WARNING2(m,p1,p2)
+#define HAL_TRACE_WARNING3(m,p1,p2,p3)
+#define HAL_TRACE_WARNING4(m,p1,p2,p3,p4)
+#define HAL_TRACE_WARNING5(m,p1,p2,p3,p4,p5)
+#define HAL_TRACE_WARNING6(m,p1,p2,p3,p4,p5,p6)
+
+#define HAL_TRACE_API0(m)
+#define HAL_TRACE_API1(m,p1)
+#define HAL_TRACE_API2(m,p1,p2)
+#define HAL_TRACE_API3(m,p1,p2,p3)
+#define HAL_TRACE_API4(m,p1,p2,p3,p4)
+#define HAL_TRACE_API5(m,p1,p2,p3,p4,p5)
+#define HAL_TRACE_API6(m,p1,p2,p3,p4,p5,p6)
+
+#define HAL_TRACE_EVENT0(m)
+#define HAL_TRACE_EVENT1(m,p1)
+#define HAL_TRACE_EVENT2(m,p1,p2)
+#define HAL_TRACE_EVENT3(m,p1,p2,p3)
+#define HAL_TRACE_EVENT4(m,p1,p2,p3,p4)
+#define HAL_TRACE_EVENT5(m,p1,p2,p3,p4,p5)
+#define HAL_TRACE_EVENT6(m,p1,p2,p3,p4,p5,p6)
+
+#define HAL_TRACE_DEBUG0(m)
+#define HAL_TRACE_DEBUG1(m,p1)
+#define HAL_TRACE_DEBUG2(m,p1,p2)
+#define HAL_TRACE_DEBUG3(m,p1,p2,p3)
+#define HAL_TRACE_DEBUG4(m,p1,p2,p3,p4)
+#define HAL_TRACE_DEBUG5(m,p1,p2,p3,p4,p5)
+#define HAL_TRACE_DEBUG6(m,p1,p2,p3,p4,p5,p6)
+#endif  /* Disable HAL tracing */
 
 #endif  /* GKI_TARGET_H */

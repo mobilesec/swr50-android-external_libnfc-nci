@@ -29,6 +29,8 @@ static void gki_remove_from_pool_list(UINT8 pool_id);
 
 #if GKI_BUFFER_DEBUG
 #define LOG_TAG "GKI_DEBUG"
+#include <android/log.h>
+#include <cutils/log.h>
 #define LOGD(format, ...)  LogMsg (TRACE_CTRL_GENERAL | TRACE_LAYER_GKI | TRACE_ORG_GKI | TRACE_TYPE_GENERIC, format, ## __VA_ARGS__)
 #endif
 /*******************************************************************************
@@ -100,7 +102,9 @@ static BOOLEAN gki_alloc_free_queue(UINT8 id)
 {
     FREE_QUEUE_T  *Q;
     tGKI_COM_CB *p_cb = &gki_cb.com;
-    printf("\ngki_alloc_free_queue in, id:%d \n", id);
+    #if GKI_BUFFER_DEBUG
+        ALOGD("\ngki_alloc_free_queue in, id:%d \n", id);
+    #endif
 
     Q = &p_cb->freeq[p_cb->pool_list[id]];
 
@@ -110,14 +114,20 @@ static BOOLEAN gki_alloc_free_queue(UINT8 id)
         if(p_mem)
         {
             //re-initialize the queue with allocated memory
-            printf("\ngki_alloc_free_queue calling  gki_init_free_queue, id:%d  size:%d, totol:%d\n", id, Q->size, Q->total);
+            #if GKI_BUFFER_DEBUG
+                ALOGD("\ngki_alloc_free_queue calling  gki_init_free_queue, id:%d  size:%d, totol:%d\n", id, Q->size, Q->total);
+            #endif
             gki_init_free_queue(id, Q->size, Q->total, p_mem);
-            printf("\ngki_alloc_free_queue ret OK, id:%d  size:%d, totol:%d\n", id, Q->size, Q->total);
+            #if GKI_BUFFER_DEBUG
+                ALOGD("\ngki_alloc_free_queue ret OK, id:%d  size:%d, totol:%d\n", id, Q->size, Q->total);
+            #endif
             return TRUE;
         }
         GKI_exception (GKI_ERROR_BUF_SIZE_TOOBIG, "gki_alloc_free_queue: Not enough memory");
     }
-    printf("\ngki_alloc_free_queue out failed, id:%d\n", id);
+    #if GKI_BUFFER_DEBUG
+        ALOGD("\ngki_alloc_free_queue out failed, id:%d\n", id);
+    #endif
     return FALSE;
 }
 #endif
@@ -400,6 +410,14 @@ void *GKI_getbuf (UINT16 size)
                 return NULL;
             }
         #endif
+
+            if(Q->p_first == 0)
+            {
+                /* gki_alloc_free_queue() failed to alloc memory */
+                GKI_TRACE_ERROR_0("GKI_getbuf() fail alloc free queue");
+                return NULL;
+            }
+
             p_hdr = Q->p_first;
             Q->p_first = p_hdr->p_next;
 
@@ -504,6 +522,14 @@ void *GKI_getpoolbuf (UINT8 pool_id)
         if(Q->p_first == 0 && gki_alloc_free_queue(pool_id) != TRUE)
             return NULL;
 #endif
+
+        if(Q->p_first == 0)
+        {
+            /* gki_alloc_free_queue() failed to alloc memory */
+            GKI_TRACE_ERROR_0("GKI_getpoolbuf() fail alloc free queue");
+            return NULL;
+        }
+
         p_hdr = Q->p_first;
         Q->p_first = p_hdr->p_next;
 

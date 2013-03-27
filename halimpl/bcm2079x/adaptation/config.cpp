@@ -24,12 +24,7 @@
 
 #define LOG_TAG "NfcNciHal"
 
-#if GENERIC_TARGET
-const char alternative_config_path[] = "/data/nfc/";
-#else
 const char alternative_config_path[] = "";
-#endif
-
 const char transport_config_path[] = "/etc/";
 
 #define config_name             "libnfc-brcm.conf"
@@ -61,7 +56,7 @@ public:
     static CNfcConfig& GetInstance();
     friend void readOptionalConfig(const char* optional);
 
-    bool    getValue(const char* name, char* pValue, size_t len) const;
+    bool    getValue(const char* name, char* pValue, size_t& len) const;
     bool    getValue(const char* name, unsigned long& rValue) const;
     bool    getValue(const char* name, unsigned short & rValue) const;
     const CNfcParam*    find(const char* p_name) const;
@@ -413,7 +408,7 @@ CNfcConfig& CNfcConfig::GetInstance()
 **              false if setting does not exist
 **
 *******************************************************************************/
-bool CNfcConfig::getValue(const char* name, char* pValue, size_t len) const
+bool CNfcConfig::getValue(const char* name, char* pValue, size_t& len) const
 {
     const CNfcParam* pParam = find(name);
     if (pParam == NULL)
@@ -422,7 +417,9 @@ bool CNfcConfig::getValue(const char* name, char* pValue, size_t len) const
     if (pParam->str_len() > 0)
     {
         memset(pValue, 0, len);
-        memcpy(pValue, pParam->str_value(), pParam->str_len());
+        if (len > pParam->str_len())
+            len  = pParam->str_len();
+        memcpy(pValue, pParam->str_value(), len);
         return true;
     }
     return false;
@@ -658,11 +655,13 @@ CNfcParam::CNfcParam(const char* name,  unsigned long value) :
 ** Returns:     none
 **
 *******************************************************************************/
-extern "C" int GetStrValue(const char* name, char* pValue, unsigned long len)
+extern "C" int GetStrValue(const char* name, char* pValue, unsigned long l)
 {
+    size_t len = l;
     CNfcConfig& rConfig = CNfcConfig::GetInstance();
 
-    return rConfig.getValue(name, pValue, len);
+    bool b = rConfig.getValue(name, pValue, len);
+    return b ? len : 0;
 }
 
 /*******************************************************************************

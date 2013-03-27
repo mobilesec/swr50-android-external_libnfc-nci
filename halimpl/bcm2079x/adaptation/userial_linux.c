@@ -41,6 +41,7 @@
 #define default_transport                   "/dev/bcm2079x"
 
 #define NUM_RESET_ATTEMPTS                  5
+#define NFC_WAKE_ASSERTED_ON_POR            UPIO_OFF
 
 #ifndef BTE_APPL_MAX_USERIAL_DEV_NAME
 #define BTE_APPL_MAX_USERIAL_DEV_NAME           (256)
@@ -158,7 +159,7 @@ static tLINUX_CB linux_cb;  /* case of multipel port support use array : [MAX_SE
 
 void userial_close_thread(UINT32 params);
 
-static UINT8 device_name[20];
+static UINT8 device_name[BTE_APPL_MAX_USERIAL_DEV_NAME+1];
 static int   bSerialPortDevice = FALSE;
 static int _timeout = POLL_TIMEOUT;
 static BOOLEAN is_close_thread_is_waiting = FALSE;
@@ -1011,8 +1012,39 @@ UDRV_API void USERIAL_Open(tUSERIAL_PORT port, tUSERIAL_OPEN_CFG *p_cfg, tUSERIA
                 }
             }
         }
+        if ( bSerialPortDevice )
+        {
+            tcflush(linux_cb.sock, TCIOFLUSH);
+            tcgetattr(linux_cb.sock, &termios);
 
-        USERIAL_PowerupDevice(port);
+            termios.c_cflag &= ~(CSIZE | PARENB);
+            termios.c_cflag = CLOCAL|CREAD|data_bits|stop_bits|parity;
+            if (!parity)
+                termios.c_cflag |= IGNPAR;
+            // termios.c_cflag &= ~CRTSCTS;
+            termios.c_oflag = 0;
+            termios.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
+            termios.c_iflag &= ~(BRKINT | ICRNL | INLCR | ISTRIP | IXON | IGNBRK | PARMRK | INPCK);
+            termios.c_lflag = 0;
+            termios.c_iflag = 0;
+            cfsetospeed(&termios, baud);
+            cfsetispeed(&termios, baud);
+
+            termios.c_cc[VTIME] = 0;
+            termios.c_cc[VMIN] = 1;
+            tcsetattr(linux_cb.sock, TCSANOW, &termios);
+
+            tcflush(linux_cb.sock, TCIOFLUSH);
+
+#if (USERIAL_USE_IO_BT_WAKE==TRUE)
+            userial_io_init_bt_wake( linux_cb.sock, &linux_cb.bt_wake_state );
+#endif
+            GKI_delay(gPowerOnDelay);
+        }
+        else
+        {
+            USERIAL_PowerupDevice(port);
+        }
     }
 
     linux_cb.ser_cb     = p_cback;
@@ -1158,24 +1190,38 @@ UDRV_API UINT16  USERIAL_Write(tUSERIAL_PORT port, UINT8 *p_data, UINT16 len)
     int i = 0;
     clock_t t;
 
+    /* Ensure we wake up the chip before writing to it */
+    if (!isWake(UPIO_ON))
+        UPIO_Set(UPIO_GENERAL, NFC_HAL_LP_NFC_WAKE_GPIO, UPIO_OFF);
+
+    ALOGD_IF((appl_trace_level>=BT_TRACE_LEVEL_DEBUG), "USERIAL_Write: (%d bytes)", len);
+    pthread_mutex_lock(&close_thread_mutex);
+
     doWriteDelay();
-    ALOGD_IF((appl_trace_level>=BT_TRACE_LEVEL_DEBUG), "USERIAL_Write: (%d bytes) - \n", len);
     t = clock();
-    while (len != 0)
+    while (len != 0 && linux_cb.sock != -1)
     {
         ret = write(linux_cb.sock, p_data + total, len);
         if (ret < 0)
+        {
+            ALOGE("USERIAL_Write len = %d, ret = %d, errno = %d", len, ret, errno);
             break;
+        }
+        else
+        {
+            ALOGD_IF((appl_trace_level>=BT_TRACE_LEVEL_DEBUG), "USERIAL_Write len = %d, ret = %d", len, ret);
+        }
+
         total += ret;
         len -= ret;
     }
     perf_update(&perf_write, clock() - t, total);
 
-    ALOGD_IF((appl_trace_level>=BT_TRACE_LEVEL_DEBUG), "USERIAL_Write len = %d, ret =  %d, errno = %d\n", len, ret, errno);
-
-    /* register a delay for next write
-     */
+    /* register a delay for next write */
     setWriteDelay(total * nfc_write_delay / 1000);
+
+    pthread_mutex_unlock(&close_thread_mutex);
+
     return ((UINT16)total);
 }
 
@@ -1307,6 +1353,23 @@ UDRV_API void    USERIAL_Ioctl(tUSERIAL_PORT port, tUSERIAL_OP op, tUSERIAL_IOCT
     return;
 }
 
+
+/*******************************************************************************
+**
+** Function         USERIAL_SetPowerOffDelays
+**
+** Description      Set power off delays used during USERIAL_Close().  The
+**                  values in the conf. file setting override these if set.
+**
+** Returns          None.
+**
+*******************************************************************************/
+UDRV_API void USERIAL_SetPowerOffDelays(int pre_poweroff_delay, int post_poweroff_delay)
+{
+    gPrePowerOffDelay = pre_poweroff_delay;
+    gPostPowerOffDelay = post_poweroff_delay;
+}
+
 /*******************************************************************************
 **
 ** Function           USERIAL_Close
@@ -1368,7 +1431,7 @@ void userial_close_thread(UINT32 params)
 
     if (linux_cb.sock <= 0)
     {
-        ALOGD( "%s: already closed (%d)\n", __FUNCTION__, linux_cb.sock);        
+        ALOGD( "%s: already closed (%d)\n", __FUNCTION__, linux_cb.sock);
         pthread_mutex_unlock(&close_thread_mutex);
         return;
     }
@@ -1545,6 +1608,8 @@ UDRV_API void USERIAL_PowerupDevice(tUSERIAL_PORT port)
     unsigned int resetSuccess = 0;
     unsigned int numTries = 0;
     unsigned char spi_negotiation[64];
+    int delay = gPowerOnDelay;
+    ALOGD("%s: enter", __FUNCTION__);
 
     if ( GetNumValue ( NAME_READ_MULTI_PACKETS, &num, sizeof ( num ) ) )
         bcmi2cnfc_read_multi_packets = num;
@@ -1558,11 +1623,11 @@ UDRV_API void USERIAL_PowerupDevice(tUSERIAL_PORT port)
         }
         if (linux_cb.sock_power_control > 0)
         {
+            current_nfc_wake_state = NFC_WAKE_ASSERTED_ON_POR;
+            ioctl(linux_cb.sock_power_control, BCMNFC_WAKE_CTL, NFC_WAKE_ASSERTED_ON_POR);
             ioctl(linux_cb.sock_power_control, BCMNFC_POWER_CTL, 0);
             GKI_delay(10);
-            ioctl(linux_cb.sock_power_control, BCMNFC_POWER_CTL, 1);
-            current_nfc_wake_state = wake_state();
-            ret = ioctl(linux_cb.sock_power_control, BCMNFC_WAKE_CTL, current_nfc_wake_state);
+            ret = ioctl(linux_cb.sock_power_control, BCMNFC_POWER_CTL, 1);
         }
 
         ret = GetStrValue ( NAME_SPI_NEGOTIATION, (char*)spi_negotiation, sizeof ( spi_negotiation ) );
@@ -1580,12 +1645,15 @@ UDRV_API void USERIAL_PowerupDevice(tUSERIAL_PORT port)
             0x07 < bcmi2cnfc_client_addr &&
             bcmi2cnfc_client_addr < 0x78)
         {
+            /* Delay needed after turning on chip */
+            GKI_delay(delay);
             ALOGD( "Change client address to %x\n", bcmi2cnfc_client_addr);
-            GKI_delay(gPowerOnDelay);
             ret = ioctl(linux_cb.sock, BCMNFC_CHANGE_ADDR, bcmi2cnfc_client_addr);
             if (!ret) {
                 resetSuccess = 1;
                 linux_cb.client_device_address = bcmi2cnfc_client_addr;
+                /* Delay long enough for address change */
+                delay = 200;
             }
         } else {
             resetSuccess = 1;
@@ -1595,5 +1663,7 @@ UDRV_API void USERIAL_PowerupDevice(tUSERIAL_PORT port)
     if (!resetSuccess) {
         ALOGE("BCM2079x: failed to initialize NFC controller");
     }
-    GKI_delay(gPowerOnDelay);
+
+    GKI_delay(delay);
+    ALOGD("%s: exit", __FUNCTION__);
 }

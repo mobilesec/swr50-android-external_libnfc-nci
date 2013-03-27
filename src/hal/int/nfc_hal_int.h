@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright (C) 2009-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -62,6 +63,7 @@ extern "C" {
 /* NFC HAL Task Timer types */
 #define NFC_HAL_TTYPE_NCI_WAIT_RSP              0
 #define NFC_HAL_TTYPE_POWER_CYCLE               1
+#define NFC_HAL_TTYPE_NFCC_ENABLE               2
 
 /* NFC HAL Task Wait Response flag */
 #define NFC_HAL_WAIT_RSP_CMD                    0x10    /* wait response on an NCI command                  */
@@ -81,12 +83,30 @@ typedef UINT16 tNFC_HAL_HCI_EVT;
 #define NFC_HAL_HCI_SESSION_ID_LEN              0x08
 #define NFC_HAL_HCI_NETWK_INFO_SIZE             184
 #define NFC_HAL_HCI_DH_NETWK_INFO_SIZE          111
+#define NFC_HAL_HCI_MIN_NETWK_INFO_SIZE         12
+#define NFC_HAL_HCI_MIN_DH_NETWK_INFO_SIZE      11
+#define NFC_HAL_HCI_PIPE_INFO_SIZE              5
 
+#define NFC_HAL_HCI_ANY_SET_PARAMETER           0x01
+#define NFC_HAL_HCI_ANY_GET_PARAMETER           0x02
 #define NFC_HAL_HCI_ADM_NOTIFY_ALL_PIPE_CLEARED 0x15
+
+#define NFC_HAL_HCI_WHITELIST_INDEX             0x03
+
 #define NFC_HAL_HCI_ADMIN_PIPE                  0x01
 #define NFC_HAL_HCI_HOST_ID_UICC0               0x02        /* Host ID for UICC 0 */
 #define NFC_HAL_HCI_HOST_ID_UICC1               0x03        /* Host ID for UICC 1 */
 #define NFC_HAL_HCI_COMMAND_TYPE                0x00
+#define NFC_HAL_HCI_RESPONSE_TYPE               0x02
+
+/* NFC HAL HCI responses */
+#define NFC_HAL_HCI_ANY_OK                      0x00
+
+/* Flag defintions for tNFC_HAL_NVM */
+#define NFC_HAL_NVM_FLAGS_NO_NVM                0x01    /* No NVM available                     */
+#define NFC_HAL_NVM_FLAGS_LPM_BAD               0x02    /* FPM patch in NVM failed CRC check    */
+#define NFC_HAL_NVM_FLAGS_FPM_BAD               0x04    /* LPM patch in NVM failed CRC check    */
+#define NFC_HAL_NVM_FLAGS_PATCH_PRESENT         0x08    /* Patch is present in NVM              */
 
 /* NFC HAL transport configuration */
 typedef struct
@@ -179,7 +199,7 @@ typedef UINT8 tNFC_HAL_LP_EVT;
 
 #if (NFC_HAL_DEBUG == TRUE)
 extern const char * const nfc_hal_init_state_str[];
-#define NFC_HAL_SET_INIT_STATE(state)  NCI_TRACE_DEBUG3 ("init state: %d->%d(%s)", nfc_hal_cb.dev_cb.initializing_state, state, nfc_hal_init_state_str[state]); nfc_hal_cb.dev_cb.initializing_state = state;
+#define NFC_HAL_SET_INIT_STATE(state)  HAL_TRACE_DEBUG3 ("init state: %d->%d(%s)", nfc_hal_cb.dev_cb.initializing_state, state, nfc_hal_init_state_str[state]); nfc_hal_cb.dev_cb.initializing_state = state;
 #else
 #define NFC_HAL_SET_INIT_STATE(state)  nfc_hal_cb.dev_cb.initializing_state = state;
 #endif
@@ -190,14 +210,14 @@ enum
 {
     NFC_HAL_INIT_STATE_IDLE,               /* Initialization is done                */
     NFC_HAL_INIT_STATE_W4_XTAL_SET,        /* Waiting for crystal setting rsp       */
-    NFC_HAL_INIT_STATE_W4_RESET,           /* Waiting for reset rsp                 */
+    NFC_HAL_INIT_STATE_POST_XTAL_SET,      /* Waiting for reset ntf after xtal set  */
+    NFC_HAL_INIT_STATE_W4_NFCC_ENABLE,     /* Waiting for reset ntf atter REG_PU up */
     NFC_HAL_INIT_STATE_W4_BUILD_INFO,      /* Waiting for build info rsp            */
     NFC_HAL_INIT_STATE_W4_PATCH_INFO,      /* Waiting for patch info rsp            */
     NFC_HAL_INIT_STATE_W4_APP_COMPLETE,    /* Waiting for complete from application */
     NFC_HAL_INIT_STATE_W4_POST_INIT_DONE,  /* Waiting for complete of post init     */
     NFC_HAL_INIT_STATE_W4_CONTROL_DONE,    /* Waiting for control release           */
     NFC_HAL_INIT_STATE_W4_PREDISCOVER_DONE,/* Waiting for complete of prediscover   */
-    NFC_HAL_INIT_STATE_W4_RE_INIT,         /* Waiting for reset rsp on ReInit       */
     NFC_HAL_INIT_STATE_CLOSING             /* Shutting down                         */
 };
 typedef UINT8 tNFC_HAL_INIT_STATE;
@@ -264,12 +284,12 @@ enum
     NFC_HAL_PRM_ST_IDLE,
 
     /* Secure patch download stated */
-    NFC_HAL_PRM_ST_SPD_GET_VERSION,
     NFC_HAL_PRM_ST_SPD_COMPARE_VERSION,
     NFC_HAL_PRM_ST_SPD_GET_PATCH_HEADER,
     NFC_HAL_PRM_ST_SPD_DOWNLOADING,
     NFC_HAL_PRM_ST_SPD_AUTHENTICATING,
-    NFC_HAL_PRM_ST_SPD_AUTH_DONE
+    NFC_HAL_PRM_ST_SPD_AUTH_DONE,
+    NFC_HAL_PRM_ST_W4_GET_VERSION
 };
 typedef UINT8 tNFC_HAL_PRM_STATE;
 
@@ -296,17 +316,9 @@ typedef struct
 
     /* Secure Patch Download */
     UINT32              spd_patch_needed_mask;  /* Mask of patches that need to be downloaded */
-    UINT32              spd_nvm_patch_mask;     /* Mask of patches currently in NVM */
-    UINT16              spd_project_id;         /* Current project_id of patch in nvm */
-    UINT16              spd_nvm_max_size;
-    UINT16              spd_patch_max_size;
-    UINT16              spd_fpm_patch_size;
-    UINT16              spd_lpm_patch_size;
-
     UINT8               spd_patch_count;        /* Number of patches left to download */
     UINT8               spd_cur_patch_idx;      /* Current patch being downloaded */
-    UINT16              spd_ver_major;          /* Current major version of patch in nvm */
-    UINT16              spd_ver_minor;          /* Current minor version of patch in nvm */
+
     tNFC_HAL_PRM_PATCHDESC spd_patch_desc[NFC_HAL_PRM_MAX_PATCH_COUNT];
 
     /* I2C-patch */
@@ -318,6 +330,18 @@ typedef struct
     tNFC_HAL_PRM_CBACK  *p_cback;               /* Callback for download status notifications */
     UINT32              patchram_delay;         /* the dealy after patch */
 } tNFC_HAL_PRM_CB;
+
+/* Information about current patch in NVM */
+typedef struct
+{
+    UINT16              project_id;             /* Current project_id of patch in nvm       */
+    UINT16              ver_major;              /* Current major version of patch in nvm    */
+    UINT16              ver_minor;              /* Current minor version of patch in nvm    */
+    UINT16              fpm_size;               /* Current size of FPM patch in nvm         */
+    UINT16              lpm_size;               /* Current size of LPM patch in nvm         */
+    UINT8               flags;                  /* See NFC_HAL_NVM_FLAGS_* flag definitions */
+    UINT8               nvm_type;               /* Current NVM Type - UICC/EEPROM           */
+} tNFC_HAL_NVM;
 
 /* Patch for I2C fix */
 typedef struct
@@ -371,8 +395,10 @@ typedef struct
     UINT8                   *p_hci_netwk_dh_info_buf; /* Buffer for reading HCI Network DH information */
     UINT8                   hci_netwk_config_block;   /* Rsp awaiting for hci network configuration block */
     BOOLEAN                 b_wait_hcp_conn_create_rsp; /* Waiting for hcp connection create response */
-    BOOLEAN                 b_check_clear_all_pipe_cmd;
-    UINT8                   hcp_conn_id;
+    BOOLEAN                 clear_all_pipes_to_uicc1; /* UICC1 was restarted for patch download */
+    BOOLEAN                 hci_fw_workaround;        /* HAL HCI Workaround need */
+    BOOLEAN                 hci_fw_validate_netwk_cmd;/* Flag to indicate if hci network ntf to validate */
+    UINT8                   hcp_conn_id;              /* NCI Connection id for HCP */
 } tNFC_HAL_HCI_CB;
 
 typedef struct
@@ -385,6 +411,7 @@ typedef struct
 
     tNFC_HAL_NCIT_CB        ncit_cb;            /* NCI transport */
     tNFC_HAL_DEV_CB         dev_cb;             /* device initialization */
+    tNFC_HAL_NVM            nvm_cb;             /* Information about current patch in NVM */
 
     /* Patchram control block */
     tNFC_HAL_PRM_CB         prm;
@@ -394,7 +421,6 @@ typedef struct
     tNFC_HAL_HCI_CB         hci_cb;
 
 
-    tNFC_HAL_NCI_CBACK      *p_reinit_cback;
     UINT8                   max_rf_credits;     /* NFC Max RF data credits */
     UINT8                   trace_level;        /* NFC HAL trace level */
 } tNFC_HAL_CB;
@@ -418,10 +444,12 @@ void   nfc_hal_main_pre_init_done (tHAL_NFC_STATUS);
 void   nfc_hal_main_start_quick_timer (TIMER_LIST_ENT *p_tle, UINT16 type, UINT32 timeout);
 void   nfc_hal_main_stop_quick_timer (TIMER_LIST_ENT *p_tle);
 void   nfc_hal_main_send_error (tHAL_NFC_STATUS status);
+void   nfc_hal_send_nci_msg_to_nfc_task (NFC_HDR * p_msg);
 
 /* nfc_hal_nci.c */
 BOOLEAN nfc_hal_nci_receive_msg (UINT8 byte);
 BOOLEAN nfc_hal_nci_preproc_rx_nci_msg (NFC_HDR *p_msg);
+NFC_HDR* nfc_hal_nci_postproc_rx_nci_msg (void);
 void    nfc_hal_nci_assemble_nci_msg (void);
 void    nfc_hal_nci_add_nfc_pkt_type (NFC_HDR *p_msg);
 void    nfc_hal_nci_send_cmd (NFC_HDR *p_buf);
@@ -430,7 +458,7 @@ void    nfc_hal_nci_cmd_timeout_cback (void *p_tle);
 /* nfc_hal_dm.c */
 void nfc_hal_dm_init (void);
 void nfc_hal_dm_set_xtal_freq_index (void);
-void nfc_hal_dm_send_reset_cmd (void);
+void nfc_hal_dm_send_get_build_info_cmd (void);
 void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg);
 void nfc_hal_dm_config_nfcc (void);
 void nfc_hal_dm_send_nci_cmd (const UINT8 *p_data, UINT16 len, tNFC_HAL_NCI_CBACK *p_cback);
@@ -450,7 +478,9 @@ void nfc_hal_prm_process_timeout (void *p_tle);
 void nfc_hal_hci_enable (void);
 void nfc_hal_hci_evt_hdlr (tNFC_HAL_HCI_EVENT_DATA *p_evt_data);
 void nfc_hal_hci_handle_hci_netwk_info (UINT8 *p_data);
-void nfc_hal_hci_handle_hcp_pkt (UINT8 *p_data);
+void nfc_hal_hci_handle_hcp_pkt_from_hc (UINT8 *p_data);
+NFC_HDR* nfc_hal_hci_postproc_hcp (void);
+BOOLEAN nfc_hal_hci_handle_hcp_pkt_to_hc (UINT8 *p_data);
 void nfc_hal_hci_timeout_cback (void *p_tle);
 
 

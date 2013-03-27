@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains the Near Field Communication (NFC) Reader/Writer mode
@@ -85,6 +86,7 @@ enum
     RW_T3T_POLL_EVT,                            /* Response to RW_T3tPoll                   */
     RW_T3T_GET_SYSTEM_CODES_EVT,                /* Response to RW_T3tGetSystemCodes         */
     RW_T3T_FORMAT_CPLT_EVT,                     /* Tag Formated (Felica-Lite only)          */
+    RW_T3T_SET_READ_ONLY_CPLT_EVT,              /* Tag is set as Read only                  */
     RW_T3T_INTF_ERROR_EVT,                      /* RF Interface error event                 */
     RW_T3T_MAX_EVT,
 
@@ -96,6 +98,7 @@ enum
     RW_T4T_NDEF_READ_FAIL_EVT,                  /* Read operation failed                    */
     RW_T4T_NDEF_UPDATE_CPLT_EVT,                /* Update operation completed               */
     RW_T4T_NDEF_UPDATE_FAIL_EVT,                /* Update operation failed                  */
+    RW_T4T_SET_TO_RO_EVT,                       /* Tag is set as read only                  */
     RW_T4T_PRESENCE_CHECK_EVT,                  /* Response to RW_T4tPresenceCheck          */
     RW_T4T_RAW_FRAME_EVT,                       /* Response of raw frame sent               */
     RW_T4T_INTF_ERROR_EVT,                      /* RF Interface error event                 */
@@ -133,6 +136,8 @@ typedef UINT8 tRW_EVENT;
 #define RW_NDEF_FL_HARD_LOCKABLE                0x40    /* Tag can be hard locked */
 #define RW_NDEF_FL_OTP                          0x80    /* Tag is one time programmable */
 
+typedef UINT8 tRW_NDEF_FLAG;
+
 typedef struct
 {
     tNFC_STATUS     status;
@@ -168,7 +173,7 @@ typedef struct
     tNFC_PROTOCOL   protocol;           /* protocol used to detect NDEF */
     UINT32          max_size;           /* max number of bytes available for NDEF data */
     UINT32          cur_size;           /* current size of stored NDEF data (in bytes) */
-    UINT8           flags;              /* Flags to indicate NDEF capability,formated,formatable and read only */
+    tRW_NDEF_FLAG   flags;              /* Flags to indicate NDEF capability,formated,formatable and read only */
 } tRW_DETECT_NDEF_DATA;
 
 typedef struct
@@ -635,6 +640,24 @@ NFC_API extern tNFC_STATUS RW_T3tFormatNDef (void);
 
 /*****************************************************************************
 **
+** Function         RW_T3tSetReadOnly
+**
+** Description
+**      Set a type-3 tag to Read Only
+**
+**      Only Felica-Lite tags are supported by this API.
+**      RW_T3tDetectNDef() must be called before using this
+**      The RW_T3T_SET_READ_ONLY_CPLT_EVT event will be returned.
+**
+** Returns
+**      NFC_STATUS_OK if success
+**      NFC_STATUS_FAILED if T3T is busy or other error
+**
+*****************************************************************************/
+NFC_API extern tNFC_STATUS RW_T3tSetReadOnly (BOOLEAN b_hard_lock);
+
+/*****************************************************************************
+**
 ** Function         RW_T3tCheckNDef
 **
 ** Description
@@ -878,12 +901,26 @@ NFC_API extern tNFC_STATUS RW_T4tUpdateNDef (UINT16 length, UINT8 *p_data);
 *****************************************************************************/
 NFC_API extern tNFC_STATUS RW_T4tPresenceCheck (void);
 
+/*****************************************************************************
+**
+** Function         RW_T4tSetNDefReadOnly
+**
+** Description      This function performs NDEF read-only procedure
+**                  Note: RW_T4tDetectNDef() must be called before using this
+**
+**                  The RW_T4T_SET_TO_RO_EVT event will be returned.
+**
+** Returns          NFC_STATUS_OK if success
+**                  NFC_STATUS_FAILED if T4T is busy or other error
+**
+*****************************************************************************/
+NFC_API extern tNFC_STATUS RW_T4tSetNDefReadOnly (void);
 
 /*******************************************************************************
 **
 ** Function         RW_I93Inventory
 **
-** Description      This function send Inventory command
+** Description      This function send Inventory command with/without AFI
 **                  If UID is provided then set UID[0]:MSB, ... UID[7]:LSB
 **
 **                  RW_I93_RESPONSE_EVT will be returned
@@ -893,7 +930,7 @@ NFC_API extern tNFC_STATUS RW_T4tPresenceCheck (void);
 **                  NFC_STATUS_FAILED if T4T is busy or other error
 **
 *******************************************************************************/
-NFC_API extern tNFC_STATUS RW_I93Inventory (UINT8 *p_uid);
+NFC_API extern tNFC_STATUS RW_I93Inventory (BOOLEAN including_afi, UINT8 afi, UINT8 *p_uid);
 
 /*******************************************************************************
 **

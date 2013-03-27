@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright (C) 2009-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -272,6 +273,8 @@ void nfc_stop_timer (TIMER_LIST_ENT *p_tle);
 void nfc_start_quick_timer (TIMER_LIST_ENT *p_tle, UINT16 type, UINT32 timeout);
 void nfc_stop_quick_timer (TIMER_LIST_ENT *p_tle);
 void nfc_process_quick_timer_evt (void);
+
+
 #ifdef __cplusplus
 }
 #endif

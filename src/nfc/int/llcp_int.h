@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -46,6 +47,11 @@ typedef UINT8 tLLCP_LINK_STATE;
 #define LLCP_LINK_SYMM_REMOTE_XMIT_NEXT  1
 
 /*
+** LLCP internal flags
+*/
+#define LLCP_LINK_FLAGS_RX_ANY_LLC_PDU      0x01    /* Received any LLC PDU in activated state */
+
+/*
 ** LLCP link control block
 */
 typedef struct
@@ -56,6 +62,7 @@ typedef struct
 
     BOOLEAN             is_initiator;           /* TRUE if initiator role                       */
     BOOLEAN             is_sending_data;        /* TRUE if llcp_link_check_send_data() is excuting    */
+    UINT8               flags;                  /* LLCP internal flags                          */
     UINT8               agreed_major_version;   /* llcp major version used in activated state   */
     UINT8               agreed_minor_version;   /* llcp minor version used in activated state   */
 

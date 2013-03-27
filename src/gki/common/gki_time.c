@@ -444,6 +444,12 @@ void GKI_timer_update (INT32 ticks_since_last_update)
     /* Check for OS Task Timers */
     for (task_id = 0; task_id < GKI_MAX_TASKS; task_id++)
     {
+        if (gki_cb.com.OSRdyTbl[task_id] == TASK_DEAD)
+        {
+            // task is shutdown do not try to service timers
+            continue;
+        }
+
         if (gki_cb.com.OSWaitTmr[task_id] > 0) /* If timer is running */
         {
             gki_cb.com.OSWaitTmr[task_id] -= gki_cb.com.OSNumOrigTicks;

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -49,6 +50,7 @@ static BOOLEAN nfa_p2p_evt_hdlr (BT_HDR *p_msg);
 
 /* disable function type */
 static void nfa_p2p_sys_disable (void);
+static void nfa_p2p_update_active_listen (void);
 
 /* debug functions type */
 #if (BT_TRACE_VERBOSE == TRUE)
@@ -58,6 +60,9 @@ static char *nfa_p2p_llcp_state_code (tNFA_P2P_LLCP_STATE state_code);
 /*****************************************************************************
 **  Constants
 *****************************************************************************/
+/* timeout to restore active listen mode if no RF activation on passive mode */
+#define NFA_P2P_RESTORE_ACTIVE_LISTEN_TIMEOUT   5000
+
 static const tNFA_SYS_REG nfa_p2p_sys_reg =
 {
     NULL,
@@ -86,7 +91,8 @@ const tNFA_P2P_ACTION nfa_p2p_action[] =
     nfa_p2p_set_local_busy,                 /* NFA_P2P_API_SET_LOCAL_BUSY_EVT   */
     nfa_p2p_get_link_info,                  /* NFA_P2P_API_GET_LINK_INFO_EVT    */
     nfa_p2p_get_remote_sap,                 /* NFA_P2P_API_GET_REMOTE_SAP_EVT   */
-    nfa_p2p_set_llcp_cfg                    /* NFA_P2P_API_SET_LLCP_CFG_EVT     */
+    nfa_p2p_set_llcp_cfg,                   /* NFA_P2P_API_SET_LLCP_CFG_EVT     */
+    nfa_p2p_restart_rf_discovery            /* NFA_P2P_INT_RESTART_RF_DISC_EVT  */
 };
 
 /*******************************************************************************
@@ -110,11 +116,14 @@ void nfa_p2p_discovery_cback (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_data)
     case NFA_DM_RF_DISC_START_EVT:
         if (p_data->status == NFC_STATUS_OK)
         {
-            nfa_p2p_cb.llcp_state = NFA_P2P_LLCP_STATE_LISTENING;
+            nfa_p2p_cb.llcp_state    = NFA_P2P_LLCP_STATE_LISTENING;
+            nfa_p2p_cb.rf_disc_state = NFA_DM_RFST_DISCOVERY;
         }
         break;
 
     case NFA_DM_RF_DISC_ACTIVATED_EVT:
+
+        nfa_p2p_cb.rf_disc_state = NFA_DM_RFST_LISTEN_ACTIVE;
 
         /* notify NFC link activation */
         memcpy (&(evt_data.activated.activate_ntf),
@@ -126,33 +135,129 @@ void nfa_p2p_discovery_cback (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_data)
           &&(p_data->activate.intf_param.type == NFC_INTERFACE_NFC_DEP))
         {
             nfa_p2p_activate_llcp (p_data);
+
+            /* stop timer not to deactivate LLCP link on passive mode */
+            nfa_sys_stop_timer (&nfa_p2p_cb.active_listen_restore_timer);
         }
         break;
 
     case NFA_DM_RF_DISC_DEACTIVATED_EVT:
 
+        if (  (nfa_p2p_cb.rf_disc_state != NFA_DM_RFST_LISTEN_ACTIVE)
+            &&(nfa_p2p_cb.rf_disc_state != NFA_DM_RFST_LISTEN_SLEEP)  )
+        {
+            /* this is not for P2P listen
+            ** DM broadcasts deactivaiton event in listen sleep state.
+            */
+            break;
+        }
+
         /* notify deactivation */
         if (  (p_data->deactivate.type == NFC_DEACTIVATE_TYPE_SLEEP)
             ||(p_data->deactivate.type == NFC_DEACTIVATE_TYPE_SLEEP_AF)  )
         {
+            nfa_p2p_cb.rf_disc_state  = NFA_DM_RFST_LISTEN_SLEEP;
             evt_data.deactivated.type = NFA_DEACTIVATE_TYPE_SLEEP;
         }
         else
         {
+            nfa_p2p_cb.rf_disc_state  = NFA_DM_RFST_DISCOVERY;
             evt_data.deactivated.type = NFA_DEACTIVATE_TYPE_IDLE;
         }
-        nfa_dm_conn_cback_event_notify (NFA_DEACTIVATED_EVT, &evt_data);
-        break;
-
-    case NFA_DM_RF_DISC_CMD_IDLE_CMPL_EVT:
-        /* DH initiated deactivation in NFA_DM_RFST_LISTEN_SLEEP */
-        evt_data.deactivated.type = NFA_DEACTIVATE_TYPE_IDLE;
         nfa_dm_conn_cback_event_notify (NFA_DEACTIVATED_EVT, &evt_data);
         break;
 
     default:
         P2P_TRACE_ERROR0 ("Unexpected event");
         break;
+    }
+}
+
+/*******************************************************************************
+**
+** Function         nfa_p2p_update_active_listen_timeout_cback
+**
+** Description      Timeout while waiting for passive mode activation
+**
+** Returns          void
+**
+*******************************************************************************/
+static void nfa_p2p_update_active_listen_timeout_cback (TIMER_LIST_ENT *p_tle)
+{
+    NFA_TRACE_ERROR0 ("nfa_p2p_update_active_listen_timeout_cback()");
+
+    /* restore active listen mode */
+    nfa_p2p_update_active_listen ();
+}
+
+/*******************************************************************************
+**
+** Function         nfa_p2p_update_active_listen
+**
+** Description      Remove active listen mode temporarily or restore it
+**
+**
+** Returns          None
+**
+*******************************************************************************/
+static void nfa_p2p_update_active_listen (void)
+{
+    tNFA_DM_DISC_TECH_PROTO_MASK p2p_listen_mask = 0;
+    BT_HDR *p_msg;
+
+    P2P_TRACE_DEBUG1 ("nfa_p2p_update_active_listen (): listen_tech_mask_to_restore:0x%x",
+                       nfa_p2p_cb.listen_tech_mask_to_restore);
+
+    /* if active listen mode was removed temporarily */
+    if (nfa_p2p_cb.listen_tech_mask_to_restore)
+    {
+        /* restore listen technologies */
+        nfa_p2p_cb.listen_tech_mask = nfa_p2p_cb.listen_tech_mask_to_restore;
+        nfa_p2p_cb.listen_tech_mask_to_restore = 0;
+        nfa_sys_stop_timer (&nfa_p2p_cb.active_listen_restore_timer);
+    }
+    else
+    {
+        /* start timer in case of no passive activation */
+        nfa_p2p_cb.active_listen_restore_timer.p_cback = (TIMER_CBACK *)nfa_p2p_update_active_listen_timeout_cback;
+        nfa_sys_start_timer (&nfa_p2p_cb.active_listen_restore_timer, 0, NFA_P2P_RESTORE_ACTIVE_LISTEN_TIMEOUT);
+
+        /* save listen techonologies */
+        nfa_p2p_cb.listen_tech_mask_to_restore = nfa_p2p_cb.listen_tech_mask;
+
+        /* remove active listen mode */
+        nfa_p2p_cb.listen_tech_mask &= ~( NFA_TECHNOLOGY_MASK_A_ACTIVE|NFA_TECHNOLOGY_MASK_F_ACTIVE);
+    }
+
+    if (nfa_p2p_cb.dm_disc_handle != NFA_HANDLE_INVALID)
+    {
+        nfa_dm_delete_rf_discover (nfa_p2p_cb.dm_disc_handle);
+        nfa_p2p_cb.dm_disc_handle = NFA_HANDLE_INVALID;
+    }
+
+    /* collect listen technologies with NFC-DEP protocol */
+    if (nfa_p2p_cb.listen_tech_mask & NFA_TECHNOLOGY_MASK_A)
+        p2p_listen_mask |= NFA_DM_DISC_MASK_LA_NFC_DEP;
+
+    if (nfa_p2p_cb.listen_tech_mask & NFA_TECHNOLOGY_MASK_F)
+        p2p_listen_mask |= NFA_DM_DISC_MASK_LF_NFC_DEP;
+
+    if (nfa_p2p_cb.listen_tech_mask & NFA_TECHNOLOGY_MASK_A_ACTIVE)
+        p2p_listen_mask |= NFA_DM_DISC_MASK_LAA_NFC_DEP;
+
+    if (nfa_p2p_cb.listen_tech_mask & NFA_TECHNOLOGY_MASK_F_ACTIVE)
+        p2p_listen_mask |= NFA_DM_DISC_MASK_LFA_NFC_DEP;
+
+    /* Configure listen technologies and protocols and register callback to NFA DM discovery */
+    nfa_p2p_cb.dm_disc_handle = nfa_dm_add_rf_discover (p2p_listen_mask,
+                                                        NFA_DM_DISC_HOST_ID_DH,
+                                                        nfa_p2p_discovery_cback);
+
+    /* restart RF discovery to update RF technologies */
+    if ((p_msg = (BT_HDR *) GKI_getbuf (sizeof(BT_HDR))) != NULL)
+    {
+        p_msg->event = NFA_P2P_INT_RESTART_RF_DISC_EVT;
+        nfa_sys_sendmsg (p_msg);
     }
 }
 
@@ -171,7 +276,7 @@ void nfa_p2p_llcp_link_cback (UINT8 event, UINT8 reason)
     tNFA_LLCP_ACTIVATED     llcp_activated;
     tNFA_LLCP_DEACTIVATED   llcp_deactivated;
 
-    P2P_TRACE_DEBUG1 ("nfa_p2p_llcp_link_cback () event:0x%x", event);
+    P2P_TRACE_DEBUG2 ("nfa_p2p_llcp_link_cback () event:0x%x, reason:0x%x", event, reason);
 
     if (event == LLCP_LINK_ACTIVATION_COMPLETE_EVT)
     {
@@ -209,13 +314,57 @@ void nfa_p2p_llcp_link_cback (UINT8 event, UINT8 reason)
     {
         nfa_p2p_cb.llcp_state = NFA_P2P_LLCP_STATE_IDLE;
 
+        /* if got RF link loss without any rx LLC PDU */
+        if (reason == LLCP_LINK_RF_LINK_LOSS_NO_RX_LLC)
+        {
+            /* if it was active listen mode */
+            if (  (nfa_p2p_cb.is_active_mode)
+                &&(!nfa_p2p_cb.is_initiator))
+            {
+                /* if it didn't retry without active listen mode and passive mode is available */
+                if (  (nfa_p2p_cb.listen_tech_mask_to_restore == 0x00)
+                    &&(nfa_p2p_cb.listen_tech_mask & ( NFA_TECHNOLOGY_MASK_A
+                                                      |NFA_TECHNOLOGY_MASK_F)))
+                {
+                    P2P_TRACE_DEBUG0 ("Retry without active listen mode");
+
+                    /* retry without active listen mode */
+                    nfa_p2p_update_active_listen ();
+                }
+            }
+            else if (nfa_p2p_cb.listen_tech_mask_to_restore)
+            {
+                nfa_sys_start_timer (&nfa_p2p_cb.active_listen_restore_timer, 0, NFA_P2P_RESTORE_ACTIVE_LISTEN_TIMEOUT);
+            }
+
+            reason = LLCP_LINK_RF_LINK_LOSS_ERR;
+        }
+        else
+        {
+            if (nfa_p2p_cb.listen_tech_mask_to_restore)
+            {
+                /* restore active listen mode */
+                nfa_p2p_update_active_listen ();
+            }
+        }
+
         llcp_deactivated.reason = reason;
         nfa_dm_act_conn_cback_notify (NFA_LLCP_DEACTIVATED_EVT, (tNFA_CONN_EVT_DATA *)&llcp_deactivated);
 
-        if (  (nfa_p2p_cb.is_initiator)
-            &&(reason != LLCP_LINK_RF_LINK_LOSS_ERR)  ) /* if NFC link is still up */
+        if (reason != LLCP_LINK_RF_LINK_LOSS_ERR) /* if NFC link is still up */
         {
-            nfa_dm_rf_deactivate (NFA_DEACTIVATE_TYPE_DISCOVERY);
+            if (nfa_p2p_cb.is_initiator)
+            {
+                nfa_dm_rf_deactivate (NFA_DEACTIVATE_TYPE_DISCOVERY);
+            }
+            else if ((nfa_p2p_cb.is_active_mode) && (reason == LLCP_LINK_TIMEOUT))
+            {
+                /*
+                ** target needs to trun off RF in case of receiving invalid frame from initiator
+                */
+                P2P_TRACE_DEBUG0 ("Got LLCP_LINK_TIMEOUT in active mode on target");
+                nfa_dm_rf_deactivate (NFA_DEACTIVATE_TYPE_DISCOVERY);
+            }
         }
     }
 }
@@ -246,6 +395,18 @@ void nfa_p2p_activate_llcp (tNFC_DISCOVER *p_data)
     else
     {
         config.is_initiator = FALSE;
+    }
+
+    if (  (p_data->activate.rf_tech_param.mode == NFC_DISCOVERY_TYPE_POLL_A_ACTIVE)
+        ||(p_data->activate.rf_tech_param.mode == NFC_DISCOVERY_TYPE_POLL_F_ACTIVE)
+        ||(p_data->activate.rf_tech_param.mode == NFC_DISCOVERY_TYPE_LISTEN_A_ACTIVE)
+        ||(p_data->activate.rf_tech_param.mode == NFC_DISCOVERY_TYPE_LISTEN_F_ACTIVE)  )
+    {
+        nfa_p2p_cb.is_active_mode = TRUE;
+    }
+    else
+    {
+        nfa_p2p_cb.is_active_mode = FALSE;
     }
 
     nfa_p2p_cb.is_initiator = config.is_initiator;
@@ -319,6 +480,8 @@ void nfa_p2p_init (void)
 static void nfa_p2p_sys_disable (void)
 {
     P2P_TRACE_DEBUG0 ("nfa_p2p_sys_disable()");
+
+    nfa_sys_stop_timer (&nfa_p2p_cb.active_listen_restore_timer);
 
     /* deregister message handler on NFA SYS */
     nfa_sys_deregister (NFA_ID_P2P);
@@ -470,7 +633,8 @@ void nfa_p2p_disable_listening (tNFA_SYS_ID sys_id, BOOLEAN update_wks)
             &&(nfa_p2p_cb.is_cho_listening == FALSE)
             &&(nfa_p2p_cb.is_snep_listening == FALSE)  )
         {
-            nfa_p2p_cb.llcp_state = NFA_P2P_LLCP_STATE_IDLE;
+            nfa_p2p_cb.llcp_state    = NFA_P2P_LLCP_STATE_IDLE;
+            nfa_p2p_cb.rf_disc_state = NFA_DM_RFST_IDLE;
 
             nfa_dm_delete_rf_discover (nfa_p2p_cb.dm_disc_handle);
             nfa_p2p_cb.dm_disc_handle = NFA_HANDLE_INVALID;
@@ -495,7 +659,13 @@ void nfa_p2p_disable_listening (tNFA_SYS_ID sys_id, BOOLEAN update_wks)
 *******************************************************************************/
 void nfa_p2p_update_listen_tech (tNFA_TECHNOLOGY_MASK tech_mask)
 {
-    P2P_TRACE_DEBUG1 ("nfa_p2p_update_listen_tech ()  tech_mask = %d", tech_mask);
+    P2P_TRACE_DEBUG1 ("nfa_p2p_update_listen_tech ()  tech_mask = 0x%x", tech_mask);
+
+    if (nfa_p2p_cb.listen_tech_mask_to_restore)
+    {
+        nfa_p2p_cb.listen_tech_mask_to_restore = 0;
+        nfa_sys_stop_timer (&nfa_p2p_cb.active_listen_restore_timer);
+    }
 
     if (nfa_p2p_cb.listen_tech_mask != tech_mask)
     {
@@ -503,6 +673,8 @@ void nfa_p2p_update_listen_tech (tNFA_TECHNOLOGY_MASK tech_mask)
 
         if (nfa_p2p_cb.dm_disc_handle != NFA_HANDLE_INVALID)
         {
+            nfa_p2p_cb.rf_disc_state = NFA_DM_RFST_IDLE;
+
             nfa_dm_delete_rf_discover (nfa_p2p_cb.dm_disc_handle);
             nfa_p2p_cb.dm_disc_handle = NFA_HANDLE_INVALID;
         }
@@ -623,6 +795,8 @@ char *nfa_p2p_evt_code (UINT16 evt_code)
         return "API_GET_REMOTE_SAP";
     case NFA_P2P_API_SET_LLCP_CFG_EVT:
         return "API_SET_LLCP_CFG_EVT";
+    case NFA_P2P_INT_RESTART_RF_DISC_EVT:
+        return "RESTART_RF_DISC_EVT";
     default:
         return "Unknown event";
     }

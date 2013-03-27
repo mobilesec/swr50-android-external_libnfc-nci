@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -71,173 +72,174 @@ typedef UINT8 tNFA_HCI_EVT;
 #define NFA_MAX_HCI_DATA_LEN                    260     /* Max HCI data length */
 
 /* NFA HCI PIPE states */
-#define NFA_HCI_PIPE_CLOSED                         0x00     /* Pipe is closed */
-#define NFA_HCI_PIPE_OPENED                         0x01     /* Pipe is opened */
+#define NFA_HCI_PIPE_CLOSED                     0x00    /* Pipe is closed */
+#define NFA_HCI_PIPE_OPENED                     0x01    /* Pipe is opened */
 
 typedef UINT8 tNFA_HCI_PIPE_STATE;
 /* Dynamic pipe control block */
 typedef struct
 {
-    UINT8                   pipe_id;                /* Pipe ID */
-    tNFA_HCI_PIPE_STATE     pipe_state;             /* State of the Pipe */
-    UINT8                   local_gate;             /* local gate id */
-    UINT8                   dest_host;              /* Peer host to which this pipe is connected */
-    UINT8                   dest_gate;              /* Peer gate to which this pipe is connected */
+    UINT8                   pipe_id;                    /* Pipe ID */
+    tNFA_HCI_PIPE_STATE     pipe_state;                 /* State of the Pipe */
+    UINT8                   local_gate;                 /* local gate id */
+    UINT8                   dest_host;                  /* Peer host to which this pipe is connected */
+    UINT8                   dest_gate;                  /* Peer gate to which this pipe is connected */
 } tNFA_HCI_PIPE_INFO;
 
 /* Data for NFA_HCI_REGISTER_EVT */
 typedef struct
 {
-    tNFA_STATUS         status;
-    tNFA_HANDLE         hci_handle;
-    UINT8               num_pipes;
-    UINT8               num_gates;
+    tNFA_STATUS         status;                         /* Status of registration */
+    tNFA_HANDLE         hci_handle;                     /* Handle assigned to the application */
+    UINT8               num_pipes;                      /* Number of dynamic pipes exist for the application */
+    UINT8               num_gates;                      /* Number of generic gates exist for the application */
 } tNFA_HCI_REGISTER;
 
 /* Data for NFA_HCI_DEREGISTER_EVT */
 typedef struct
 {
-    tNFA_STATUS         status;
+    tNFA_STATUS         status;                         /* Status of deregistration */
 } tNFA_HCI_DEREGISTER;
 
 /* Data for NFA_HCI_GET_GATE_PIPE_LIST_EVT */
 typedef struct
 {
     tNFA_STATUS         status;
-    UINT8               num_pipes;
-    tNFA_HCI_PIPE_INFO  pipe[NFA_HCI_MAX_PIPE_CB];
-    UINT8               num_gates;
-    UINT8               gate[NFA_HCI_MAX_GATE_CB];
-
+    UINT8               num_pipes;                      /* Number of dynamic pipes exist for the application */
+    tNFA_HCI_PIPE_INFO  pipe[NFA_HCI_MAX_PIPE_CB];      /* List of pipe created for the application */
+    UINT8               num_gates;                      /* Number of generic gates exist for the application */
+    UINT8               gate[NFA_HCI_MAX_GATE_CB];      /* List of generic gates allocated to the application */
+    UINT8               num_uicc_created_pipes;         /* Number of pipes created by UICC host */
+    tNFA_HCI_PIPE_INFO  uicc_created_pipe[NFA_HCI_MAX_HOST_IN_NETWORK]; /* Pipe information of the UICC created pipe */
 } tNFA_HCI_GET_GATE_PIPE_LIST;
 
 /* Data for NFA_HCI_ALLOCATE_GATE_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
-    UINT8           gate;
+    tNFA_STATUS     status;                             /* Status of response to allocate gate request */
+    UINT8           gate;                               /* The gate allocated to the application */
 } tNFA_HCI_ALLOCATE_GATE;
 
 /* Data for NFA_HCI_DEALLOCATE_GATE_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
-    UINT8           gate;
+    tNFA_STATUS     status;                             /* Status of response to deallocate gate request */
+    UINT8           gate;                               /* The gate deallocated from the application */
 } tNFA_HCI_DEALLOCATE_GATE;
 
 /* Data for NFA_HCI_CREATE_PIPE_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
-    UINT8           pipe;
-    UINT8           source_gate;
-    UINT8           dest_host;
-    UINT8           dest_gate;
+    tNFA_STATUS     status;                             /* Status of creating dynamic pipe for the application */
+    UINT8           pipe;                               /* The pipe created for the application */
+    UINT8           source_gate;                        /* DH host gate to which the one end of pipe is attached */
+    UINT8           dest_host;                          /* Destination host whose gate is the other end of the pipe is attached to */
+    UINT8           dest_gate;                          /* Destination host gate to which the other end of pipe is attached */
 } tNFA_HCI_CREATE_PIPE;
 
 /* Data for NFA_HCI_OPEN_PIPE_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
-    UINT8           pipe;
+    tNFA_STATUS     status;                             /* Status of open pipe operation */
+    UINT8           pipe;                               /* The dynamic pipe for open operation */
 }tNFA_HCI_OPEN_PIPE;
 
 /* Data for NFA_HCI_CLOSE_PIPE_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
-    UINT8           pipe;
+    tNFA_STATUS     status;                             /* Status of close pipe operation */
+    UINT8           pipe;                               /* The dynamic pipe for close operation */
 }tNFA_HCI_CLOSE_PIPE;
 
 /* Data for NFA_HCI_DELETE_PIPE_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
-    UINT8           pipe;
+    tNFA_STATUS     status;                             /* Status of delete pipe operation */
+    UINT8           pipe;                               /* The dynamic pipe for delete operation */
 } tNFA_HCI_DELETE_PIPE;
 
 /* Data for NFA_HCI_HOST_LIST_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
-    UINT8           num_hosts;
-    UINT8           host[NFA_HCI_MAX_HOST_IN_NETWORK];
+    tNFA_STATUS     status;                             /* Status og get host list operation */
+    UINT8           num_hosts;                          /* Number of hosts in the host network */
+    UINT8           host[NFA_HCI_MAX_HOST_IN_NETWORK];  /* List of host in the host network */
 } tNFA_HCI_HOST_LIST;
 
 /* Data for NFA_HCI_RSP_RCVD_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
-    UINT8           pipe;
-    UINT8           rsp_code;
-    UINT16          rsp_len;
-    UINT8           rsp_data[NFA_MAX_HCI_RSP_LEN];
+    tNFA_STATUS     status;                             /* Status of RSP to HCP CMD sent */
+    UINT8           pipe;                               /* The pipe on which HCP packet is exchanged */
+    UINT8           rsp_code;                           /* Response id */
+    UINT16          rsp_len;                            /* Response parameter length */
+    UINT8           rsp_data[NFA_MAX_HCI_RSP_LEN];      /* Response received */
 } tNFA_HCI_RSP_RCVD;
 
 /* Data for NFA_HCI_EVENT_RCVD_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
-    UINT8           pipe;
-    UINT8           evt_code;
-    UINT16          evt_len;
-    UINT8           *p_evt_buf;
+    tNFA_STATUS     status;                             /* Status of Event received */
+    UINT8           pipe;                               /* The pipe on which HCP EVT packet is received */
+    UINT8           evt_code;                           /* HCP EVT id */
+    UINT16          evt_len;                            /* HCP EVT parameter length */
+    UINT8           *p_evt_buf;                         /* HCP EVT Parameter */
 } tNFA_HCI_EVENT_RCVD;
 
 /* Data for NFA_HCI_CMD_RCVD_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
-    UINT8           pipe;
-    UINT8           cmd_code;
-    UINT16          cmd_len;
-    UINT8           cmd_data[NFA_MAX_HCI_CMD_LEN];
+    tNFA_STATUS     status;                             /* Status of Command received */
+    UINT8           pipe;                               /* The pipe on which HCP CMD packet is received */
+    UINT8           cmd_code;                           /* HCP CMD id */
+    UINT16          cmd_len;                            /* HCP CMD parameter length */
+    UINT8           cmd_data[NFA_MAX_HCI_CMD_LEN];      /* HCP CMD Parameter */
 } tNFA_HCI_CMD_RCVD;
 
 /* Data for NFA_HCI_INIT_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
+    tNFA_STATUS     status;                             /* Status of Enabling HCI Network */
 } tNFA_HCI_INIT;
 
 /* Data for NFA_HCI_EXIT_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
+    tNFA_STATUS     status;                             /* Status of Disabling HCI Network */
 } tNFA_HCI_EXIT;
 
 /* Data for NFA_HCI_RSP_SENT_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
+    tNFA_STATUS     status;                             /* Status of HCP response send operation */
 } tNFA_HCI_RSP_SENT;
 
 /* Data for NFA_HCI_CMD_SENT_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
+    tNFA_STATUS     status;                             /* Status of Command send operation */
 } tNFA_HCI_CMD_SENT;
 
 /* Data for NFA_HCI_EVENT_SENT_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
+    tNFA_STATUS     status;                             /* Status of Event send operation */
 } tNFA_HCI_EVENT_SENT;
 
 /* Data for NFA_HCI_ADD_STATIC_PIPE_EVT */
 typedef struct
 {
-    tNFA_STATUS     status;
+    tNFA_STATUS     status;                             /* Status of adding proprietary pipe */
 } tNFA_HCI_ADD_STATIC_PIPE_EVT;
 
 /* data type for all registry-related events */
 typedef struct
 {
-    tNFA_STATUS         status;
-    UINT8               pipe;
-    UINT8               index;
-    UINT8               data_len;
-    UINT8               reg_data[NFA_MAX_HCI_DATA_LEN];
+    tNFA_STATUS         status;                         /* Status of Registry operation */
+    UINT8               pipe;                           /* Pipe on whose registry is of interest */
+    UINT8               index;                          /* Index of the registry operated */
+    UINT8               data_len;                       /* length of the registry parameter */
+    UINT8               reg_data[NFA_MAX_HCI_DATA_LEN]; /* Registry parameter */
 } tNFA_HCI_REGISTRY;
 
 
@@ -261,7 +263,7 @@ typedef union
     tNFA_HCI_CMD_RCVD               cmd_rcvd;       /* NFA_HCI_CMD_RCVD_EVT           */
     tNFA_HCI_EVENT_RCVD             rcvd_evt;       /* NFA_HCI_EVENT_RCVD_EVT         */
     tNFA_STATUS                     status;         /* status of api command request  */
-    tNFA_HCI_REGISTRY               registry;       /* all registry-related events    */
+    tNFA_HCI_REGISTRY               registry;       /* all registry-related events - NFA_HCI_GET_REG_CMD_EVT, NFA_HCI_SET_REG_CMD_EVT, NFA_HCI_GET_REG_RSP_EVT, NFA_HCI_SET_REG_RSP_EVT */
     tNFA_HCI_INIT                   hci_init;       /* NFA_HCI_INIT_EVT               */
     tNFA_HCI_EXIT                   hci_exit;       /* NFA_HCI_EXIT_EVT               */
     tNFA_HCI_ADD_STATIC_PIPE_EVT    pipe_added;     /* NFA_HCI_ADD_STATIC_PIPE_EVT    */

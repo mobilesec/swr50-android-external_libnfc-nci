@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -66,6 +67,9 @@ static void rw_t2t_proc_data (UINT8 conn_id, tNFC_CONN_EVT event, BT_HDR *p_pkt)
     tRW_READ_DATA           evt_data = {0};
     tT2T_CMD_RSP_INFO       *p_cmd_rsp_info = (tT2T_CMD_RSP_INFO *) rw_cb.tcb.t2t.p_cmd_rsp_info;
     tRW_DETECT_NDEF_DATA    ndef_data;
+#if (BT_TRACE_VERBOSE == TRUE)
+    UINT8                   begin_state     = p_t2t->state;
+#endif
 
     if (  (p_t2t->state == RW_T2T_STATE_IDLE)
         ||(p_cmd_rsp_info == NULL)  )
@@ -212,6 +216,14 @@ static void rw_t2t_proc_data (UINT8 conn_id, tNFC_CONN_EVT event, BT_HDR *p_pkt)
 
     if (b_release)
         GKI_freebuf (p_pkt);
+#if (BT_TRACE_VERBOSE == TRUE)
+    if (begin_state != p_t2t->state)
+    {
+        RW_TRACE_DEBUG2 ("RW T2T state changed:<%s> -> <%s>",
+                          rw_t2t_get_state_name (begin_state),
+                          rw_t2t_get_state_name (p_t2t->state));
+    }
+#endif
 }
 
 /*******************************************************************************
@@ -825,6 +837,12 @@ tNFC_STATUS rw_t2t_select (void)
 void rw_t2t_handle_op_complete (void)
 {
     tRW_T2T_CB      *p_t2t  = &rw_cb.tcb.t2t;
+
+    if (  (p_t2t->state == RW_T2T_STATE_READ_NDEF)
+        ||(p_t2t->state == RW_T2T_STATE_WRITE_NDEF)  )
+    {
+        p_t2t->b_read_data = FALSE;
+    }
 
     p_t2t->state    = RW_T2T_STATE_IDLE;
     p_t2t->substate = RW_T2T_SUBSTATE_NONE;

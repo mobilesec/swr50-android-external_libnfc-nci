@@ -32,8 +32,8 @@
 #define UIPC_CH_ID_ALL  0   /* used to address all the ch id at once */
 #define UIPC_CH_ID_0    1   /* shared mem interface */
 #define UIPC_CH_ID_1    2   /* TCP socket (GPS) */
-#define UIPC_CH_ID_2    3   /* BSA control socket */
-#define UIPC_CH_ID_3    4   /* BSA HH */
+#define UIPC_CH_ID_2    3   /* BTIF control socket */
+#define UIPC_CH_ID_3    4   /* BTIF HH */
 #define UIPC_CH_ID_4    5   /* Future usage */
 #define UIPC_CH_ID_5    6   /* Future usage */
 #define UIPC_CH_ID_6    7   /* Future usage */

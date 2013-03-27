@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -2305,7 +2306,7 @@ static void rw_t2t_update_lock_attributes (void)
         xx                      = 0;
         num_static_lock_bytes   = 0;
         block_count             = 0;
-        num_lock_bits           = TAG_BITS_PER_BYTE;
+        num_lock_bits           = TAG_BITS_PER_BYTE - 1; /* the inner while loop increases xx by 2. need (-1) to avoid coverity overrun error */
 
         while (num_static_lock_bytes < T2T_NUM_STATIC_LOCK_BYTES)
         {
@@ -2830,8 +2831,10 @@ tNFC_STATUS RW_T2tFormatNDef (void)
             p_t2t->substate = RW_T2T_SUBSTATE_NONE;
     }
     else
-        status = rw_t2t_format_tag ();
-
+    {
+        if ((status = rw_t2t_format_tag ()) != NFC_STATUS_OK)
+            p_t2t->b_read_hdr = FALSE;
+    }
     return status;
 }
 
@@ -2870,8 +2873,10 @@ tNFC_STATUS RW_T2tLocateTlv (UINT8 tlv_type)
     }
 
     if (  (tlv_type == TAG_LOCK_CTRL_TLV)
+        &&(p_t2t->b_read_hdr)
         &&(p_t2t->tag_hdr[T2T_CC2_TMS_BYTE] == T2T_CC2_TMS_STATIC)  )
     {
+        p_t2t->b_read_hdr = FALSE;
         RW_TRACE_API1 ("RW_T2tLocateTlv - No Lock tlv in static structure tag, CC[0]: 0x%02x", p_t2t->tag_hdr[T2T_CC2_TMS_BYTE]);
         return (NFC_STATUS_FAILED);
     }
@@ -2880,6 +2885,7 @@ tNFC_STATUS RW_T2tLocateTlv (UINT8 tlv_type)
         &&(p_t2t->b_read_hdr)
         &&(p_t2t->tag_hdr[T2T_CC0_NMN_BYTE] != T2T_CC0_NMN)  )
     {
+        p_t2t->b_read_hdr = FALSE;
         RW_TRACE_WARNING3 ("RW_T2tLocateTlv - Invalid NDEF Magic Number!, CC[0]: 0x%02x, CC[1]: 0x%02x, CC[3]: 0x%02x", p_t2t->tag_hdr[T2T_CC0_NMN_BYTE], p_t2t->tag_hdr[T2T_CC1_VNO_BYTE], p_t2t->tag_hdr[T2T_CC3_RWA_BYTE]);
         return (NFC_STATUS_FAILED);
     }
@@ -3072,16 +3078,16 @@ tNFC_STATUS RW_T2tWriteNDef (UINT16 msg_len, UINT8 *p_msg)
         return (NFC_STATUS_FAILED);
     }
 
-    if (p_t2t->tag_hdr[T2T_CC3_RWA_BYTE] != T2T_CC3_RWA_RW)
-    {
-        RW_TRACE_ERROR1 ("RW_T2tWriteNDef - Write access not granted - CC3: %u", p_t2t->tag_hdr[T2T_CC3_RWA_BYTE]);
-        return (NFC_STATUS_REFUSED);
-    }
-
     if (p_t2t->ndef_status == T2T_NDEF_NOT_DETECTED)
     {
         RW_TRACE_ERROR0 ("RW_T2tWriteNDef - Error: NDEF detection not performed!");
         return (NFC_STATUS_FAILED);
+    }
+
+    if (p_t2t->tag_hdr[T2T_CC3_RWA_BYTE] != T2T_CC3_RWA_RW)
+    {
+        RW_TRACE_ERROR1 ("RW_T2tWriteNDef - Write access not granted - CC3: %u", p_t2t->tag_hdr[T2T_CC3_RWA_BYTE]);
+        return (NFC_STATUS_REFUSED);
     }
 
     /* Check if there is enough memory on the tag */
@@ -3163,7 +3169,10 @@ tNFC_STATUS RW_T2tSetTagReadOnly (BOOLEAN b_hard_lock)
             p_t2t->substate = RW_T2T_SUBSTATE_NONE;
     }
     else
-        status = rw_t2t_soft_lock_tag ();
+    {
+        if ((status = rw_t2t_soft_lock_tag ()) != NFC_STATUS_OK)
+            p_t2t->b_read_hdr = FALSE;
+    }
 
     return status;
 }

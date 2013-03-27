@@ -24,8 +24,6 @@
 #ifndef UPIO_H
 #define UPIO_H
 
-#include "bt_target.h"
-
 /* Enumeration of UPIO features                                         */
 /* Not all features enumerated here are supported by the hardware.      */
 /* Use UPIO_Feature() to determine support of a particular feature.     */

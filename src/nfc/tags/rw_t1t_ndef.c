@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
 
 /******************************************************************************
  *
@@ -99,7 +100,7 @@ tRW_EVENT rw_t1t_handle_rsp (const tT1T_CMD_RSP_INFO * p_info, BOOLEAN *p_notify
             rw_t1t_update_tag_state ();
             rw_t1t_update_attributes ();
             rw_t1t_update_lock_attributes ();
-            memcpy (p_t1t->mem, (UINT8 *) (p_data + 1), T1T_SEGMENT_SIZE);
+            memcpy (p_t1t->mem, (UINT8 *) (p_data + T1T_ADD_LEN), T1T_SEGMENT_SIZE);
         }
         *p_status = rw_t1t_handle_dyn_read_rsp (p_notify,p_data);
     }
@@ -171,6 +172,8 @@ tRW_EVENT rw_t1t_info_to_event (const tT1T_CMD_RSP_INFO * p_info)
 ** Description      This function will extract lock bytes if any present in the
 **                  response data
 **
+** Parameters       p_data: Data bytes in the response of RSEG/READ8/RALL command
+**
 ** Returns          None
 **
 *******************************************************************************/
@@ -189,12 +192,12 @@ void rw_t1t_extract_lock_bytes (UINT8 *p_data)
     if (p_cmd_rsp_info->opcode == T1T_CMD_RSEG)
     {
         start = p_t1t->segment * T1T_SEGMENT_SIZE;
-        end   = (p_t1t->segment + 1) * T1T_SEGMENT_SIZE;
+        end   = start + T1T_SEGMENT_SIZE;
     }
     else if (p_cmd_rsp_info->opcode == T1T_CMD_READ8)
     {
-        start = p_data[0] * T1T_BLOCK_SIZE;
-        end   = (p_data[0] + 1) * T1T_BLOCK_SIZE;
+        start = p_t1t->block_read * T1T_BLOCK_SIZE;
+        end   = start + T1T_BLOCK_SIZE;
     }
     else if (p_cmd_rsp_info->opcode == T1T_CMD_RALL)
     {
@@ -209,18 +212,20 @@ void rw_t1t_extract_lock_bytes (UINT8 *p_data)
     {
         if (p_t1t->lockbyte[num_locks].b_lock_read == FALSE)
         {
+            /* Get the exact offset of the dynamic lock byte in the tag */
             offset = p_t1t->lock_tlv[p_t1t->lockbyte[num_locks].tlv_index].offset + p_t1t->lockbyte[num_locks].byte_index;
             if (  (offset <  end)
                 &&(offset >= start)  )
 
             {
+                /* This dynamic lock byte is in the response */
                 if (p_cmd_rsp_info->opcode == T1T_CMD_RSEG)
                 {
-                    lock_offset = (offset % T1T_SEGMENT_SIZE) + T1T_ADD_LEN;
+                    lock_offset = (offset % T1T_SEGMENT_SIZE);
                 }
                 else if (p_cmd_rsp_info->opcode == T1T_CMD_READ8)
                 {
-                    lock_offset = (offset % T1T_BLOCK_SIZE) + T1T_ADD_LEN;
+                    lock_offset = (offset % T1T_BLOCK_SIZE);
                 }
                 else if (p_cmd_rsp_info->opcode == T1T_CMD_RALL)
                 {
@@ -254,7 +259,7 @@ void rw_t1t_update_tag_state (void)
     /* Set Tag state based on CC value and NDEF Message length */
     if (  ((p_t1t->mem[T1T_CC_NMN_BYTE] == T1T_CC_NMN) || (p_t1t->mem[T1T_CC_NMN_BYTE] == 0))
         &&((p_t1t->mem[T1T_CC_VNO_BYTE] == T1T_CC_VNO) || (p_t1t->mem[T1T_CC_VNO_BYTE] == T1T_CC_LEGACY_VNO))
-        &&((p_t1t->mem[T1T_CC_RWA_BYTE] == T1T_CC_RWA_RW)|| (p_t1t->mem[T1T_CC_RWA_BYTE] == T1T_CC_RWA_RO))  )
+        &&((p_t1t->mem[T1T_CC_RWA_BYTE] == T1T_CC_RWA_RW) || (p_t1t->mem[T1T_CC_RWA_BYTE] == T1T_CC_RWA_RO))  )
     {
         /* Valid CC value, so Tag is initialized */
         if (p_t1t->ndef_msg_len > 0)
@@ -314,7 +319,8 @@ tNFC_STATUS rw_t1t_read_locks (void)
             else if (offset < (p_t1t->mem[T1T_CC_TMS_BYTE] + 1) * T1T_BLOCK_SIZE)
             {
                 /* send READ8 command */
-                if ((status = rw_t1t_send_dyn_cmd (T1T_CMD_READ8, (UINT8) (offset/T1T_BLOCK_SIZE), NULL)) == NFC_STATUS_OK)
+                p_t1t->block_read = (UINT8) (offset/T1T_BLOCK_SIZE);
+                if ((status = rw_t1t_send_dyn_cmd (T1T_CMD_READ8, p_t1t->block_read, NULL)) == NFC_STATUS_OK)
                 {
                     /* Reading Locks */
                     status          = NFC_STATUS_CONTINUE;
@@ -590,13 +596,13 @@ static tNFC_STATUS rw_t1t_handle_write_rsp (BOOLEAN *p_notify, UINT8 *p_data)
 **
 ** Function         rw_t1t_handle_read_rsp
 **
-** Description      This function handle the response received for RSEG,
-**                  RALL, READ8 commands
+** Description      This function handle the data bytes excluding ADD(S)/ADD8 field
+**                  received as part of RSEG, RALL, READ8 command response
 **
 ** Returns          status of the current NDEF/TLV Operation
 **
 *******************************************************************************/
-tNFC_STATUS rw_t1t_handle_read_rsp (BOOLEAN *p_notify,UINT8 *p_data)
+tNFC_STATUS rw_t1t_handle_read_rsp (BOOLEAN *p_notify, UINT8 *p_data)
 {
     tRW_T1T_CB              *p_t1t  = &rw_cb.tcb.t1t;
     tNFC_STATUS             status  = NFC_STATUS_OK;
@@ -811,6 +817,8 @@ static tNFC_STATUS rw_t1t_handle_dyn_read_rsp (BOOLEAN *p_notify, UINT8 *p_data)
 
     *p_notify = FALSE;
 
+    p_data += T1T_ADD_LEN;
+
     rw_t1t_extract_lock_bytes (p_data);
 
     if (p_t1t->state == RW_T1T_STATE_READ_NDEF)
@@ -838,7 +846,7 @@ static tNFC_STATUS rw_t1t_handle_dyn_read_rsp (BOOLEAN *p_notify, UINT8 *p_data)
     }
     else
     {
-        status = rw_t1t_handle_read_rsp (p_notify,p_data);
+        status = rw_t1t_handle_read_rsp (p_notify, p_data);
     }
     return status;
 }
@@ -1195,7 +1203,7 @@ static tNFC_STATUS rw_t1t_handle_tlv_detect_rsp (UINT8 *p_data)
 
     p_t1t->work_offset += bytes_read;
 
-    /* If not found and not failed, try to read next segment in Dynamic Memory structure */
+    /* NDEF/Lock/Mem TLV to be found in segment 0, if not assume detection failed */
     if (!found && !failed)
     {
         if (  ((p_t1t->tlv_detect == TAG_LOCK_CTRL_TLV) && (p_t1t->num_lockbytes > 0))
@@ -1313,10 +1321,8 @@ static tNFC_STATUS rw_t1t_handle_ndef_read_rsp (UINT8 *p_data)
     tRW_T1T_CB          *p_t1t      = &rw_cb.tcb.t1t;
     UINT8               index;
     UINT8               adds;
-    UINT8               *p_readbytes;
     tT1T_CMD_RSP_INFO   *p_cmd_rsp_info = (tT1T_CMD_RSP_INFO *) rw_cb.tcb.t1t.p_cmd_rsp_info;
 
-    p_readbytes = p_data + T1T_ADD_LEN;
     /* The Response received could be for Read8 or Read Segment command */
     switch(p_cmd_rsp_info->opcode)
     {
@@ -1334,7 +1340,7 @@ static tNFC_STATUS rw_t1t_handle_ndef_read_rsp (UINT8 *p_data)
         {
             if (rw_t1t_is_lock_reserved_otp_byte ((UINT16) ((p_t1t->block_read * T1T_BLOCK_SIZE) + index)) == FALSE)
             {
-                p_t1t->p_ndef_buffer[p_t1t->work_offset] = p_readbytes[index];
+                p_t1t->p_ndef_buffer[p_t1t->work_offset] = p_data[index];
                 p_t1t->work_offset++;
             }
             index++;
@@ -1356,7 +1362,7 @@ static tNFC_STATUS rw_t1t_handle_ndef_read_rsp (UINT8 *p_data)
         {
             if (rw_t1t_is_lock_reserved_otp_byte ((UINT16) (index)) == FALSE)
             {
-                p_t1t->p_ndef_buffer[p_t1t->work_offset] = p_readbytes[index];
+                p_t1t->p_ndef_buffer[p_t1t->work_offset] = p_data[index];
                 p_t1t->work_offset++;
             }
             index++;
@@ -1868,7 +1874,7 @@ static tNFC_STATUS rw_t1t_handle_ndef_write_rsp (UINT8 *p_data)
     {
     case RW_T1T_SUBSTATE_WAIT_READ_NDEF_BLOCK:
         /* Backup ndef_final_block */
-        memcpy (p_t1t->ndef_final_block,p_data + T1T_ADD_LEN,T1T_BLOCK_SIZE);
+        memcpy (p_t1t->ndef_final_block, p_data, T1T_BLOCK_SIZE);
         /* Invalidate existing NDEF Message */
         RW_T1T_BLD_ADD ((addr), (T1T_CC_BLOCK), (T1T_CC_NMN_OFFSET));
         if (NFC_STATUS_OK == rw_t1t_send_static_cmd (T1T_CMD_WRITE_E, addr, 0))
@@ -2401,10 +2407,7 @@ tNFC_STATUS RW_T1tLocateTlv (UINT8 tlv_type)
 {
     tNFC_STATUS     status = NFC_STATUS_FAILED;
     tRW_T1T_CB      *p_t1t= &rw_cb.tcb.t1t;
-    BOOLEAN         b_notify;
     UINT8           adds;
-    const tT1T_CMD_RSP_INFO *p_cmd_rsp_info_rall = t1t_cmd_to_rsp_info (T1T_CMD_RALL);
-    const tT1T_CMD_RSP_INFO *p_cmd_rsp_info_rseg = t1t_cmd_to_rsp_info (T1T_CMD_RSEG);
 
     if (p_t1t->state != RW_T1T_STATE_IDLE)
     {
@@ -2433,53 +2436,26 @@ tNFC_STATUS RW_T1tLocateTlv (UINT8 tlv_type)
         p_t1t->num_lock_tlvs = 0;
     }
 
-    if (p_t1t->b_rseg == TRUE)
+    /* Start reading memory, looking for the TLV */
+    p_t1t->segment = 0;
+    if ((p_t1t->hr[0] & 0x0F) != 1)
     {
-        /* If already got response to RSEG 0 */
-        p_t1t->tlv_detect   = tlv_type;
-        p_t1t->work_offset  = 0;
-        p_t1t->state        = RW_T1T_STATE_TLV_DETECT;
-        p_t1t->substate     = RW_T1T_SUBSTATE_NONE;
-
-        p_t1t->p_cmd_rsp_info = (tT1T_CMD_RSP_INFO *) p_cmd_rsp_info_rseg;
-        rw_t1t_handle_read_rsp (&b_notify,p_t1t->mem);
-        status              = NFC_STATUS_OK;
-    }
-    else if (p_t1t->b_update == TRUE)
-    {
-        /* If already got response to RALL */
-        p_t1t->tlv_detect   = tlv_type;
-        p_t1t->work_offset  = 0;
-        p_t1t->state        = RW_T1T_STATE_TLV_DETECT;
-        p_t1t->substate     = RW_T1T_SUBSTATE_NONE;
-
-        p_t1t->p_cmd_rsp_info = (tT1T_CMD_RSP_INFO *) p_cmd_rsp_info_rall;
-        rw_t1t_handle_read_rsp (&b_notify,p_t1t->mem);
-        status              = NFC_STATUS_OK;
+        /* send RSEG command */
+        RW_T1T_BLD_ADDS ((adds), (p_t1t->segment));
+        status = rw_t1t_send_dyn_cmd (T1T_CMD_RSEG, adds, NULL);
     }
     else
     {
-        /* Start reading memory, looking for the TLV */
-        p_t1t->segment = 0;
-        if ((p_t1t->hr[0] & 0x0F) != 1)
-        {
-            /* send RSEG command */
-            RW_T1T_BLD_ADDS ((adds), (p_t1t->segment));
-            status = rw_t1t_send_dyn_cmd (T1T_CMD_RSEG, adds, NULL);
-        }
-        else
-        {
-            status = rw_t1t_send_static_cmd (T1T_CMD_RALL, 0, 0);
-        }
-        if (status == NFC_STATUS_OK)
-        {
-            p_t1t->tlv_detect   = tlv_type;
-            p_t1t->work_offset  = 0;
-            p_t1t->state        = RW_T1T_STATE_TLV_DETECT;
-            p_t1t->substate     = RW_T1T_SUBSTATE_NONE;
-        }
-
+        status = rw_t1t_send_static_cmd (T1T_CMD_RALL, 0, 0);
     }
+    if (status == NFC_STATUS_OK)
+    {
+        p_t1t->tlv_detect   = tlv_type;
+        p_t1t->work_offset  = 0;
+        p_t1t->state        = RW_T1T_STATE_TLV_DETECT;
+        p_t1t->substate     = RW_T1T_SUBSTATE_NONE;
+    }
+
     return status;
 }
 
@@ -2621,7 +2597,6 @@ tNFC_STATUS RW_T1tWriteNDef (UINT16 msg_len, UINT8 *p_msg)
     tRW_T1T_CB  *p_t1t          = &rw_cb.tcb.t1t;
     UINT16      num_ndef_bytes;
     UINT16      offset;
-    UINT8       block;
     UINT8       addr;
     UINT8       init_lengthfield_len;
     UINT8       new_lengthfield_len;
@@ -2692,11 +2667,11 @@ tNFC_STATUS RW_T1tWriteNDef (UINT16 msg_len, UINT8 *p_msg)
     if ((p_t1t->hr[0] & 0x0F) != 1)
     {
         /* Dynamic data structure */
-        block = (UINT8) ((offset - 1)/T1T_BLOCK_SIZE);
+        p_t1t->block_read = (UINT8) ((offset - 1)/T1T_BLOCK_SIZE);
         /* Read NDEF final block before updating */
-        if ((status = rw_t1t_send_dyn_cmd (T1T_CMD_READ8, block, NULL)) == NFC_STATUS_OK)
+        if ((status = rw_t1t_send_dyn_cmd (T1T_CMD_READ8, p_t1t->block_read, NULL)) == NFC_STATUS_OK)
         {
-            p_t1t->num_ndef_finalblock = block;
+            p_t1t->num_ndef_finalblock = p_t1t->block_read;
             p_t1t->state    = RW_T1T_STATE_WRITE_NDEF;
             p_t1t->substate = RW_T1T_SUBSTATE_WAIT_READ_NDEF_BLOCK;
         }

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2010-2012 Broadcom Corporation
+ *  Copyright (C) 2010-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 
+
 /******************************************************************************
  *
  *  This file contains the action functions for the NFA HCI.
@@ -28,6 +29,7 @@
 #include "nfa_sys_int.h"
 #include "nfa_hci_api.h"
 #include "nfa_hci_int.h"
+#include "nfa_dm_int.h"
 #include "nfa_nv_co.h"
 #include "nfa_mem_co.h"
 #include "nfa_hci_defs.h"
@@ -71,7 +73,6 @@ void nfa_hci_check_pending_api_requests (void)
     BT_HDR              *p_msg;
     tNFA_HCI_EVENT_DATA *p_evt_data;
     BOOLEAN             b_free;
-    UINT8               b_cmd_flag = 0;
 
     /* If busy, or API queue is empty, then exit */
     if (  (nfa_hci_cb.hci_state != NFA_HCI_STATE_IDLE)
@@ -351,7 +352,7 @@ void nfa_hci_api_deregister (tNFA_HCI_EVENT_DATA *p_evt_data)
     }
 
     /* See if any pipe is owned by this app */
-    if ((p_pipe = nfa_hciu_find_pipe_by_owner (nfa_hci_cb.app_in_use)) == NULL)
+    if (nfa_hciu_find_pipe_by_owner (nfa_hci_cb.app_in_use) == NULL)
     {
         /* No pipes, release all gates owned by this app */
         while ((p_gate = nfa_hciu_find_gate_by_owner (nfa_hci_cb.app_in_use)) != NULL)
@@ -436,6 +437,21 @@ static void nfa_hci_api_get_gate_pipe_list (tNFA_HCI_EVENT_DATA *p_evt_data)
             }
         }
     }
+
+    evt_data.gates_pipes.num_uicc_created_pipes = 0;
+    /* Loop through all pipes that are connected to connectivity gate */
+    for (xx = 0, pp = nfa_hci_cb.cfg.dyn_pipes; xx < NFA_HCI_MAX_PIPE_CB; xx++, pp++)
+    {
+        if (pp->pipe_id != 0  && pp->local_gate == NFA_HCI_CONNECTIVITY_GATE)
+        {
+            memcpy (&evt_data.gates_pipes.uicc_created_pipe [evt_data.gates_pipes.num_uicc_created_pipes++], pp, sizeof (tNFA_HCI_PIPE_INFO));
+        }
+        else if (pp->pipe_id != 0  && pp->local_gate == NFA_HCI_LOOP_BACK_GATE)
+        {
+            memcpy (&evt_data.gates_pipes.uicc_created_pipe [evt_data.gates_pipes.num_uicc_created_pipes++], pp, sizeof (tNFA_HCI_PIPE_INFO));
+        }
+    }
+
     evt_data.gates_pipes.status = NFA_STATUS_OK;
 
     /* notify NFA_HCI_GET_GATE_PIPE_LIST_EVT to the application */
@@ -512,7 +528,7 @@ void nfa_hci_api_dealloc_gate (tNFA_HCI_EVENT_DATA *p_evt_data)
     else
     {
         /* See if any pipe is owned by this app */
-        if ((p_pipe = nfa_hciu_find_pipe_on_gate (p_gate->gate_id)) == NULL)
+        if (nfa_hciu_find_pipe_on_gate (p_gate->gate_id) == NULL)
         {
             nfa_hciu_release_gate (p_gate->gate_id);
 
@@ -561,15 +577,12 @@ static void nfa_hci_api_get_host_list (tNFA_HCI_EVENT_DATA *p_evt_data)
 
     nfa_hci_cb.app_in_use = p_evt_data->get_host_list.hci_handle;
 
-    /* First, check if the application handle is valid */
-    if (  ((nfa_hci_cb.app_in_use & NFA_HANDLE_GROUP_MASK) != NFA_HANDLE_GROUP_HCI)
-        ||(app_inx >= NFA_HCI_MAX_APP_CB)
-        ||(nfa_hci_cb.p_app_cback[app_inx] == NULL) )
+    /* Send Get Host List command on "Internal request" or requested by registered application with valid handle and callback function */
+    if (  (nfa_hci_cb.app_in_use == NFA_HANDLE_INVALID)
+        ||((app_inx < NFA_HCI_MAX_APP_CB) && (nfa_hci_cb.p_app_cback[app_inx] != NULL))  )
     {
-        return;
+        nfa_hciu_send_get_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_HOST_LIST_INDEX);
     }
-
-    nfa_hciu_send_get_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_HOST_LIST_INDEX);
 }
 
 /*******************************************************************************
@@ -856,7 +869,7 @@ static BOOLEAN nfa_hci_api_send_cmd (tNFA_HCI_EVENT_DATA *p_evt_data)
         app_handle = nfa_hciu_get_pipe_owner (p_evt_data->send_cmd.pipe);
 
         if (  (nfa_hciu_is_active_host (p_pipe->dest_host))
-            &&(app_handle == p_evt_data->send_cmd.hci_handle)  )
+            &&((app_handle == p_evt_data->send_cmd.hci_handle || p_pipe->local_gate == NFA_HCI_CONNECTIVITY_GATE))  )
         {
             if (nfa_hciu_is_host_reseting (p_pipe->dest_host))
             {
@@ -915,7 +928,7 @@ static void nfa_hci_api_send_rsp (tNFA_HCI_EVENT_DATA *p_evt_data)
         app_handle = nfa_hciu_get_pipe_owner (p_evt_data->send_rsp.pipe);
 
         if (  (nfa_hciu_is_active_host (p_pipe->dest_host))
-            &&(app_handle == p_evt_data->send_rsp.hci_handle)  )
+            &&((app_handle == p_evt_data->send_rsp.hci_handle || p_pipe->local_gate == NFA_HCI_CONNECTIVITY_GATE))  )
         {
             if (p_pipe->pipe_state == NFA_HCI_PIPE_OPENED)
             {
@@ -967,7 +980,7 @@ static BOOLEAN nfa_hci_api_send_event (tNFA_HCI_EVENT_DATA *p_evt_data)
         app_handle = nfa_hciu_get_pipe_owner (p_evt_data->send_evt.pipe);
 
         if (  (nfa_hciu_is_active_host (p_pipe->dest_host))
-            &&(app_handle == p_evt_data->send_evt.hci_handle)  )
+            &&((app_handle == p_evt_data->send_evt.hci_handle || p_pipe->local_gate == NFA_HCI_CONNECTIVITY_GATE))  )
         {
             if (nfa_hciu_is_host_reseting (p_pipe->dest_host))
             {
@@ -982,6 +995,12 @@ static BOOLEAN nfa_hci_api_send_event (tNFA_HCI_EVENT_DATA *p_evt_data)
 
                 if (status == NFA_STATUS_OK)
                 {
+                    if (p_pipe->local_gate == NFA_HCI_LOOP_BACK_GATE)
+                    {
+                        nfa_hci_cb.w4_rsp_evt   = TRUE;
+                        nfa_hci_cb.hci_state    = NFA_HCI_STATE_WAIT_RSP;
+                    }
+
                     if (p_evt_data->send_evt.rsp_len)
                     {
                         nfa_hci_cb.pipe_in_use  = p_evt_data->send_evt.pipe;
@@ -993,9 +1012,18 @@ static BOOLEAN nfa_hci_api_send_event (tNFA_HCI_EVENT_DATA *p_evt_data)
                             nfa_hci_cb.hci_state    = NFA_HCI_STATE_WAIT_RSP;
                             nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_evt_data->send_evt.rsp_timeout);
                         }
+                        else if (p_pipe->local_gate == NFA_HCI_LOOP_BACK_GATE)
+                        {
+                            nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hcp_response_timeout);
+                        }
                     }
                     else
                     {
+                        if (p_pipe->local_gate == NFA_HCI_LOOP_BACK_GATE)
+                        {
+                            nfa_hci_cb.pipe_in_use  = p_evt_data->send_evt.pipe;
+                            nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hcp_response_timeout);
+                        }
                         nfa_hci_cb.rsp_buf_size = 0;
                         nfa_hci_cb.p_rsp_buf    = NULL;
                     }
@@ -1019,7 +1047,7 @@ static BOOLEAN nfa_hci_api_send_event (tNFA_HCI_EVENT_DATA *p_evt_data)
 
     evt_data.evt_sent.status = status;
 
-    /* Send NFC_HCI_EVENT_SENT_EVT to notify failure */
+    /* Send NFC_HCI_EVENT_SENT_EVT to notify status */
     nfa_hciu_send_to_app (NFA_HCI_EVENT_SENT_EVT, &evt_data, p_evt_data->send_evt.hci_handle);
     return TRUE;
 }
@@ -1322,7 +1350,8 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
     /* If starting up, handle events here */
     if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_STARTUP)
         ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)
-        ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_NETWK_ENABLE)  )
+        ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_NETWK_ENABLE)
+        ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE_NETWK_ENABLE))
     {
         if (nfa_hci_cb.inst != NFA_HCI_ANY_OK)
         {
@@ -1341,11 +1370,9 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
             }
             else if (nfa_hci_cb.param_in_use == NFA_HCI_WHITELIST_INDEX)
             {
-                if (nfa_hci_cb.hci_state == NFA_HCI_STATE_STARTUP)
+                if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_STARTUP)
+                    ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)  )
                     nfa_hci_dh_startup_complete ();
-
-                else if (nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)
-                    nfa_hci_startup_complete (NFA_STATUS_OK);
             }
             break;
 
@@ -1382,7 +1409,7 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
                 if (!memcmp ((UINT8 *) nfa_hci_cb.cfg.admin_gate.session_id, p_data, NFA_HCI_SESSION_ID_LEN) )
                 {
                     /* Session has not changed. Set the WHITELIST */
-                    nfa_hciu_send_set_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_WHITELIST_INDEX, 0x01, hosts);
+                    nfa_hciu_send_set_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_WHITELIST_INDEX, 0x02, hosts);
                 }
                 else
                 {
@@ -1594,7 +1621,8 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
 *******************************************************************************/
 void nfa_hci_handle_admin_gate_evt (UINT8 *p_data)
 {
-    tNFA_HCI_EVT_DATA   evt_data;
+    tNFA_HCI_EVT_DATA           evt_data;
+    tNFA_HCI_API_GET_HOST_LIST  *p_msg;
 
     if (nfa_hci_cb.inst != NFA_HCI_EVT_HOT_PLUG)
     {
@@ -1602,10 +1630,52 @@ void nfa_hci_handle_admin_gate_evt (UINT8 *p_data)
         return;
     }
 
-    evt_data.rcvd_evt.evt_code = nfa_hci_cb.inst;
+    NFA_TRACE_DEBUG0 ("nfa_hci_handle_admin_gate_evt - HOT PLUG EVT event on ADMIN Pipe");
+    nfa_hci_cb.num_hot_plug_evts++;
 
-    nfa_hciu_send_get_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_HOST_LIST_INDEX);
-    nfa_hciu_send_to_all_apps (NFA_HCI_EVENT_RCVD_EVT, &evt_data);
+    if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_NETWK_ENABLE)
+        ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE_NETWK_ENABLE)  )
+    {
+        /* Received Hot Plug evt while waiting for other Host in the network to bootup after DH host bootup is complete */
+        if (  (nfa_hci_cb.ee_disable_disc)
+            &&(nfa_hci_cb.num_hot_plug_evts == (nfa_hci_cb.num_nfcee - 1))
+            &&(nfa_hci_cb.num_ee_dis_req_ntf < (nfa_hci_cb.num_nfcee - 1))  )
+        {
+            /* Received expected number of Hot Plug event(s) before as many number of EE DISC REQ Ntf(s) are received */
+            nfa_sys_stop_timer (&nfa_hci_cb.timer);
+            /* Received HOT PLUG EVT(s), now wait some more time for EE DISC REQ Ntf(s) */
+            nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hci_netwk_enable_timeout);
+        }
+    }
+    else if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_STARTUP)
+             ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)  )
+    {
+        /* Received Hot Plug evt during DH host bootup */
+        if (  (nfa_hci_cb.ee_disable_disc)
+            &&(nfa_hci_cb.num_hot_plug_evts == (nfa_hci_cb.num_nfcee - 1))
+            &&(nfa_hci_cb.num_ee_dis_req_ntf < (nfa_hci_cb.num_nfcee - 1))  )
+        {
+            /* Received expected number of Hot Plug event(s) before as many number of EE DISC REQ Ntf(s) are received */
+            nfa_hci_cb.w4_hci_netwk_init = FALSE;
+        }
+    }
+    else
+    {
+        /* Received Hot Plug evt on UICC self reset */
+        evt_data.rcvd_evt.evt_code = nfa_hci_cb.inst;
+        /* Notify all registered application with the HOT_PLUG_EVT */
+        nfa_hciu_send_to_all_apps (NFA_HCI_EVENT_RCVD_EVT, &evt_data);
+
+        /* Send Get Host List after receiving any pending response */
+        if ((p_msg = (tNFA_HCI_API_GET_HOST_LIST *) GKI_getbuf (sizeof (tNFA_HCI_API_GET_HOST_LIST))) != NULL)
+        {
+            p_msg->hdr.event    = NFA_HCI_API_GET_HOST_LIST_EVT;
+            /* Set Invalid handle to identify this Get Host List command is internal */
+            p_msg->hci_handle   = NFA_HANDLE_INVALID;
+
+            nfa_sys_sendmsg (p_msg);
+        }
+    }
 }
 
 /*******************************************************************************
@@ -1796,8 +1866,7 @@ static void nfa_hci_handle_generic_gate_cmd (UINT8 *p_data, UINT8 data_len, tNFA
             data_len--;
         evt_data.registry.data_len = data_len;
 
-        if (data_len <= NFA_MAX_HCI_DATA_LEN)
-            memcpy (evt_data.registry.reg_data, p_data, data_len);
+        memcpy (evt_data.registry.reg_data, p_data, data_len);
 
         nfa_hciu_send_to_app (NFA_HCI_SET_REG_CMD_EVT, &evt_data, app_handle);
         break;
@@ -1959,6 +2028,17 @@ static void nfa_hci_handle_connectivity_gate_pkt (UINT8 *p_data, UINT16 data_len
             p_pipe->pipe_state = NFA_HCI_PIPE_OPENED;
         else if (nfa_hci_cb.cmd_sent == NFA_HCI_ANY_CLOSE_PIPE)
             p_pipe->pipe_state = NFA_HCI_PIPE_CLOSED;
+
+        /* Could be a response to application specific command sent, pass it on */
+        evt_data.rsp_rcvd.status   = NFA_STATUS_OK;
+        evt_data.rsp_rcvd.pipe     = p_pipe->pipe_id;;
+        evt_data.rsp_rcvd.rsp_code = nfa_hci_cb.inst;
+        evt_data.rsp_rcvd.rsp_len  = data_len;
+
+        if (data_len <= NFA_MAX_HCI_RSP_LEN)
+            memcpy (evt_data.rsp_rcvd.rsp_data, p_data, data_len);
+
+        nfa_hciu_send_to_app (NFA_HCI_RSP_RCVD_EVT, &evt_data, nfa_hci_cb.app_in_use);
     }
     else if (nfa_hci_cb.type == NFA_HCI_EVENT_TYPE)
     {
@@ -1986,7 +2066,7 @@ static void nfa_hci_handle_loopback_gate_pkt (UINT8 *p_data, UINT16 data_len, tN
     UINT8               data[1];
     UINT8               rsp_len = 0;
     tNFA_HCI_RESPONSE   response = NFA_HCI_ANY_OK;
-
+    tNFA_HCI_EVT_DATA   evt_data;
 
     /* Check if data packet is a command, response or event */
     if (nfa_hci_cb.type == NFA_HCI_COMMAND_TYPE)
@@ -2002,19 +2082,40 @@ static void nfa_hci_handle_loopback_gate_pkt (UINT8 *p_data, UINT16 data_len, tN
             p_pipe->pipe_state = NFA_HCI_PIPE_CLOSED;
         }
         else
-            response = NFA_HCI_ANY_E_PIPE_NOT_OPENED;
+            response = NFA_HCI_ANY_E_CMD_NOT_SUPPORTED;
 
         nfa_hciu_send_msg (p_pipe->pipe_id, NFA_HCI_RESPONSE_TYPE, response, rsp_len, data);
     }
     else if (nfa_hci_cb.type == NFA_HCI_RESPONSE_TYPE)
     {
-        /* Since we never send any commands on our local loopback gate,
-         * there should not be any response.
-         */
+        if ((nfa_hci_cb.cmd_sent == NFA_HCI_ANY_OPEN_PIPE) && (nfa_hci_cb.inst == NFA_HCI_ANY_OK))
+            p_pipe->pipe_state = NFA_HCI_PIPE_OPENED;
+        else if (nfa_hci_cb.cmd_sent == NFA_HCI_ANY_CLOSE_PIPE)
+            p_pipe->pipe_state = NFA_HCI_PIPE_CLOSED;
+
+        /* Could be a response to application specific command sent, pass it on */
+        evt_data.rsp_rcvd.status   = NFA_STATUS_OK;
+        evt_data.rsp_rcvd.pipe     = p_pipe->pipe_id;;
+        evt_data.rsp_rcvd.rsp_code = nfa_hci_cb.inst;
+        evt_data.rsp_rcvd.rsp_len  = data_len;
+
+        if (data_len <= NFA_MAX_HCI_RSP_LEN)
+            memcpy (evt_data.rsp_rcvd.rsp_data, p_data, data_len);
+
+        nfa_hciu_send_to_app (NFA_HCI_RSP_RCVD_EVT, &evt_data, nfa_hci_cb.app_in_use);
     }
     else if (nfa_hci_cb.type == NFA_HCI_EVENT_TYPE)
     {
-        if (nfa_hci_cb.inst == NFA_HCI_EVT_POST_DATA)
+        if (nfa_hci_cb.w4_rsp_evt)
+        {
+            evt_data.rcvd_evt.pipe      = p_pipe->pipe_id;
+            evt_data.rcvd_evt.evt_code  = nfa_hci_cb.inst;
+            evt_data.rcvd_evt.evt_len   = data_len;
+            evt_data.rcvd_evt.p_evt_buf = p_data;
+
+            nfa_hciu_send_to_app (NFA_HCI_EVENT_RCVD_EVT, &evt_data, nfa_hci_cb.app_in_use);
+        }
+        else if (nfa_hci_cb.inst == NFA_HCI_EVT_POST_DATA)
         {
             /* Send back the same data we got */
             nfa_hciu_send_msg (p_pipe->pipe_id, NFA_HCI_EVENT_TYPE, NFA_HCI_EVT_POST_DATA, data_len, p_data);
