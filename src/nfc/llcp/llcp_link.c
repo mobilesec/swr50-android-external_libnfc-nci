@@ -209,6 +209,7 @@ tLLCP_STATUS llcp_link_activate (tLLCP_ACTIVATE_CONFIG *p_config)
         return LLCP_STATUS_FAIL;
     }
 
+    llcp_cb.lcb.received_first_packet = FALSE;
     llcp_cb.lcb.is_initiator = p_config->is_initiator;
 
     /* reset internal flags */
@@ -1279,6 +1280,11 @@ static void llcp_link_proc_rx_data (BT_HDR *p_msg)
     {
         llcp_link_stop_link_timer ();
 
+        if (llcp_cb.lcb.received_first_packet == FALSE)
+        {
+            llcp_cb.lcb.received_first_packet = TRUE;
+            (*llcp_cb.lcb.p_link_cback) (LLCP_LINK_FIRST_PACKET_RECEIVED_EVT, LLCP_LINK_SUCCESS);
+        }
         if (  (llcp_cb.lcb.link_state == LLCP_LINK_STATE_DEACTIVATING)
             &&(llcp_cb.lcb.sig_xmit_q.count == 0)  )
         {

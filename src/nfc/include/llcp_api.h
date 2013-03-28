@@ -69,6 +69,7 @@ typedef struct
 #define LLCP_LINK_ACTIVATION_FAILED_EVT     0x00    /* Fail to activate link    */
 #define LLCP_LINK_ACTIVATION_COMPLETE_EVT   0x01    /* LLCP Link is activated   */
 #define LLCP_LINK_DEACTIVATED_EVT           0x02    /* LLCP Link is deactivated */
+#define LLCP_LINK_FIRST_PACKET_RECEIVED_EVT 0x03    /* First LLCP packet received from remote */
 
 /* Link Management Callback Reasons */
 

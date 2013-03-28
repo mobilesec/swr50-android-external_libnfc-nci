@@ -63,6 +63,7 @@ typedef struct
     BOOLEAN             is_initiator;           /* TRUE if initiator role                       */
     BOOLEAN             is_sending_data;        /* TRUE if llcp_link_check_send_data() is excuting    */
     UINT8               flags;                  /* LLCP internal flags                          */
+    BOOLEAN             received_first_packet;  /* TRUE if a packet has been received from remote */
     UINT8               agreed_major_version;   /* llcp major version used in activated state   */
     UINT8               agreed_minor_version;   /* llcp minor version used in activated state   */
 
@@ -72,7 +73,6 @@ typedef struct
     UINT16              peer_lto;               /* link timeout of peer device in ms            */
     UINT8               peer_opt;               /* Option field of peer device                  */
     UINT16              effective_miu;          /* MIU to send PDU in activated state           */
-
     TIMER_LIST_ENT      timer;                  /* link timer for LTO and SYMM response         */
     UINT8               symm_state;             /* state of symmectric procedure                */
     BOOLEAN             ll_served;              /* TRUE if last transmisstion was for UI        */

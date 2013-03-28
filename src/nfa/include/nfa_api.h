@@ -255,6 +255,7 @@ typedef void (tNFA_DM_CBACK) (UINT8 event, tNFA_DM_CBACK_DATA *p_data);
 #define NFA_UPDATE_RF_PARAM_RESULT_EVT          32  /* status of updating RF communication paramters*/
 #define NFA_SET_P2P_LISTEN_TECH_EVT             33  /* status of setting P2P listen technologies    */
 #define NFA_RW_INTF_ERROR_EVT                   34  /* RF Interface error event                     */
+#define NFA_LLCP_FIRST_PACKET_RECEIVED_EVT      35  /* First packet received over LLCP link         */
 
 /* NFC deactivation type */
 #define NFA_DEACTIVATE_TYPE_IDLE        NFC_DEACTIVATE_TYPE_IDLE

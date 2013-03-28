@@ -310,6 +310,10 @@ void nfa_p2p_llcp_link_cback (UINT8 event, UINT8 reason)
 
         nfa_dm_rf_deactivate (NFA_DEACTIVATE_TYPE_DISCOVERY);
     }
+    else if (event == LLCP_LINK_FIRST_PACKET_RECEIVED_EVT)
+    {
+        nfa_dm_act_conn_cback_notify (NFA_LLCP_FIRST_PACKET_RECEIVED_EVT, NULL);
+    }
     else /* LLCP_LINK_DEACTIVATED_EVT       */
     {
         nfa_p2p_cb.llcp_state = NFA_P2P_LLCP_STATE_IDLE;
