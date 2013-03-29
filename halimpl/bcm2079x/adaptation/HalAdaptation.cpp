@@ -55,6 +55,7 @@ UINT32 ScrProtocolTraceFlag = SCR_PROTO_TRACE_ALL; //0x017F00;
 static void BroadcomHalCallback (UINT8 event, tHAL_NFC_STATUS status);
 static void BroadcomHalDataCallback (UINT16 data_len, UINT8* p_data);
 
+extern tNFC_HAL_CFG *p_nfc_hal_cfg;
 
 ///////////////////////////////////////
 
@@ -150,6 +151,11 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
 
     ALOGD ("%s: uart config=0x%04x, %d\n", __func__, cfg.fmt, cfg.baud);
     USERIAL_Init(&cfg);
+
+    if ( GetNumValue ( NAME_NFCC_ENABLE_TIMEOUT, &num, sizeof ( num ) ) )
+    {
+        p_nfc_hal_cfg->nfc_hal_nfcc_enable_timeout = num;
+    }
 
     HAL_NfcInitialize ();
     HAL_NfcSetTraceLevel (logLevel); // Initialize HAL's logging level
