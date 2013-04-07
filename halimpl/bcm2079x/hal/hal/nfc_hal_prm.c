@@ -590,9 +590,15 @@ void nfc_hal_prm_nci_command_complete_cback (tNFC_HAL_NCI_EVT event, UINT16 data
         if (nfc_hal_cb.prm.flags & NFC_HAL_PRM_FLAGS_SIGNATURE_SENT)
         {
             /* Wait for authentication complete (SECURE_PATCH_DOWNLOAD NTF), including time to commit to NVM (for BCM43341B0) */
+            int auth_delay = NFC_HAL_PRM_SPD_TOUT;
+            if (!(nfc_hal_cb.prm.flags & NFC_HAL_PRM_FLAGS_BCM20791B3))
+            {
+                /* XXX maco only wait 30 seconds for B4+ revisions to avoid watchdog timeouts */
+                auth_delay = NFC_HAL_PRM_COMMIT_DELAY;
+            }
             nfc_hal_cb.prm.state = NFC_HAL_PRM_ST_SPD_AUTHENTICATING;
             nfc_hal_main_start_quick_timer (&nfc_hal_cb.prm.timer, 0x00,
-                                            (NFC_HAL_PRM_COMMIT_DELAY * QUICK_TIMER_TICKS_PER_SEC) / 1000);
+                                            (auth_delay * QUICK_TIMER_TICKS_PER_SEC) / 1000);
             return;
         }
         /* Download next segment */
