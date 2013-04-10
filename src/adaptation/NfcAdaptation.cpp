@@ -29,7 +29,8 @@ extern "C"
 
 extern "C" void GKI_shutdown();
 extern void resetConfig();
-extern "C" void delete_stack_non_volatile_store ();
+extern "C" void verify_stack_non_volatile_store ();
+extern "C" void delete_stack_non_volatile_store (BOOLEAN forceDelete);
 
 NfcAdaptation* NfcAdaptation::mpInstance = NULL;
 ThreadMutex NfcAdaptation::sLock;
@@ -127,7 +128,10 @@ void NfcAdaptation::Initialize ()
             (num == 1) )
         ALOGD ("%s: preserve stack NV store", __FUNCTION__);
     else
-        delete_stack_non_volatile_store ();
+    {
+        verify_stack_non_volatile_store ();
+        delete_stack_non_volatile_store (FALSE);
+    }
 
     GKI_init ();
     GKI_enable ();

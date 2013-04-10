@@ -55,7 +55,8 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := nfc_nci.$(TARGET_DEVICE)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_SRC_FILES := $(call all-c-files-under, $(HALIMPL)) \
-    $(call all-cpp-files-under, $(HALIMPL))
+    $(call all-cpp-files-under, $(HALIMPL)) \
+    src/adaptation/CrcChecksum.cpp
 LOCAL_SHARED_LIBRARIES := liblog libcutils libhardware_legacy libstlport
 LOCAL_MODULE_TAGS := optional
 LOCAL_C_INCLUDES := external/stlport/stlport bionic/ bionic/libstdc++/include \

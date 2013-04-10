@@ -110,22 +110,24 @@ NFC_API extern void nfa_nv_co_read(UINT8 *pBuffer, UINT16 nbytes, UINT8 block)
     int fileStream = open (filename, O_RDONLY);
     if (fileStream >= 0)
     {
-        size_t actualRead = read (fileStream, pBuffer, nbytes);
-        if (actualRead > 0)
+        unsigned short checksum = 0;
+        size_t actualReadCrc = read (fileStream, &checksum, sizeof(checksum));
+        size_t actualReadData = read (fileStream, pBuffer, nbytes);
+        close (fileStream);
+        if (actualReadData > 0)
         {
-            ALOGD ("%s: read bytes=%u", __FUNCTION__, actualRead);
-            nfa_nv_ci_read (actualRead, NFA_NV_CO_OK, block);
+            ALOGD ("%s: data size=%u", __FUNCTION__, actualReadData);
+            nfa_nv_ci_read (actualReadData, NFA_NV_CO_OK, block);
         }
         else
         {
             ALOGE ("%s: fail to read", __FUNCTION__);
-            nfa_nv_ci_read (actualRead, NFA_NV_CO_FAIL, block);
+            nfa_nv_ci_read (0, NFA_NV_CO_FAIL, block);
         }
-        close (fileStream);
     }
     else
     {
-        ALOGE ("%s: fail to open", __FUNCTION__);
+        ALOGD ("%s: fail to open", __FUNCTION__);
         nfa_nv_ci_read (0, NFA_NV_CO_FAIL, block);
     }
 }
@@ -169,9 +171,12 @@ NFC_API extern void nfa_nv_co_write(const UINT8 *pBuffer, UINT16 nbytes, UINT8 b
     fileStream = open (filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fileStream >= 0)
     {
-        size_t actualWritten = write (fileStream, pBuffer, nbytes);
-        ALOGD ("%s: %d bytes written", __FUNCTION__, actualWritten);
-        if (actualWritten > 0) {
+        unsigned short checksum = crcChecksumCompute (pBuffer, nbytes);
+        size_t actualWrittenCrc = write (fileStream, &checksum, sizeof(checksum));
+        size_t actualWrittenData = write (fileStream, pBuffer, nbytes);
+        ALOGD ("%s: %d bytes written", __FUNCTION__, actualWrittenData);
+        if ((actualWrittenData == nbytes) && (actualWrittenCrc == sizeof(checksum)))
+        {
             nfa_nv_ci_write (NFA_NV_CO_OK);
         }
         else
@@ -194,17 +199,17 @@ NFC_API extern void nfa_nv_co_write(const UINT8 *pBuffer, UINT16 nbytes, UINT8 b
 **
 ** Description      Delete all the content of the stack's storage location.
 **
-** Parameters       none
+** Parameters       forceDelete: unconditionally delete the storage.
 **
 ** Returns          none
 **
 *******************************************************************************/
-void delete_stack_non_volatile_store ()
+void delete_stack_non_volatile_store (BOOLEAN forceDelete)
 {
     static BOOLEAN firstTime = TRUE;
     char filename[256], filename2[256];
 
-    if (firstTime == FALSE)
+    if ((firstTime == FALSE) && (forceDelete == FALSE))
         return;
     firstTime = FALSE;
 
@@ -227,6 +232,53 @@ void delete_stack_non_volatile_store ()
     remove (filename);
     sprintf (filename, "%s%u", filename2, HC_F2_NV_BLOCK);
     remove (filename);
+}
+
+/*******************************************************************************
+**
+** Function         verify_stack_non_volatile_store
+**
+** Description      Verify the content of all non-volatile store.
+**
+** Parameters       none
+**
+** Returns          none
+**
+*******************************************************************************/
+void verify_stack_non_volatile_store ()
+{
+    ALOGD ("%s", __FUNCTION__);
+    char filename[256], filename2[256];
+    BOOLEAN isValid = FALSE;
+
+    memset (filename, 0, sizeof(filename));
+    memset (filename2, 0, sizeof(filename2));
+    strcpy(filename2, bcm_nfc_location);
+    strncat(filename2, sNfaStorageBin, sizeof(filename2)-strlen(filename2)-1);
+    if (strlen(filename2) > 200)
+    {
+        ALOGE ("%s: filename too long", __FUNCTION__);
+        return;
+    }
+
+    sprintf (filename, "%s%u", filename2, DH_NV_BLOCK);
+    if (crcChecksumVerifyIntegrity (filename))
+    {
+        sprintf (filename, "%s%u", filename2, HC_F3_NV_BLOCK);
+        if (crcChecksumVerifyIntegrity (filename))
+        {
+            sprintf (filename, "%s%u", filename2, HC_F4_NV_BLOCK);
+            if (crcChecksumVerifyIntegrity (filename))
+            {
+                sprintf (filename, "%s%u", filename2, HC_F2_NV_BLOCK);
+                if (crcChecksumVerifyIntegrity (filename))
+                    isValid = TRUE;
+            }
+        }
+    }
+
+    if (isValid == FALSE)
+        delete_stack_non_volatile_store (TRUE);
 }
 
 /*******************************************************************************

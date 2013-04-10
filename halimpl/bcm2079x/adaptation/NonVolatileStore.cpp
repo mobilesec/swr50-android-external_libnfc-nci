@@ -25,6 +25,7 @@ extern "C"
 #include "nfc_hal_nv_ci.h"
 #include "nfc_hal_int.h"
 #include "config.h"
+#include "CrcChecksum.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -36,6 +37,8 @@ extern "C"
 static const char* default_location = "/data/nfc";
 static const char* filename_prefix = "/halStorage.bin";
 static const std::string get_storage_location ();
+void delete_hal_non_volatile_store (bool forceDelete);
+void verify_hal_non_volatile_store ();
 
 
 /*******************************************************************************
@@ -75,18 +78,20 @@ void nfc_hal_nv_co_read (UINT8 *p_buf, UINT16 nbytes, UINT8 block)
     int fileStream = open (filename, O_RDONLY);
     if (fileStream >= 0)
     {
-        size_t actualRead = read (fileStream, p_buf, nbytes);
-        if (actualRead > 0)
+        unsigned short checksum = 0;
+        size_t actualReadCrc = read (fileStream, &checksum, sizeof(checksum));
+        size_t actualReadData = read (fileStream, p_buf, nbytes);
+        close (fileStream);
+        if (actualReadData > 0)
         {
-            ALOGD ("%s: read bytes=%u", __FUNCTION__, actualRead);
-            nfc_hal_nv_ci_read (actualRead, NFC_HAL_NV_CO_OK, block);
+            ALOGD ("%s: data size=%u", __FUNCTION__, actualReadData);
+            nfc_hal_nv_ci_read (actualReadData, NFC_HAL_NV_CO_OK, block);
         }
         else
         {
             ALOGE ("%s: fail to read", __FUNCTION__);
-            nfc_hal_nv_ci_read (actualRead, NFC_HAL_NV_CO_FAIL, block);
+            nfc_hal_nv_ci_read (0, NFC_HAL_NV_CO_FAIL, block);
         }
-        close (fileStream);
     }
     else
     {
@@ -132,9 +137,12 @@ void nfc_hal_nv_co_write (const UINT8 *p_buf, UINT16 nbytes, UINT8 block)
     fileStream = open (filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fileStream >= 0)
     {
-        size_t actualWritten = write (fileStream, p_buf, nbytes);
-        ALOGD ("%s: %d bytes written", __FUNCTION__, actualWritten);
-        if (actualWritten > 0) {
+        unsigned short checksum = crcChecksumCompute (p_buf, nbytes);
+        size_t actualWrittenCrc = write (fileStream, &checksum, sizeof(checksum));
+        size_t actualWrittenData = write (fileStream, p_buf, nbytes);
+        ALOGD ("%s: %d bytes written", __FUNCTION__, actualWrittenData);
+        if ((actualWrittenData == nbytes) && (actualWrittenCrc == sizeof(checksum)))
+        {
             nfc_hal_nv_ci_write (NFC_HAL_NV_CO_OK);
         }
         else
@@ -180,19 +188,19 @@ const std::string get_storage_location ()
 **
 ** Description      Delete all the content of the HAL's storage location.
 **
-** Parameters       none
+** Parameters       forceDelete: unconditionally delete the storage.
 **
 ** Returns          none
 **
 *******************************************************************************/
-void delete_hal_non_volatile_store ()
+void delete_hal_non_volatile_store (bool forceDelete)
 {
     static bool firstTime = true;
     std::string fn = get_storage_location();
     char filename[256];
     int stat = 0;
 
-    if (firstTime == false)
+    if ((firstTime == false) && (forceDelete == false))
         return;
     firstTime = false;
 
@@ -213,4 +221,50 @@ void delete_hal_non_volatile_store ()
     remove (filename);
     sprintf (filename, "%s%u", fn.c_str(), HC_F2_NV_BLOCK);
     remove (filename);
+}
+
+
+/*******************************************************************************
+**
+** Function         verify_hal_non_volatile_store
+**
+** Description      Verify the content of all non-volatile store.
+**
+** Parameters       none
+**
+** Returns          none
+**
+*******************************************************************************/
+void verify_hal_non_volatile_store ()
+{
+    ALOGD ("%s", __FUNCTION__);
+    std::string fn = get_storage_location();
+    char filename[256];
+    bool isValid = false;
+
+    fn.append (filename_prefix);
+    if (fn.length() > 200)
+    {
+        ALOGE ("%s: filename too long", __FUNCTION__);
+        return;
+    }
+
+    sprintf (filename, "%s%u", fn.c_str(), DH_NV_BLOCK);
+    if (crcChecksumVerifyIntegrity (filename))
+    {
+        sprintf (filename, "%s%u", fn.c_str(), HC_F3_NV_BLOCK);
+        if (crcChecksumVerifyIntegrity (filename))
+        {
+            sprintf (filename, "%s%u", fn.c_str(), HC_F4_NV_BLOCK);
+            if (crcChecksumVerifyIntegrity (filename))
+            {
+                sprintf (filename, "%s%u", fn.c_str(), HC_F2_NV_BLOCK);
+                if (crcChecksumVerifyIntegrity (filename))
+                    isValid = true;
+            }
+        }
+    }
+
+    if (isValid == false)
+        delete_hal_non_volatile_store (true);
 }

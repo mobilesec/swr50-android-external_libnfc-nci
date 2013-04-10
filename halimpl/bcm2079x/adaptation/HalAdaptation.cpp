@@ -33,7 +33,8 @@
 #include <errno.h>
 #include <pthread.h>
 #include "buildcfg.h"
-extern void delete_hal_non_volatile_store ();
+extern void delete_hal_non_volatile_store (bool forceDelete);
+extern void verify_hal_non_volatile_store ();
 extern "C"
 {
 #include "userial.h"
@@ -75,7 +76,10 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
             (num == 1) )
         ALOGD ("%s: preserve HAL NV store", __FUNCTION__);
     else
-        delete_hal_non_volatile_store ();
+    {
+        verify_hal_non_volatile_store ();
+        delete_hal_non_volatile_store (false);
+    }
 
     // Initialize protocol logging level
     if ( GetNumValue ( NAME_PROTOCOL_TRACE_LEVEL, &num, sizeof ( num ) ) )
