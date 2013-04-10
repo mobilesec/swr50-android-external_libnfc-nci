@@ -1653,7 +1653,7 @@ UDRV_API void USERIAL_PowerupDevice(tUSERIAL_PORT port)
                 resetSuccess = 1;
                 linux_cb.client_device_address = bcmi2cnfc_client_addr;
                 /* Delay long enough for address change */
-                delay = 100;
+                delay = 200;
             }
         } else {
             resetSuccess = 1;
