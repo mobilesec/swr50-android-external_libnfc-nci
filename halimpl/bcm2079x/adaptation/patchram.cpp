@@ -185,6 +185,8 @@ static const char* findPatchramFile(const char * pConfigName, char * pBuffer, in
 static void continueAfterSetSnoozeMode(tHAL_NFC_STATUS status)
 {
     ALOGD("%s: status=%u", __FUNCTION__, status);
+    //let stack download firmware during next initialization
+    nfc_post_reset_cb.spd_skip_on_power_cycle = FALSE;
     if (status == NCI_STATUS_OK)
         HAL_NfcPreInitDone (HAL_NFC_STATUS_OK);
     else
@@ -206,7 +208,7 @@ static void postDownloadPatchram(tHAL_NFC_STATUS status)
     GetStrValue (NAME_SNOOZE_MODE_CFG, (char*)&gSnoozeModeCfg, sizeof(gSnoozeModeCfg));
     if (status != HAL_NFC_STATUS_OK)
     {
-        ALOGE("Patch download failed");
+        ALOGE("%s: Patch download failed", __FUNCTION__);
         if (status == HAL_NFC_STATUS_REFUSED)
         {
             SpdHelper::setPatchAsBad();
@@ -220,8 +222,11 @@ static void postDownloadPatchram(tHAL_NFC_STATUS status)
         else
         {
             /* otherwise, power cycle the chip and let the stack startup normally */
+            ALOGD("%s: re-init; don't download firmware", __FUNCTION__);
+            //stop stack from downloading firmware during next initialization
+            nfc_post_reset_cb.spd_skip_on_power_cycle = TRUE;
             USERIAL_PowerupDevice(0);
-            HAL_NfcPreInitDone (HAL_NFC_STATUS_OK);
+            HAL_NfcReInit ();
         }
     }
     /* Set snooze mode here */
