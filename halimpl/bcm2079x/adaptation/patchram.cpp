@@ -203,7 +203,7 @@ static void continueAfterSetSnoozeMode(tHAL_NFC_STATUS status)
 static void postDownloadPatchram(tHAL_NFC_STATUS status)
 {
     ALOGD("%s: status=%i", __FUNCTION__, status);
-
+    GetStrValue (NAME_SNOOZE_MODE_CFG, (char*)&gSnoozeModeCfg, sizeof(gSnoozeModeCfg));
     if (status != HAL_NFC_STATUS_OK)
     {
         ALOGE("Patch download failed");
