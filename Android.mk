@@ -24,7 +24,7 @@ LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE := libnfc-nci
 LOCAL_MODULE_TAGS := optional
-LOCAL_SHARED_LIBRARIES := libhardware_legacy libcutils libdl libstlport libhardware
+LOCAL_SHARED_LIBRARIES := libhardware_legacy libcutils liblog libdl libstlport libhardware
 LOCAL_CFLAGS := $(D_CFLAGS)
 LOCAL_C_INCLUDES := external/stlport/stlport bionic/ bionic/libstdc++/include \
     $(LOCAL_PATH)/src/include \
