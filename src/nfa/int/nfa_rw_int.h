@@ -285,6 +285,8 @@ typedef struct
     /* Tag info */
     tNFC_PROTOCOL   protocol;
     UINT8           pa_sel_res;
+    tNFC_RF_TECH_N_MODE  activated_tech_mode;    /* activated technology and mode */
+
     BOOLEAN         b_hard_lock;
 
     tNFA_RW_MSG     *p_buffer_rw_msg; /* Buffer to hold incoming cmd while reading tag id */
@@ -302,6 +304,11 @@ typedef struct
     /* Current NDEF Write info */
     UINT8           *p_ndef_wr_buf; /* Pointer to NDEF data being written */
     UINT32          ndef_wr_len;    /* Length of NDEF data being written */
+
+    /* Reactivating type 2 tag after NACK rsp */
+    tRW_EVENT       halt_event;     /* Event ID from stack after NACK response */
+    tRW_DATA        rw_data;        /* Event Data from stack after NACK response */
+    BOOLEAN         skip_dyn_locks; /* To skip reading dynamic locks during NDEF Detect */
 
     /* Flags (see defintions for NFA_RW_FL_* ) */
     UINT8           flags;
@@ -328,7 +335,7 @@ extern BOOLEAN nfa_rw_handle_op_req (tNFA_RW_MSG *p_data);
 extern BOOLEAN nfa_rw_activate_ntf (tNFA_RW_MSG *p_data);
 extern BOOLEAN nfa_rw_deactivate_ntf (tNFA_RW_MSG *p_data);
 extern BOOLEAN nfa_rw_presence_check_tick (tNFA_RW_MSG *p_data);
-extern void    nfa_rw_handle_presence_check_rsp (tNFC_STATUS status);
+extern void    nfa_rw_handle_sleep_wakeup_rsp (tNFC_STATUS status);
 extern void    nfa_rw_command_complete (void);
 extern BOOLEAN nfa_rw_handle_event (BT_HDR *p_msg);
 

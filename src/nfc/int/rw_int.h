@@ -191,12 +191,6 @@ typedef struct
 #define T2T_BRCM_STATIC_MEM                             0x2E01
 #define T2T_BRCM_DYNAMIC_MEM                            0x2E02
 
-/* CC2 value on MiFare ULC tag */
-#define T2T_MIFARE_ULC_TMS                              0x12
-/* Possible corrupt cc2 value range on MiFare ULC tags */
-#define T2T_INVALID_CC_TMS_VAL0                         0x10
-#define T2T_INVALID_CC_TMS_VAL1                         0x1F
-
 #define T2T_NDEF_NOT_DETECTED                           0x00
 #define T2T_NDEF_DETECTED                               0x01
 #define T2T_NDEF_READ                                   0x02
@@ -317,6 +311,7 @@ typedef struct
     BOOLEAN             b_read_data;                        /* Tag data block read from tag                                 */
     BOOLEAN             b_hard_lock;                        /* Hard lock the tag as part of config tag to Read only         */
 #if (defined (RW_NDEF_INCLUDED) && (RW_NDEF_INCLUDED == TRUE))
+    BOOLEAN             skip_dyn_locks;                     /* Skip reading dynamic lock bytes from the tag                 */
     UINT8               found_tlv;                          /* The Tlv found while searching a particular TLV               */
     UINT8               tlv_detect;                         /* TLV type under detection                                     */
     UINT8               num_lock_tlvs;                      /* Number of lcok tlvs detected in the tag                      */

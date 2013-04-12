@@ -1324,7 +1324,7 @@ static void nfa_dm_disc_notify_deactivation (tNFA_DM_RF_DISC_SM_EVENT sm_event,
 
     if (nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_CHECKING)
     {
-        NFA_TRACE_DEBUG0 ("nfa_dm_disc_notify_deactivation (): for presence check");
+        NFA_TRACE_DEBUG0 ("nfa_dm_disc_notify_deactivation (): for sleep wakeup");
         return;
     }
 
@@ -1400,15 +1400,16 @@ static void nfa_dm_disc_notify_deactivation (tNFA_DM_RF_DISC_SM_EVENT sm_event,
 
 /*******************************************************************************
 **
-** Function         nfa_dm_disc_presence_check
+** Function         nfa_dm_disc_sleep_wakeup
 **
-** Description      Perform legacy presence check (put tag to sleep, then
-**                  wake it up to see if tag is present)
+** Description      Put tag to sleep, then wake it up. Can be used Perform
+**                  legacy presence check or to wake up tag that went to HALT
+**                  state
 **
 ** Returns          TRUE if operation started
 **
 *******************************************************************************/
-tNFC_STATUS nfa_dm_disc_presence_check (void)
+tNFC_STATUS nfa_dm_disc_sleep_wakeup (void)
 {
     tNFC_STATUS status = NFC_STATUS_FAILED;
 
@@ -1418,10 +1419,10 @@ tNFC_STATUS nfa_dm_disc_presence_check (void)
         status = nfa_dm_send_deactivate_cmd(NFC_DEACTIVATE_TYPE_SLEEP);
         if (status == NFC_STATUS_OK)
         {
-            /* deactivate to sleep is sent on behave of presence check.
-             * set the presence check information in control block */
+            /* deactivate to sleep is sent on behalf of sleep wakeup.
+             * set the sleep wakeup information in control block */
             nfa_dm_cb.disc_cb.disc_flags          |= NFA_DM_DISC_FLAGS_CHECKING;
-            nfa_dm_cb.presence_check_deact_pending = FALSE;
+            nfa_dm_cb.sleep_wakeup_deact_pending = FALSE;
         }
     }
 
@@ -1430,28 +1431,27 @@ tNFC_STATUS nfa_dm_disc_presence_check (void)
 
 /*******************************************************************************
 **
-** Function         nfa_dm_disc_end_presence_check
+** Function         nfa_dm_disc_end_sleep_wakeup
 **
-** Description      Perform legacy presence check (put tag to sleep, then
-**                  wake it up to see if tag is present)
+** Description      Sleep Wakeup is complete
 **
-** Returns          TRUE if operation started
+** Returns          None
 **
 *******************************************************************************/
-static void nfa_dm_disc_end_presence_check (tNFC_STATUS status)
+static void nfa_dm_disc_end_sleep_wakeup (tNFC_STATUS status)
 {
     if (nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_CHECKING)
     {
         nfa_dm_cb.disc_cb.disc_flags &= ~NFA_DM_DISC_FLAGS_CHECKING;
 
-        /* notify RW module that presence checking is finished */
-        nfa_rw_handle_presence_check_rsp (status);
+        /* notify RW module that sleep wakeup is finished */
+        nfa_rw_handle_sleep_wakeup_rsp (status);
 
-        if (nfa_dm_cb.presence_check_deact_pending)
+        if (nfa_dm_cb.sleep_wakeup_deact_pending)
         {
-            nfa_dm_cb.presence_check_deact_pending = FALSE;
+            nfa_dm_cb.sleep_wakeup_deact_pending = FALSE;
             nfa_dm_disc_sm_execute (NFA_DM_RF_DEACTIVATE_CMD,
-                                   (tNFA_DM_RF_DISC_DATA *) &nfa_dm_cb.presence_check_deact_type);
+                                   (tNFA_DM_RF_DISC_DATA *) &nfa_dm_cb.sleep_wakeup_deact_type);
         }
     }
 }
@@ -1852,9 +1852,9 @@ static void nfa_dm_disc_sm_w4_host_select (tNFA_DM_RF_DISC_SM_EVENT event,
                                            tNFA_DM_RF_DISC_DATA *p_data)
 {
     tNFA_CONN_EVT_DATA conn_evt;
-    tNFA_DM_DISC_FLAGS  old_pres_check_flag = (nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_CHECKING);
-    BOOLEAN             pres_check_event = FALSE;
-    BOOLEAN             pres_check_event_processed = FALSE;
+    tNFA_DM_DISC_FLAGS  old_sleep_wakeup_flag = (nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_CHECKING);
+    BOOLEAN             sleep_wakeup_event = FALSE;
+    BOOLEAN             sleep_wakeup_event_processed = FALSE;
 
     switch (event)
     {
@@ -1873,11 +1873,11 @@ static void nfa_dm_disc_sm_w4_host_select (tNFA_DM_RF_DISC_SM_EVENT event,
         break;
 
     case NFA_DM_RF_DISCOVER_SELECT_RSP:
-        pres_check_event = TRUE;
+        sleep_wakeup_event = TRUE;
         /* notify application status of selection */
         if (p_data->nfc_discover.status == NFC_STATUS_OK)
         {
-            pres_check_event_processed = TRUE;
+            sleep_wakeup_event_processed = TRUE;
             conn_evt.status = NFA_STATUS_OK;
             /* register callback to get interface error NTF */
             NFC_SetStaticRfCback (nfa_dm_disc_data_cback);
@@ -1885,17 +1885,17 @@ static void nfa_dm_disc_sm_w4_host_select (tNFA_DM_RF_DISC_SM_EVENT event,
         else
             conn_evt.status = NFA_STATUS_FAILED;
 
-        if (!old_pres_check_flag)
+        if (!old_sleep_wakeup_flag)
         {
             nfa_dm_disc_conn_event_notify (NFA_SELECT_RESULT_EVT, p_data->nfc_discover.status);
         }
         break;
     case NFA_DM_RF_INTF_ACTIVATED_NTF:
         nfa_dm_disc_new_state (NFA_DM_RFST_POLL_ACTIVE);
-        if (old_pres_check_flag)
+        if (old_sleep_wakeup_flag)
         {
-            /* Handle presence check success: notify RW module of presence of tag; if deactivation is pending then deactivate  */
-            nfa_dm_disc_end_presence_check (NFC_STATUS_OK);
+            /* Handle sleep wakeup success: notify RW module of sleep wakeup of tag; if deactivation is pending then deactivate  */
+            nfa_dm_disc_end_sleep_wakeup (NFC_STATUS_OK);
         }
 
         else if (nfa_dm_disc_notify_activation (&(p_data->nfc_discover)) == NFA_STATUS_FAILED)
@@ -1907,10 +1907,10 @@ static void nfa_dm_disc_sm_w4_host_select (tNFA_DM_RF_DISC_SM_EVENT event,
         }
         break;
     case NFA_DM_RF_DEACTIVATE_CMD:
-        if (old_pres_check_flag)
+        if (old_sleep_wakeup_flag)
         {
-            nfa_dm_cb.presence_check_deact_pending = TRUE;
-            nfa_dm_cb.presence_check_deact_type    = p_data->deactivate_type;
+            nfa_dm_cb.sleep_wakeup_deact_pending = TRUE;
+            nfa_dm_cb.sleep_wakeup_deact_type    = p_data->deactivate_type;
         }
         /* if deactivate CMD was not sent to NFCC */
         else if (!(nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_W4_RSP))
@@ -1930,8 +1930,8 @@ static void nfa_dm_disc_sm_w4_host_select (tNFA_DM_RF_DISC_SM_EVENT event,
         break;
 
     case NFA_DM_CORE_INTF_ERROR_NTF:
-        pres_check_event    = TRUE;
-        if (!old_pres_check_flag)
+        sleep_wakeup_event    = TRUE;
+        if (!old_sleep_wakeup_flag)
         {
             /* target activation failed, upper layer may deactivate or select again */
             conn_evt.status = NFA_STATUS_FAILED;
@@ -1943,11 +1943,11 @@ static void nfa_dm_disc_sm_w4_host_select (tNFA_DM_RF_DISC_SM_EVENT event,
         break;
     }
 
-    if (old_pres_check_flag && pres_check_event && !pres_check_event_processed)
+    if (old_sleep_wakeup_flag && sleep_wakeup_event && !sleep_wakeup_event_processed)
     {
-        /* performing presence check for unknow protocol and exception conditions happened
-         * clear presence check information and report failure */
-        nfa_dm_disc_end_presence_check (NFC_STATUS_FAILED);
+        /* performing sleep wakeup and exception conditions happened
+         * clear sleep wakeup information and report failure */
+        nfa_dm_disc_end_sleep_wakeup (NFC_STATUS_FAILED);
     }
 }
 
@@ -1964,20 +1964,20 @@ static void nfa_dm_disc_sm_poll_active (tNFA_DM_RF_DISC_SM_EVENT event,
                                         tNFA_DM_RF_DISC_DATA *p_data)
 {
     tNFC_STATUS status;
-    tNFA_DM_DISC_FLAGS  old_pres_check_flag = (nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_CHECKING);
-    BOOLEAN             pres_check_event = FALSE;
-    BOOLEAN             pres_check_event_processed = FALSE;
+    tNFA_DM_DISC_FLAGS  old_sleep_wakeup_flag = (nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_CHECKING);
+    BOOLEAN             sleep_wakeup_event = FALSE;
+    BOOLEAN             sleep_wakeup_event_processed = FALSE;
     tNFC_DEACTIVATE_DEVT deact;
 
     switch (event)
     {
     case NFA_DM_RF_DEACTIVATE_CMD:
-        if (old_pres_check_flag)
+        if (old_sleep_wakeup_flag)
         {
-            /* presence check is already enabled when deactivate cmd is requested,
+            /* sleep wakeup is already enabled when deactivate cmd is requested,
              * keep the information in control block to issue it later */
-            nfa_dm_cb.presence_check_deact_pending = TRUE;
-            nfa_dm_cb.presence_check_deact_type    = p_data->deactivate_type;
+            nfa_dm_cb.sleep_wakeup_deact_pending = TRUE;
+            nfa_dm_cb.sleep_wakeup_deact_type    = p_data->deactivate_type;
         }
         else
         {
@@ -2017,7 +2017,7 @@ static void nfa_dm_disc_sm_poll_active (tNFA_DM_RF_DISC_SM_EVENT event,
             break;
         }
 
-        pres_check_event    = TRUE;
+        sleep_wakeup_event    = TRUE;
 
         nfa_dm_disc_notify_deactivation (NFA_DM_RF_DEACTIVATE_NTF, &(p_data->nfc_discover));
 
@@ -2025,23 +2025,23 @@ static void nfa_dm_disc_sm_poll_active (tNFA_DM_RF_DISC_SM_EVENT event,
             ||(p_data->nfc_discover.deactivate.type == NFC_DEACTIVATE_TYPE_SLEEP_AF)  )
         {
             nfa_dm_disc_new_state (NFA_DM_RFST_W4_HOST_SELECT);
-            if (old_pres_check_flag)
+            if (old_sleep_wakeup_flag)
             {
-                pres_check_event_processed  = TRUE;
+                sleep_wakeup_event_processed  = TRUE;
                 /* process pending deactivate request */
-                if (nfa_dm_cb.presence_check_deact_pending)
+                if (nfa_dm_cb.sleep_wakeup_deact_pending)
                 {
-                    /* notify RW module that presence checking is finished */
+                    /* notify RW module that sleep wakeup is finished */
                     /* if deactivation is pending then deactivate  */
-                    nfa_dm_disc_end_presence_check (NFC_STATUS_OK);
+                    nfa_dm_disc_end_sleep_wakeup (NFC_STATUS_OK);
 
                     /* Notify NFA RW sub-systems because NFA_DM_RF_DEACTIVATE_RSP will not call this function */
                     nfa_rw_proc_disc_evt (NFA_DM_RF_DISC_DEACTIVATED_EVT, NULL, TRUE);
                 }
                 else
                 {
-                    /* Successfully went to sleep mode for presence check */
-                    /* Now wake up the tag to see if it is present */
+                    /* Successfully went to sleep mode for sleep wakeup */
+                    /* Now wake up the tag to complete the operation */
                     NFC_DiscoverySelect (nfa_dm_cb.disc_cb.activated_rf_disc_id,
                                          nfa_dm_cb.disc_cb.activated_protocol,
                                          nfa_dm_cb.disc_cb.activated_rf_interface);
@@ -2066,7 +2066,7 @@ static void nfa_dm_disc_sm_poll_active (tNFA_DM_RF_DISC_SM_EVENT event,
         break;
 
     case NFA_DM_CORE_INTF_ERROR_NTF:
-        pres_check_event    = TRUE;
+        sleep_wakeup_event    = TRUE;
         NFC_Deactivate (NFC_DEACTIVATE_TYPE_DISCOVERY);
         break;
 
@@ -2075,11 +2075,11 @@ static void nfa_dm_disc_sm_poll_active (tNFA_DM_RF_DISC_SM_EVENT event,
         break;
     }
 
-    if (old_pres_check_flag && pres_check_event && !pres_check_event_processed)
+    if (old_sleep_wakeup_flag && sleep_wakeup_event && !sleep_wakeup_event_processed)
     {
-        /* performing presence check for unknow protocol and exception conditions happened
-         * clear presence check information and report failure */
-        nfa_dm_disc_end_presence_check (NFC_STATUS_FAILED);
+        /* performing sleep wakeup and exception conditions happened
+         * clear sleep wakeup information and report failure */
+        nfa_dm_disc_end_sleep_wakeup (NFC_STATUS_FAILED);
     }
 }
 

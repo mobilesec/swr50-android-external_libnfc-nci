@@ -368,7 +368,7 @@ NFC_API extern tNFC_STATUS RW_T1tLocateTlv (UINT8 tlv_type);
 
 /*******************************************************************************
 **
-** Function         RW_T2tDetectNDef
+** Function         RW_T1tDetectNDef
 **
 ** Description      This function can be called to detect if there is an NDEF
 **                  message on the tag.
@@ -523,7 +523,7 @@ NFC_API extern tNFC_STATUS RW_T2tSectorSelect (UINT8 sector);
 ** Returns          tNFC_STATUS
 **
 *******************************************************************************/
-NFC_API extern tNFC_STATUS RW_T2tDetectNDef (void);
+NFC_API extern tNFC_STATUS RW_T2tDetectNDef (BOOLEAN skip_dyn_locks);
 
 /*******************************************************************************
 **

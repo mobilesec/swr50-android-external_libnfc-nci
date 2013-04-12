@@ -322,7 +322,7 @@ typedef void (tNFA_DISCOVER_CBACK) (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_
 #define NFA_DM_DISC_FLAGS_ENABLED        0x0001    /* RF discovery process has been started        */
 #define NFA_DM_DISC_FLAGS_STOPPING       0x0002    /* Stop RF discovery is pending                 */
 #define NFA_DM_DISC_FLAGS_DISABLING      0x0004    /* Disable NFA is pending                       */
-#define NFA_DM_DISC_FLAGS_CHECKING       0x0008    /* Presence check/unknown protocol in progress  */
+#define NFA_DM_DISC_FLAGS_CHECKING       0x0008    /* Sleep wakeup in progress                     */
 #define NFA_DM_DISC_FLAGS_NOTIFY         0x0010    /* Notify sub-module that discovery is starting */
 #define NFA_DM_DISC_FLAGS_W4_RSP         0x0020    /* command has been sent to NFCC in the state   */
 #define NFA_DM_DISC_FLAGS_W4_NTF         0x0040    /* wait for NTF before changing discovery state */
@@ -456,8 +456,8 @@ typedef struct
     tNFA_DM_CBACK              *p_dm_cback;         /* NFA DM callback                                      */
     TIMER_LIST_ENT              tle;
 
-    BOOLEAN                     presence_check_deact_pending; /* TRUE if deactivate while checking presence */
-    tNFA_DEACTIVATE_TYPE        presence_check_deact_type;    /* deactivate type                            */
+    BOOLEAN                     sleep_wakeup_deact_pending; /* TRUE if deactivate while checking presence */
+    tNFA_DEACTIVATE_TYPE        sleep_wakeup_deact_type;    /* deactivate type                            */
 
     /* NFC link connection management */
     tNFA_CONN_CBACK            *p_conn_cback;       /* callback for connection events       */
@@ -597,7 +597,8 @@ void nfa_dm_rf_discover_select (UINT8 rf_disc_id, tNFA_NFC_PROTOCOL protocol, tN
 tNFA_STATUS nfa_dm_rf_deactivate (tNFA_DEACTIVATE_TYPE deactivate_type);
 BOOLEAN nfa_dm_is_protocol_supported (tNFA_NFC_PROTOCOL protocol, UINT8 sel_res);
 BOOLEAN nfa_dm_is_active (void);
-tNFC_STATUS nfa_dm_disc_presence_check (void);
+tNFC_STATUS nfa_dm_disc_sleep_wakeup (void);
+
 
 
 #if (NFC_NFCEE_INCLUDED == FALSE)

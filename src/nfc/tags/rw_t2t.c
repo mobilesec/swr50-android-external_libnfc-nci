@@ -128,7 +128,8 @@ static void rw_t2t_proc_data (UINT8 conn_id, tNFC_CONN_EVT event, BT_HDR *p_pkt)
         }
         else
         {
-            evt_data.status = NFC_STATUS_FAILED;
+            RW_TRACE_EVENT1 ("rw_t2t_proc_data - Received NACK response(0x%x) to SEC-SELCT CMD", (*p & 0x0f));
+            evt_data.status = NFC_STATUS_REJECTED;
         }
     }
     else if (p_t2t->substate == RW_T2T_SUBSTATE_WAIT_SELECT_SECTOR)
@@ -155,21 +156,16 @@ static void rw_t2t_proc_data (UINT8 conn_id, tNFC_CONN_EVT event, BT_HDR *p_pkt)
             {
                 p_t2t->b_read_hdr = TRUE;
                 memcpy (p_t2t->tag_hdr,  p, T2T_READ_DATA_LEN);
-
-                /* On Ultralight - C tag, if CC is corrupt, correct it */
-                if (  (p_t2t->tag_hdr[0] == TAG_MIFARE_MID)
-                    &&(p_t2t->tag_hdr[T2T_CC2_TMS_BYTE] >= T2T_INVALID_CC_TMS_VAL0)
-                    &&(p_t2t->tag_hdr[T2T_CC2_TMS_BYTE] <= T2T_INVALID_CC_TMS_VAL1)  )
-                {
-                    p_t2t->tag_hdr[T2T_CC2_TMS_BYTE] = T2T_CC2_TMS_MULC;
-                }
             }
             break;
 
         case RW_T2T_STATE_WRITE:
             /* Check positive or negative acknowledgment */
             if ((*p & 0x0f) != T2T_RSP_ACK)
-                evt_data.status = NFC_STATUS_FAILED;
+            {
+                RW_TRACE_EVENT1 ("rw_t2t_proc_data - Received NACK response(0x%x) to WRITE CMD", (*p & 0x0f));
+                evt_data.status = NFC_STATUS_REJECTED;
+            }
             break;
 
         default:
@@ -177,7 +173,10 @@ static void rw_t2t_proc_data (UINT8 conn_id, tNFC_CONN_EVT event, BT_HDR *p_pkt)
              * Check if Positive response to previous write command */
             if (  (p_cmd_rsp_info->opcode == T2T_CMD_WRITE)
                 &&((*p & 0x0f) != T2T_RSP_ACK)  )
-                evt_data.status = NFC_STATUS_FAILED;
+            {
+                RW_TRACE_EVENT1 ("rw_t2t_proc_data - Received NACK response(0x%x) to WRITE CMD", (*p & 0x0f));
+                evt_data.status = NFC_STATUS_REJECTED;
+            }
             else
             {
                 b_notify = FALSE;
@@ -192,8 +191,9 @@ static void rw_t2t_proc_data (UINT8 conn_id, tNFC_CONN_EVT event, BT_HDR *p_pkt)
         if (p_t2t->state == RW_T2T_STATE_READ)
             b_release = FALSE;
 
+        RW_TRACE_EVENT1 ("rw_t2t_proc_data - Received NACK response(0x%x)", (*p & 0x0f));
         /* Negative response to the command sent */
-        evt_data.status = NFC_STATUS_FAILED;
+        evt_data.status = NFC_STATUS_REJECTED;
     }
 
     if (b_notify)

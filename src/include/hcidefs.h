@@ -1310,11 +1310,11 @@ typedef struct
 
 #define HCI_FEATURE_BYTES_PER_PAGE      8
 
-/*
-**   Features encoding - page 0
-*/
 #define HCI_FEATURES_KNOWN(x) ((x[0] | x[1] | x[2] | x[3] | x[4] | x[5] | x[6] | x[7]) != 0)
 
+/*
+**   LMP features encoding - page 0
+*/
 #define HCI_FEATURE_3_SLOT_PACKETS_MASK 0x01
 #define HCI_FEATURE_3_SLOT_PACKETS_OFF  0
 #define HCI_3_SLOT_PACKETS_SUPPORTED(x) ((x)[HCI_FEATURE_3_SLOT_PACKETS_OFF] & HCI_FEATURE_3_SLOT_PACKETS_MASK)
@@ -1558,7 +1558,7 @@ typedef struct
 #define HCI_LMP_EXTENDED_SUPPORTED(x)   ((x)[HCI_FEATURE_EXTENDED_OFF] & HCI_FEATURE_EXTENDED_MASK)
 
 /*
-**   Features encoding - page 1
+**   LMP features encoding - page 1
 */
 #define HCI_EXT_FEATURE_SSP_HOST_MASK 0x01
 #define HCI_EXT_FEATURE_SSP_HOST_OFF  0
@@ -1573,7 +1573,7 @@ typedef struct
 #define HCI_SIMUL_DUMO_HOST_SUPPORTED(x) ((x)[HCI_EXT_FEATURE_SIMUL_DUMO_HOST_OFF] & HCI_EXT_FEATURE_SIMUL_DUMO_HOST_MASK)
 
 /*
-**   Features encoding - page 2
+**   LMP features encoding - page 2
 */
 #define HCI_EXT_FEATURE_CSB_MASTER_MASK         0x01
 #define HCI_EXT_FEATURE_CSB_MASTER_OFF          0
@@ -1594,6 +1594,13 @@ typedef struct
 #define HCI_EXT_FEATURE_INQ_RESP_NOTIF_MASK     0x10
 #define HCI_EXT_FEATURE_INQ_RESP_NOTIF_OFF      0
 #define HCI_INQ_RESP_NOTIF_SUPPORTED(x) ((x)[HCI_EXT_FEATURE_INQ_RESP_NOTIF_OFF] & HCI_EXT_FEATURE_INQ_RESP_NOTIF_MASK)
+
+/*
+**   LE features encoding - page 0 (the only page for now)
+*/
+#define HCI_LE_FEATURE_LE_ENCRYPTION_MASK       0x01
+#define HCI_LE_FEATURE_LE_ENCRYPTION_OFF        0
+#define HCI_LE_ENCRYPTION_SUPPORTED(x) ((x)[HCI_LE_FEATURE_LE_ENCRYPTION_OFF] & HCI_LE_FEATURE_LE_ENCRYPTION_MASK)
 
 
 /*
