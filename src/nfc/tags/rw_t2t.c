@@ -199,19 +199,26 @@ static void rw_t2t_proc_data (UINT8 conn_id, tNFC_CONN_EVT event, BT_HDR *p_pkt)
     if (b_notify)
     {
         rw_event = rw_t2t_info_to_event (p_cmd_rsp_info);
-        /* Move back to idle state */
-        rw_t2t_handle_op_complete ();
+
         if (rw_event == RW_T2T_NDEF_DETECT_EVT)
         {
             ndef_data.status    = evt_data.status;
             ndef_data.protocol  = NFC_PROTOCOL_T2T;
             ndef_data.flags     = RW_NDEF_FL_UNKNOWN;
+            if (p_t2t->substate == RW_T2T_SUBSTATE_WAIT_READ_LOCKS)
+                ndef_data.flags = RW_NDEF_FL_FORMATED;
             ndef_data.max_size  = 0;
             ndef_data.cur_size  = 0;
+            /* Move back to idle state */
+            rw_t2t_handle_op_complete ();
             (*rw_cb.p_cback) (rw_event, (tRW_DATA *) &ndef_data);
         }
         else
+        {
+            /* Move back to idle state */
+            rw_t2t_handle_op_complete ();
             (*rw_cb.p_cback) (rw_event, (tRW_DATA *) &evt_data);
+        }
     }
 
     if (b_release)

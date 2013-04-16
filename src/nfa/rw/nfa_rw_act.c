@@ -393,6 +393,7 @@ static void nfa_rw_handle_tlv_detect(tRW_EVENT event, tRW_DATA *p_rw_data)
 void nfa_rw_handle_sleep_wakeup_rsp (tNFC_STATUS status)
 {
     tNFC_ACTIVATE_DEVT activate_params;
+    tRW_EVENT event;
 
     if (nfa_rw_cb.halt_event != RW_T2T_MAX_EVT)
     {
@@ -415,15 +416,25 @@ void nfa_rw_handle_sleep_wakeup_rsp (tNFC_STATUS status)
                 {
                     /* Log error (stay in NFA_RW_ST_ACTIVATED state until deactivation) */
                     NFA_TRACE_ERROR0("RW_SetActivatedTagType failed.");
+                    if (nfa_rw_cb.halt_event == RW_T2T_READ_CPLT_EVT)
+                    {
+                        if (nfa_rw_cb.rw_data.data.p_data)
+                            GKI_freebuf(nfa_rw_cb.rw_data.data.p_data);
+                        nfa_rw_cb.rw_data.data.p_data = NULL;
+                    }
                     return;
                 }
 
                 nfa_rw_cb.rw_data.status = NFC_STATUS_FAILED;
+                event = nfa_rw_cb.halt_event;
 
                 if (nfa_rw_cb.cur_op == NFA_RW_OP_PRESENCE_CHECK)
                     nfa_rw_cb.rw_data.status = status;
 
-                nfa_rw_handle_t2t_evt (nfa_rw_cb.halt_event, &nfa_rw_cb.rw_data);
+                if ((status == NFA_STATUS_FAILED) && (nfa_rw_cb.halt_event == RW_T2T_NDEF_DETECT_EVT))
+                    nfa_rw_cb.halt_event = RW_T2T_MAX_EVT;
+
+                nfa_rw_handle_t2t_evt (event, &nfa_rw_cb.rw_data);
             }
         }
         else
@@ -573,7 +584,7 @@ static void nfa_rw_handle_t1t_evt (tRW_EVENT event, tRW_DATA *p_rw_data)
 
         if (  (p_rw_data->status != NFC_STATUS_OK)
             &&(nfa_rw_cb.cur_op == NFA_RW_OP_WRITE_NDEF)
-            &&(p_rw_data->ndef.flags & RW_NDEF_FL_FORMATABLE) && (!(p_rw_data->ndef.flags & RW_NDEF_FL_FORMATED)) && (p_rw_data->ndef.flags & RW_NDEF_FL_SUPPORTED)  )
+            &&(p_rw_data->ndef.flags & NFA_RW_NDEF_FL_FORMATABLE) && (!(p_rw_data->ndef.flags & NFA_RW_NDEF_FL_FORMATED)) && (p_rw_data->ndef.flags & NFA_RW_NDEF_FL_SUPPORTED)  )
         {
             /* Tag is in Initialized state, Format the tag first and then Write NDEF */
             if (RW_T1tFormatNDef() == NFC_STATUS_OK)
@@ -732,7 +743,7 @@ static void nfa_rw_handle_t2t_evt (tRW_EVENT event, tRW_DATA *p_rw_data)
 
     case RW_T2T_NDEF_DETECT_EVT:            /* NDEF detection complete */
         if (  (p_rw_data->status == NFC_STATUS_OK)
-            ||((p_rw_data->status == NFC_STATUS_FAILED) && (nfa_rw_cb.halt_event == RW_T2T_MAX_EVT))
+            ||((p_rw_data->status == NFC_STATUS_FAILED) && ((p_rw_data->ndef.flags == NFA_RW_NDEF_FL_UNKNOWN) || (nfa_rw_cb.halt_event == RW_T2T_MAX_EVT)))
             ||(nfa_rw_cb.skip_dyn_locks == TRUE)  )
         {
             /* NDEF Detection is complete */
@@ -826,7 +837,8 @@ static void nfa_rw_handle_t2t_evt (tRW_EVENT event, tRW_DATA *p_rw_data)
         break;
     }
 
-    nfa_rw_cb.halt_event     = RW_T2T_MAX_EVT;
+    if (event != RW_T2T_INTF_ERROR_EVT)
+        nfa_rw_cb.halt_event     = RW_T2T_MAX_EVT;
 }
 
 /*******************************************************************************
@@ -2665,6 +2677,14 @@ BOOLEAN nfa_rw_deactivate_ntf(tNFA_RW_MSG *p_data)
     {
         GKI_freebuf(nfa_rw_cb.p_pending_msg);
         nfa_rw_cb.p_pending_msg = NULL;
+    }
+
+    /* If we are in the process of waking up tag from HALT state */
+    if (nfa_rw_cb.halt_event == RW_T2T_READ_CPLT_EVT)
+    {
+        if (nfa_rw_cb.rw_data.data.p_data)
+            GKI_freebuf(nfa_rw_cb.rw_data.data.p_data);
+        nfa_rw_cb.rw_data.data.p_data = NULL;
     }
 
     /* Stop presence check timer (if started) */
