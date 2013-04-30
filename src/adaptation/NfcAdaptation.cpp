@@ -47,6 +47,8 @@ char bcm_nfc_location[120];
 static UINT8 nfa_dm_cfg[sizeof ( tNFA_DM_CFG ) ];
 extern tNFA_DM_CFG *p_nfa_dm_cfg;
 extern UINT8 nfa_ee_max_ee_cfg;
+extern const UINT8  nfca_version_string [];
+extern const UINT8  nfa_version_string [];
 
 /*******************************************************************************
 **
@@ -105,7 +107,8 @@ NfcAdaptation& NfcAdaptation::GetInstance()
 void NfcAdaptation::Initialize ()
 {
     const char* func = "NfcAdaptation::Initialize";
-    ALOGD("%s: enter\n", func);
+    ALOGD("%s: enter", func);
+    ALOGE("%s: ver=%s nfa=%s", func, nfca_version_string, nfa_version_string);
     unsigned long num;
 
     if ( !GetStrValue ( NAME_NFA_STORAGE, bcm_nfc_location, sizeof ( bcm_nfc_location ) ) )

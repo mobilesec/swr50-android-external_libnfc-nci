@@ -57,6 +57,8 @@ static void BroadcomHalCallback (UINT8 event, tHAL_NFC_STATUS status);
 static void BroadcomHalDataCallback (UINT16 data_len, UINT8* p_data);
 
 extern tNFC_HAL_CFG *p_nfc_hal_cfg;
+extern const UINT8  nfca_version_string [];
+extern const UINT8  nfa_version_string [];
 
 ///////////////////////////////////////
 
@@ -64,6 +66,7 @@ extern tNFC_HAL_CFG *p_nfc_hal_cfg;
 int HaiInitializeLibrary (const bcm2079x_dev_t* device)
 {
     ALOGD ("%s: enter", __FUNCTION__);
+    ALOGE ("%s: ver=%s nfa=%s", __FUNCTION__, nfca_version_string, nfa_version_string);
     int retval = EACCES;
     unsigned long freq = 0;
     unsigned long num = 0;
