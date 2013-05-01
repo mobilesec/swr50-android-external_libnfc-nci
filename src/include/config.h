@@ -78,6 +78,7 @@ int GetNumValue(const char* name, void* p_value, unsigned long len);
 #define NAME_PRESERVE_STORAGE           "PRESERVE_STORAGE"
 #define NAME_NFA_MAX_EE_SUPPORTED       "NFA_MAX_EE_SUPPORTED"
 #define NAME_NFCC_ENABLE_TIMEOUT        "NFCC_ENABLE_TIMEOUT"
+#define NAME_NFA_DM_PRE_DISCOVERY_CFG   "NFA_DM_PRE_DISCOVERY_CFG"
 
 #define                     LPTD_PARAM_LEN (40)
 

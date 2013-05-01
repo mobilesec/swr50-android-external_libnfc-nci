@@ -44,10 +44,13 @@ static void * sI2cFixPrmBuf = NULL;
 static UINT8 sConfig [CONFIG_MAX_LEN];
 static StartupConfig sStartupConfig;
 static StartupConfig sLptdConfig;
+static StartupConfig sPreDiscoveryConfig;
 extern UINT8 *p_nfc_hal_dm_start_up_cfg; //defined in the HAL
 static UINT8 nfa_dm_start_up_vsc_cfg[CONFIG_MAX_LEN];
 extern UINT8 *p_nfc_hal_dm_start_up_vsc_cfg; //defined in the HAL
 extern UINT8 *p_nfc_hal_dm_lptd_cfg; //defined in the HAL
+extern UINT8 *p_nfc_hal_pre_discover_cfg; //defined in the HAL
+
 extern tSNOOZE_MODE_CONFIG gSnoozeModeCfg;
 extern tNFC_HAL_CFG *p_nfc_hal_cfg;
 static void mayDisableSecureElement (StartupConfig& config);
@@ -309,6 +312,7 @@ static void getNfaValues()
     p_nfc_hal_cfg->nfc_hal_prm_nvm_required = TRUE; //don't download firmware if controller cannot detect EERPOM
     sStartupConfig.initialize ();
     sLptdConfig.initialize ();
+    sPreDiscoveryConfig.initialize();
 
 
     actualLen = GetStrValue (NAME_NFA_DM_START_UP_CFG, (char*)sConfig, sizeof(sConfig));
@@ -354,6 +358,13 @@ static void getNfaValues()
 
     mayDisableSecureElement (sStartupConfig);
     p_nfc_hal_dm_start_up_cfg = const_cast<UINT8*> (sStartupConfig.getInternalBuffer ());
+
+    actualLen = GetStrValue(NAME_NFA_DM_PRE_DISCOVERY_CFG, (char*)sConfig, sizeof(sConfig));
+    if (actualLen)
+    {
+        sPreDiscoveryConfig.append (sConfig, actualLen);
+        p_nfc_hal_pre_discover_cfg = const_cast<UINT8*> (sPreDiscoveryConfig.getInternalBuffer ());
+    }
 }
 
 /*******************************************************************************

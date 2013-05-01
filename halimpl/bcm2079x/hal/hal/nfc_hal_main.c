@@ -53,7 +53,6 @@ static void nfc_hal_main_userial_cback (tUSERIAL_PORT port, tUSERIAL_EVT evt, tU
 static void nfc_hal_main_handle_terminate (void);
 static void nfc_hal_main_timeout_cback (void *p_tle);
 
-
 #if (NFC_HAL_DEBUG == TRUE)
 const char * const nfc_hal_init_state_str[] =
 {
@@ -127,6 +126,41 @@ static void nfc_hal_main_open_transport (void)
         /* NFCC Enable timeout */
         nfc_hal_main_start_quick_timer (&nfc_hal_cb.timer, NFC_HAL_TTYPE_NFCC_ENABLE,
                                         ((p_nfc_hal_cfg->nfc_hal_nfcc_enable_timeout)*QUICK_TIMER_TICKS_PER_SEC)/1000);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         nfa_hal_pre_discover_done_cback
+**
+** Description      Pre-discovery CFG is sent.
+**
+** Returns          nothing
+**
+*******************************************************************************/
+void nfa_hal_pre_discover_done_cback (tNFC_HAL_NCI_EVT event, UINT16 data_len, UINT8 *p_data)
+{
+    NFC_HAL_SET_INIT_STATE(NFC_HAL_INIT_STATE_IDLE);
+    nfc_hal_main_stop_quick_timer (&nfc_hal_cb.ncit_cb.nci_wait_rsp_timer);
+    nfc_hal_cb.p_stack_cback (HAL_NFC_PRE_DISCOVER_CPLT_EVT, HAL_NFC_STATUS_OK);
+}
+
+/*******************************************************************************
+**
+** Function         nfa_hal_send_pre_discover_cfg
+**
+** Description      sending Pre-discovery CFG
+**
+** Returns          nothing
+**
+*******************************************************************************/
+void nfa_hal_send_pre_discover_cfg (void)
+{
+    if (nfc_hal_dm_set_config (p_nfc_hal_pre_discover_cfg [0],
+                               &p_nfc_hal_pre_discover_cfg[1],
+                                nfa_hal_pre_discover_done_cback) != HAL_NFC_STATUS_OK)
+    {
+        nfa_hal_pre_discover_done_cback(0, 0, NULL);
     }
 }
 
@@ -628,6 +662,10 @@ UINT32 nfc_hal_main_task (UINT32 param)
                     nfc_hal_hci_evt_hdlr ((tNFC_HAL_HCI_EVENT_DATA *) p_msg);
                     break;
 
+                case NFC_HAL_EVT_PRE_DISCOVER:
+                    NFC_HAL_SET_INIT_STATE(NFC_HAL_INIT_STATE_W4_PREDISCOVER_DONE);
+                    nfa_hal_send_pre_discover_cfg ();
+                    break;
 
                 case NFC_HAL_EVT_CONTROL_GRANTED:
                     nfc_hal_dm_send_pend_cmd ();

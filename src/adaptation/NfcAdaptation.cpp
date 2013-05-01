@@ -452,7 +452,7 @@ BOOLEAN NfcAdaptation::HalPrediscover ()
 
     if (mHalDeviceContext)
     {
-        mHalDeviceContext->pre_discover (mHalDeviceContext);
+        retval = mHalDeviceContext->pre_discover (mHalDeviceContext);
     }
     return retval;
 }

@@ -998,6 +998,8 @@ void nfc_hal_dm_init (void)
 
     nfc_hal_cb.hci_cb.hci_timer.p_cback = nfc_hal_hci_timeout_cback;
 
+    nfc_hal_cb.pre_discover_done        = FALSE;
+
     nfc_post_reset_cb.spd_nvm_detection_cur_count = 0;
     nfc_post_reset_cb.spd_skip_on_power_cycle     = FALSE;
 

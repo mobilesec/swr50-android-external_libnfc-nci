@@ -460,6 +460,8 @@ void nfa_ee_reg_cback_enable_done (tNFA_EE_ENABLE_DONE_CBACK *p_cback);
 
 extern void nfa_ee_proc_hci_info_cback (void);
 void nfa_ee_check_disable (void);
+BOOLEAN nfa_ee_restore_ntf_done(void);
+void nfa_ee_check_restore_complete(void);
 
 
 #endif /* NFA_P2P_INT_H */

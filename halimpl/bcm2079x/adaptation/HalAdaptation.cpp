@@ -303,8 +303,7 @@ int HaiPreDiscover (const bcm2079x_dev_t* device)
     ALOGD ("%s: enter", __FUNCTION__);
     int retval = EACCES;
 
-    HAL_NfcPreDiscover ();
-    retval = 0;
+    retval = HAL_NfcPreDiscover () ? 1 : 0;
     ALOGD ("%s: exit %d", __FUNCTION__, retval);
     return retval;
 }

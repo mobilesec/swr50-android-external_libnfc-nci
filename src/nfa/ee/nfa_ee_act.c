@@ -81,7 +81,6 @@ const UINT8 nfa_ee_proto_list[NFA_EE_NUM_PROTO] =
     NFC_PROTOCOL_NFC_DEP
 };
 
-static void nfa_ee_check_restore_complete(void);
 static void nfa_ee_report_discover_req_evt(void);
 static void nfa_ee_build_discover_req_evt (tNFA_EE_DISCOVER_REQ *p_evt_data);
 /*******************************************************************************
@@ -741,7 +740,7 @@ void nfa_ee_report_disc_done(BOOLEAN notify_enable_done)
 ** Returns          TRUE, if all NFA_EE_STATUS_PENDING bits are removed
 **
 *******************************************************************************/
-static BOOLEAN nfa_ee_restore_ntf_done(void)
+BOOLEAN nfa_ee_restore_ntf_done(void)
 {
     tNFA_EE_ECB     *p_cb;
     BOOLEAN         is_done = TRUE;
@@ -1069,7 +1068,7 @@ void nfa_ee_nci_disc_ntf(tNFA_EE_MSG *p_data)
 ** Returns          void
 **
 *******************************************************************************/
-static void nfa_ee_check_restore_complete(void)
+void nfa_ee_check_restore_complete(void)
 {
     UINT32  xx;
     tNFA_EE_ECB     *p_cb;

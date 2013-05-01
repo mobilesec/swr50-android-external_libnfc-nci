@@ -268,6 +268,7 @@ void nfa_ee_proc_hci_info_cback (void)
 {
     UINT32          xx;
     tNFA_EE_ECB     *p_cb;
+    tNFA_EE_MSG     data;
 
     NFA_TRACE_DEBUG0 ("nfa_ee_proc_hci_info_cback ()");
     /* if NFCC power state is change to full power */
@@ -283,6 +284,20 @@ void nfa_ee_proc_hci_info_cback (void)
         if (p_cb->ee_interface[0] != NFC_NFCEE_INTERFACE_HCI_ACCESS)
         {
             nfa_ee_restore_one_ecb (p_cb);
+        }
+    }
+
+    if (nfa_ee_restore_ntf_done())
+    {
+        nfa_ee_check_restore_complete();
+        if (nfa_ee_cb.em_state == NFA_EE_EM_STATE_INIT_DONE)
+        {
+            if (nfa_ee_cb.discv_timer.in_use)
+            {
+                nfa_sys_stop_timer (&nfa_ee_cb.discv_timer);
+                data.hdr.event = NFA_EE_DISCV_TIMEOUT_EVT;
+                nfa_ee_evt_hdlr((BT_HDR *)&data);
+            }
         }
     }
 }

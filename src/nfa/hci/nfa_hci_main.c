@@ -98,7 +98,6 @@ void nfa_hci_ee_info_cback (tNFA_EE_DISC_STS status)
     case NFA_EE_DISC_STS_ON:
         /* NFCEE Discovery is in progress */
         nfa_hci_cb.ee_disc_cmplt      = TRUE;
-        nfa_hci_cb.ee_disable_disc    = FALSE;
         nfa_hci_cb.num_ee_dis_req_ntf = 0;
         nfa_hci_cb.num_hot_plug_evts  = 0;
         nfa_hci_cb.conn_id            = 0;
@@ -106,6 +105,8 @@ void nfa_hci_ee_info_cback (tNFA_EE_DISC_STS status)
         break;
 
     case NFA_EE_DISC_STS_OFF:
+        if (nfa_hci_cb.ee_disable_disc)
+            break;
         nfa_hci_cb.ee_disable_disc  = TRUE;
         /* Discovery operation is complete, retrieve discovery result */
         NFA_EeGetInfo (&num_nfcee, ee_info);
@@ -481,6 +482,8 @@ void nfa_hci_dh_startup_complete (void)
     else if (  (nfa_hci_cb.num_nfcee > 1)
              &&(nfa_hci_cb.num_ee_dis_req_ntf != (nfa_hci_cb.num_nfcee - 1))  )
     {
+        if (nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)
+            nfa_hci_cb.ee_disable_disc  = TRUE;
         /* Received HOT PLUG EVT, we will also wait for EE DISC REQ Ntf(s) */
         nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hci_netwk_enable_timeout);
     }

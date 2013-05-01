@@ -82,6 +82,23 @@ UINT8 nfc_hal_dm_start_up_vsc_cfg[] = {
 
 UINT8 *p_nfc_hal_dm_start_up_vsc_cfg = NULL;
 
+/* the SetConfig at HAL_NfcPreDiscover. This is done once after HAL_NfcOpen */
+UINT8 nfc_hal_pre_discover_cfg[] = {
+    /* TLV len */   0x0A,
+    /* B0 */        NCI_PARAM_ID_SWPCFG,
+    /* B1 */        0x08,
+    /* B2 */        0x01,
+    /* B3 */        0x08,
+    /* B4 */        0x00,
+    /* B5 */        0x04,
+    /* B6 */        0x80,
+    /* B7 */        0xC3,
+    /* B8 */        0xC9,
+    /* B9 */        0x01
+};
+
+UINT8 *p_nfc_hal_pre_discover_cfg = NULL;
+
 /* LPTD parameters (LowPowerTagDetection)
  * This is typical values for 20791B2
  * The timing and threshold parameters used for a customer handset/hardware may vary

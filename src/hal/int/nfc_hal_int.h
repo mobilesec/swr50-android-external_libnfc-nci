@@ -420,6 +420,7 @@ typedef struct
     /* data members for NFC_HAL-HCI */
     tNFC_HAL_HCI_CB         hci_cb;
 
+    UINT8                   pre_discover_done;  /* TRUE, when the prediscover config is complete */
 
     UINT8                   max_rf_credits;     /* NFC Max RF data credits */
     UINT8                   trace_level;        /* NFC HAL trace level */
@@ -432,7 +433,7 @@ extern tNFC_HAL_CB   nfc_hal_cb;
 #define nfc_hal_cb (*nfc_hal_cb_ptr)
 extern tNFC_HAL_CB *nfc_hal_cb_ptr;
 #endif
-
+extern UINT8 *p_nfc_hal_pre_discover_cfg;
 /****************************************************************************
 ** Internal nfc functions
 ****************************************************************************/
@@ -468,6 +469,7 @@ void nfc_hal_dm_pre_init_nfcc (void);
 void nfc_hal_dm_shutting_down_nfcc (void);
 BOOLEAN nfc_hal_dm_power_mode_execute (tNFC_HAL_LP_EVT event);
 void nfc_hal_dm_send_pend_cmd (void);
+tHAL_NFC_STATUS nfc_hal_dm_set_config (UINT8 tlv_size, UINT8 *p_param_tlvs, tNFC_HAL_NCI_CBACK *p_cback);
 
 /* nfc_hal_prm.c */
 void nfc_hal_prm_spd_reset_ntf (UINT8 reset_reason, UINT8 reset_type);

@@ -233,6 +233,24 @@ BOOLEAN HAL_NfcPreDiscover (void)
 {
     BOOLEAN status = FALSE;
 
+    NFC_HDR *p_msg;
+
+    HAL_TRACE_API0 ("HAL_NfcPreDiscover ()");
+    if (nfc_hal_cb.pre_discover_done == FALSE)
+    {
+        nfc_hal_cb.pre_discover_done    = TRUE;
+        if (p_nfc_hal_pre_discover_cfg && *p_nfc_hal_pre_discover_cfg)
+        {
+            status                          = TRUE;
+            /* Send message to NFC_HAL_TASK */
+            if ((p_msg = (NFC_HDR *)GKI_getpoolbuf (NFC_HAL_NCI_POOL_ID)) != NULL)
+            {
+                p_msg->event  = NFC_HAL_EVT_PRE_DISCOVER;
+                GKI_send_msg (NFC_HAL_TASK, NFC_HAL_TASK_MBOX, p_msg);
+            }
+        }
+    }
+
     HAL_TRACE_API1 ("HAL_NfcPreDiscover status:%d", status);
     return status;
 }
