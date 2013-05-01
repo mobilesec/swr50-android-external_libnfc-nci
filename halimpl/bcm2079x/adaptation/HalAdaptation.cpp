@@ -75,12 +75,12 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
 
     logLevel = InitializeGlobalAppLogLevel ();
 
+    verify_hal_non_volatile_store ();
     if ( GetNumValue ( NAME_PRESERVE_STORAGE, (char*)&num, sizeof ( num ) ) &&
             (num == 1) )
         ALOGD ("%s: preserve HAL NV store", __FUNCTION__);
     else
     {
-        verify_hal_non_volatile_store ();
         delete_hal_non_volatile_store (false);
     }
 

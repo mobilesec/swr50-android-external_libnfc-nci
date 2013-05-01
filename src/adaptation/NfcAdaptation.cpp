@@ -127,12 +127,12 @@ void NfcAdaptation::Initialize ()
 
     initializeGlobalAppLogLevel ();
 
+    verify_stack_non_volatile_store ();
     if ( GetNumValue ( NAME_PRESERVE_STORAGE, (char*)&num, sizeof ( num ) ) &&
             (num == 1) )
         ALOGD ("%s: preserve stack NV store", __FUNCTION__);
     else
     {
-        verify_stack_non_volatile_store ();
         delete_stack_non_volatile_store (FALSE);
     }
 
