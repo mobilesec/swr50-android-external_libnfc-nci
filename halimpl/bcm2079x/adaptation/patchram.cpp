@@ -321,19 +321,8 @@ static void getNfaValues()
 
 
     actualLen = GetStrValue (NAME_NFA_DM_START_UP_CFG, (char*)sConfig, sizeof(sConfig));
-    if (actualLen >= 8)
-    {
-        ALOGD ( "START_UP_CFG[0] = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
-                sConfig[0],
-                sConfig[1],
-                sConfig[2],
-                sConfig[3],
-                sConfig[4],
-                sConfig[5],
-                sConfig[6],
-                sConfig[7] );
+    if (actualLen)
         sStartupConfig.append (sConfig, actualLen);
-    }
 
     // Set antenna tuning configuration if configured.
     actualLen = GetStrValue(NAME_PREINIT_DSP_CFG, (char*)sConfig, sizeof(sConfig));
@@ -368,6 +357,7 @@ static void getNfaValues()
     if (actualLen)
     {
         sPreDiscoveryConfig.append (sConfig, actualLen);
+        mayDisableSecureElement (sPreDiscoveryConfig);
         p_nfc_hal_pre_discover_cfg = const_cast<UINT8*> (sPreDiscoveryConfig.getInternalBuffer ());
     }
 }
