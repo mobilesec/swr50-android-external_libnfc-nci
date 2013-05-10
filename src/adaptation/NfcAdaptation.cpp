@@ -112,7 +112,10 @@ void NfcAdaptation::Initialize ()
     unsigned long num;
 
     if ( !GetStrValue ( NAME_NFA_STORAGE, bcm_nfc_location, sizeof ( bcm_nfc_location ) ) )
-        strcpy ( bcm_nfc_location, "/data/nfc" );
+    {
+        memset (bcm_nfc_location, 0, sizeof(bcm_nfc_location));
+        strncpy (bcm_nfc_location, "/data/nfc", 9);
+    }
     if ( GetNumValue ( NAME_PROTOCOL_TRACE_LEVEL, &num, sizeof ( num ) ) )
         ScrProtocolTraceFlag = num;
 

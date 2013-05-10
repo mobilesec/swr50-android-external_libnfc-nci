@@ -120,7 +120,7 @@ static long getFileLength(FILE* fp)
     sz = ftell(fp);
     fseek(fp, 0L, SEEK_SET);
 
-    return sz;
+    return (sz > 0) ? sz : 0;
 }
 
 /*******************************************************************************
@@ -399,10 +399,14 @@ static void StartPatchDownload(UINT32 chipid)
 
                 if ((sI2cFixPrmBuf = malloc(lenPrmBuffer)) != NULL)
                 {
-                    fread(sI2cFixPrmBuf, lenPrmBuffer, 1, fd);
-
-                    ALOGD("%s Setting I2C fix to %s (size: %lu)", __FUNCTION__, sPrePatchFn, lenPrmBuffer);
-                    HAL_NfcPrmSetI2cPatch((UINT8*)sI2cFixPrmBuf, (UINT16)lenPrmBuffer, 0);
+                    size_t actualLen = fread(sI2cFixPrmBuf, 1, lenPrmBuffer, fd);
+                    if (actualLen == lenPrmBuffer)
+                    {
+                        ALOGD("%s Setting I2C fix to %s (size: %lu)", __FUNCTION__, sPrePatchFn, lenPrmBuffer);
+                        HAL_NfcPrmSetI2cPatch((UINT8*)sI2cFixPrmBuf, (UINT16)lenPrmBuffer, 0);
+                    }
+                    else
+                        ALOGE("%s fail reading i2c fix; actual len=%u; expected len=%lu", __FUNCTION__, actualLen, lenPrmBuffer);
                 }
                 else
                 {
@@ -433,14 +437,18 @@ static void StartPatchDownload(UINT32 chipid)
                 ALOGD("%s Downloading patchfile %s (size: %lu) format=%u", __FUNCTION__, sPatchFn, lenPrmBuffer, NFC_HAL_PRM_FORMAT_NCD);
                 if ((sPrmBuf = malloc(lenPrmBuffer)) != NULL)
                 {
-                    fread(sPrmBuf, lenPrmBuffer, 1, fd);
-
-                    if (!SpdHelper::isPatchBad((UINT8*)sPrmBuf, lenPrmBuffer))
+                    size_t actualLen = fread(sPrmBuf, 1, lenPrmBuffer, fd);
+                    if (actualLen == lenPrmBuffer)
                     {
-                        /* Download patch using static memeory mode */
-                        HAL_NfcPrmDownloadStart(NFC_HAL_PRM_FORMAT_NCD, 0, (UINT8*)sPrmBuf, lenPrmBuffer, 0, prmCallback);
-                        bDownloadStarted = true;
+                        if (!SpdHelper::isPatchBad((UINT8*)sPrmBuf, lenPrmBuffer))
+                        {
+                            /* Download patch using static memeory mode */
+                            HAL_NfcPrmDownloadStart(NFC_HAL_PRM_FORMAT_NCD, 0, (UINT8*)sPrmBuf, lenPrmBuffer, 0, prmCallback);
+                            bDownloadStarted = true;
+                        }
                     }
+                    else
+                        ALOGE("%s fail reading patchram", __FUNCTION__);
                 }
                 else
                     ALOGE("%s Unable to buffer to hold patchram (%lu bytes)", __FUNCTION__, lenPrmBuffer);

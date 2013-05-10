@@ -72,7 +72,7 @@ void nfc_hal_nv_co_read (UINT8 *p_buf, UINT16 nbytes, UINT8 block)
         ALOGE ("%s: filename too long", __FUNCTION__);
         return;
     }
-    sprintf (filename, "%s%u", fn.c_str(), block);
+    snprintf (filename, sizeof(filename), "%s%u", fn.c_str(), block);
 
     ALOGD ("%s: buffer len=%u; file=%s", __FUNCTION__, nbytes, filename);
     int fileStream = open (filename, O_RDONLY);
@@ -131,7 +131,7 @@ void nfc_hal_nv_co_write (const UINT8 *p_buf, UINT16 nbytes, UINT8 block)
         ALOGE ("%s: filename too long", __FUNCTION__);
         return;
     }
-    sprintf (filename, "%s%u", fn.c_str(), block);
+    snprintf (filename, sizeof(filename), "%s%u", fn.c_str(), block);
     ALOGD ("%s: bytes=%u; file=%s", __FUNCTION__, nbytes, filename);
 
     fileStream = open (filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
@@ -213,13 +213,13 @@ void delete_hal_non_volatile_store (bool forceDelete)
         return;
     }
 
-    sprintf (filename, "%s%u", fn.c_str(), DH_NV_BLOCK);
+    snprintf (filename, sizeof(filename), "%s%u", fn.c_str(), DH_NV_BLOCK);
     remove (filename);
-    sprintf (filename, "%s%u", fn.c_str(), HC_F3_NV_BLOCK);
+    snprintf (filename, sizeof(filename), "%s%u", fn.c_str(), HC_F3_NV_BLOCK);
     remove (filename);
-    sprintf (filename, "%s%u", fn.c_str(), HC_F4_NV_BLOCK);
+    snprintf (filename, sizeof(filename), "%s%u", fn.c_str(), HC_F4_NV_BLOCK);
     remove (filename);
-    sprintf (filename, "%s%u", fn.c_str(), HC_F2_NV_BLOCK);
+    snprintf (filename, sizeof(filename), "%s%u", fn.c_str(), HC_F2_NV_BLOCK);
     remove (filename);
 }
 
@@ -249,16 +249,16 @@ void verify_hal_non_volatile_store ()
         return;
     }
 
-    sprintf (filename, "%s%u", fn.c_str(), DH_NV_BLOCK);
+    snprintf (filename, sizeof(filename), "%s%u", fn.c_str(), DH_NV_BLOCK);
     if (crcChecksumVerifyIntegrity (filename))
     {
-        sprintf (filename, "%s%u", fn.c_str(), HC_F3_NV_BLOCK);
+        snprintf (filename, sizeof(filename), "%s%u", fn.c_str(), HC_F3_NV_BLOCK);
         if (crcChecksumVerifyIntegrity (filename))
         {
-            sprintf (filename, "%s%u", fn.c_str(), HC_F4_NV_BLOCK);
+            snprintf (filename, sizeof(filename), "%s%u", fn.c_str(), HC_F4_NV_BLOCK);
             if (crcChecksumVerifyIntegrity (filename))
             {
-                sprintf (filename, "%s%u", fn.c_str(), HC_F2_NV_BLOCK);
+                snprintf (filename, sizeof(filename), "%s%u", fn.c_str(), HC_F2_NV_BLOCK);
                 if (crcChecksumVerifyIntegrity (filename))
                     isValid = true;
             }

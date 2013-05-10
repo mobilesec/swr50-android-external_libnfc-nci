@@ -50,8 +50,9 @@ unsigned char initializeGlobalAppLogLevel ()
     unsigned long num = 0;
     char valueStr [PROPERTY_VALUE_MAX] = {0};
 
-    GetNumValue (NAME_APPL_TRACE_LEVEL, &num, sizeof(num));
-    appl_trace_level = (unsigned char) num;
+    num = 1;
+    if (GetNumValue (NAME_APPL_TRACE_LEVEL, &num, sizeof(num)))
+        appl_trace_level = (unsigned char) num;
 
     int len = property_get ("nfc.app_log_level", valueStr, "");
     if (len > 0)
