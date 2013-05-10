@@ -1190,10 +1190,6 @@ UDRV_API UINT16  USERIAL_Write(tUSERIAL_PORT port, UINT8 *p_data, UINT16 len)
     int i = 0;
     clock_t t;
 
-    /* Ensure we wake up the chip before writing to it */
-    if (!isWake(UPIO_ON))
-        UPIO_Set(UPIO_GENERAL, NFC_HAL_LP_NFC_WAKE_GPIO, UPIO_OFF);
-
     ALOGD_IF((appl_trace_level>=BT_TRACE_LEVEL_DEBUG), "USERIAL_Write: (%d bytes)", len);
     pthread_mutex_lock(&close_thread_mutex);
 
