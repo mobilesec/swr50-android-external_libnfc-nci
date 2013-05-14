@@ -535,7 +535,7 @@ static void rw_t4t_handle_error (tNFC_STATUS status, UINT8 sw1, UINT8 sw2)
     tRW_DATA    rw_data;
     tRW_EVENT   event;
 
-    RW_TRACE_DEBUG4 ("rw_t4t_handle_error (): status:0%02X, sw1:0x%02X, sw2:0x%02X, state:0x%X",
+    RW_TRACE_DEBUG4 ("rw_t4t_handle_error (): status:0x%02X, sw1:0x%02X, sw2:0x%02X, state:0x%X",
                       status, sw1, sw2, p_t4t->state);
 
     nfc_stop_quick_timer (&p_t4t->timer);
@@ -1150,7 +1150,7 @@ void rw_t4t_process_timeout (TIMER_LIST_ENT *p_tle)
 static void rw_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_data)
 {
     tRW_T4T_CB *p_t4t    = &rw_cb.tcb.t4t;
-    BT_HDR     *p_r_apdu = (BT_HDR *) p_data->data.p_data;
+    BT_HDR     *p_r_apdu;
     tRW_DATA    rw_data;
 
 #if (BT_TRACE_VERBOSE == TRUE)
@@ -1168,21 +1168,20 @@ static void rw_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
         return;
 
     case NFC_ERROR_CEVT:
-        if (p_t4t->state == RW_T4T_STATE_PRESENCE_CHECK)
+        rw_data.status = (tNFC_STATUS) (*(UINT8*) p_data);
+
+        if (p_t4t->state != RW_T4T_STATE_IDLE)
         {
-            p_t4t->state   = RW_T4T_STATE_IDLE;
-            rw_data.status = NFC_STATUS_FAILED;
-            (*(rw_cb.p_cback)) (RW_T4T_PRESENCE_CHECK_EVT, &rw_data);
+            rw_t4t_handle_error (rw_data.status, 0, 0);
         }
         else
         {
-            p_t4t->state   = RW_T4T_STATE_IDLE;
-            rw_data.status = (tNFC_STATUS) (*(UINT8*) p_data);
             (*(rw_cb.p_cback)) (RW_T4T_INTF_ERROR_EVT, &rw_data);
         }
         return;
 
     case NFC_DATA_CEVT:
+        p_r_apdu = (BT_HDR *) p_data->data.p_data;
         break;
 
     default:
@@ -1539,6 +1538,8 @@ tNFC_STATUS RW_T4tSetNDefReadOnly (void)
         /* if read-only */
         if (rw_cb.tcb.t4t.ndef_status & RW_T4T_NDEF_STATUS_NDEF_READ_ONLY)
         {
+            RW_TRACE_API0 ("RW_T4tSetNDefReadOnly (): NDEF is already read-only");
+
             evt_data.status = NFC_STATUS_OK;
             (*rw_cb.p_cback) (RW_T4T_SET_TO_RO_EVT, &evt_data);
             return (retval);
@@ -1591,6 +1592,9 @@ static char *rw_t4t_get_state_name (UINT8 state)
         return ("UPDATE_NDEF");
     case RW_T4T_STATE_PRESENCE_CHECK:
         return ("PRESENCE_CHECK");
+    case RW_T4T_STATE_SET_READ_ONLY:
+        return ("SET_READ_ONLY");
+
     default:
         return ("???? UNKNOWN STATE");
     }

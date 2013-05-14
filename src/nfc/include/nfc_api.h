@@ -193,7 +193,8 @@ enum
     NFC_CONN_CLOSE_CEVT,                    /* 1  Conn Close Response           */
     NFC_DEACTIVATE_CEVT,                    /* 2  Deactivate response/notificatn*/
     NFC_DATA_CEVT,                          /* 3  Data                          */
-    NFC_ERROR_CEVT                          /* 4  generic or interface error    */
+    NFC_ERROR_CEVT,                         /* 4  generic or interface error    */
+    NFC_DATA_START_CEVT                     /* 5  received the first fragment on RF link */
 };
 typedef UINT16 tNFC_CONN_EVT;
 

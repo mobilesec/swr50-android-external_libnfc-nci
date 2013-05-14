@@ -1533,6 +1533,14 @@ void nfc_ncif_proc_data (BT_HDR *p_msg)
             }
             else
             {
+                /* if this is the first fragment on RF link */
+                if (  (p_msg->layer_specific & NFC_RAS_FRAGMENTED)
+                    &&(p_cb->conn_id == NFC_RF_CONN_ID)
+                    &&(p_cb->p_cback)  )
+                {
+                    /* Indicate upper layer that local device started receiving data */
+                    (*p_cb->p_cback) (p_cb->conn_id, NFC_DATA_START_CEVT, NULL);
+                }
                 /* enqueue the new buffer to the rx queue */
                 GKI_enqueue (&p_cb->rx_q, p_msg);
             }

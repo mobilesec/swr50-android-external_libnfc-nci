@@ -385,6 +385,10 @@ typedef struct
     tNFA_DM_DISC_TECH_PROTO_MASK    dm_disc_mask;   /* technology and protocol waiting for activation   */
 
     TIMER_LIST_ENT          tle;                    /* timer for waiting deactivation NTF               */
+    TIMER_LIST_ENT          kovio_tle;              /* timer for Kovio bar code tag presence check      */
+
+    BOOLEAN                 deact_pending;          /* TRUE if deactivate while checking presence       */
+    tNFA_DEACTIVATE_TYPE    pending_deact_type;     /* pending deactivate type                          */
 
 } tNFA_DM_DISC_CB;
 
@@ -456,9 +460,6 @@ typedef struct
     tNFA_DM_CBACK              *p_dm_cback;         /* NFA DM callback                                      */
     TIMER_LIST_ENT              tle;
 
-    BOOLEAN                     sleep_wakeup_deact_pending; /* TRUE if deactivate while checking presence */
-    tNFA_DEACTIVATE_TYPE        sleep_wakeup_deact_type;    /* deactivate type                            */
-
     /* NFC link connection management */
     tNFA_CONN_CBACK            *p_conn_cback;       /* callback for connection events       */
     tNFA_TECHNOLOGY_MASK        poll_mask;          /* technologies being polled            */
@@ -470,9 +471,9 @@ typedef struct
 
     UINT8                      *p_activate_ntf;     /* temp holding activation notfication  */
 
-    UINT8                       activated_nfcid[NCI_NFCID1_MAX_LEN];
-                                                    /* NFCID 0/1/2 or UID of ISO15694       */
-    UINT8                       activated_nfcid_len;/* length of NFCID ot UID               */
+    tNFC_RF_TECH_N_MODE         activated_tech_mode;/* previous activated technology and mode */
+    UINT8                       activated_nfcid[NFC_KOVIO_MAX_LEN]; /* NFCID 0/1/2 or UID of ISO15694/Kovio  */
+    UINT8                       activated_nfcid_len;/* length of NFCID or UID               */
 
     /* NFC link discovery management */
     tNFA_DM_DISC_CB             disc_cb;
@@ -598,7 +599,7 @@ tNFA_STATUS nfa_dm_rf_deactivate (tNFA_DEACTIVATE_TYPE deactivate_type);
 BOOLEAN nfa_dm_is_protocol_supported (tNFA_NFC_PROTOCOL protocol, UINT8 sel_res);
 BOOLEAN nfa_dm_is_active (void);
 tNFC_STATUS nfa_dm_disc_sleep_wakeup (void);
-
+tNFC_STATUS nfa_dm_disc_start_kovio_presence_check (void);
 
 
 #if (NFC_NFCEE_INCLUDED == FALSE)

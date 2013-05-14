@@ -864,7 +864,7 @@ extern tNDEF_STATUS  NDEF_MsgAddRec (UINT8 *p_msg, UINT32 max_size, UINT32 *p_cu
         UINT8  *pLast = NDEF_MsgGetLastRecInMsg (p_msg);
 
         if (!pLast)
-            return (FALSE);
+            return (NDEF_MSG_NO_MSG_END);
 
         *pLast &= ~NDEF_ME_MASK;
         *p_rec   = tnf | NDEF_ME_MASK;
@@ -1538,7 +1538,7 @@ tNDEF_STATUS NDEF_MsgCopyAndDechunk (UINT8 *p_src, UINT32 src_len, UINT8 *p_dest
     p_rec = p_src;
 
     /* Now, copy record by record */
-    while (p_rec != NULL)
+    while ((p_rec != NULL) && (status == NDEF_OK))
     {
         p_type = NDEF_RecGetType (p_rec, &tnf, &type_len);
         p_id   = NDEF_RecGetId (p_rec, &id_len);
@@ -1547,13 +1547,16 @@ tNDEF_STATUS NDEF_MsgCopyAndDechunk (UINT8 *p_src, UINT32 src_len, UINT8 *p_dest
         /* If this is the continuation of a chunk, append the payload to the previous */
         if (tnf == NDEF_TNF_UNCHANGED)
         {
-            NDEF_MsgAppendPayload (p_dest, max_out_len, &out_len, p_prev_rec, p_pay, pay_len);
+            if (p_pay)
+            {
+                status = NDEF_MsgAppendPayload (p_dest, max_out_len, &out_len, p_prev_rec, p_pay, pay_len);
+            }
         }
         else
         {
             p_prev_rec = p_dest + out_len;
 
-            NDEF_MsgAddRec (p_dest, max_out_len, &out_len, tnf, p_type, type_len,
+            status = NDEF_MsgAddRec (p_dest, max_out_len, &out_len, tnf, p_type, type_len,
                             p_id, id_len, p_pay, pay_len);
         }
 
@@ -1562,6 +1565,6 @@ tNDEF_STATUS NDEF_MsgCopyAndDechunk (UINT8 *p_src, UINT32 src_len, UINT8 *p_dest
 
     *p_out_len = out_len;
 
-    return (NDEF_OK);
+    return (status);
 }
 

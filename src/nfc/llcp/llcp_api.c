@@ -64,23 +64,6 @@ void LLCP_SetTestParams (UINT8 version, UINT16 wks)
 
 /*******************************************************************************
 **
-** Function         LLCP_RegisterDtaCback
-**
-** Description      Register callback function for LLCP DTA testing
-**
-**
-** Returns          void
-**
-*******************************************************************************/
-void LLCP_RegisterDtaCback (tLLCP_DTA_CBACK *p_dta_cback)
-{
-    LLCP_TRACE_API0 ("LLCP_RegisterDtaCback ()");
-
-    llcp_cb.p_dta_cback = p_dta_cback;
-}
-
-/*******************************************************************************
-**
 ** Function         LLCP_SetConfig
 **
 ** Description      Set configuration parameters for LLCP

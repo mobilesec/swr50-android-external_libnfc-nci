@@ -597,7 +597,7 @@ void ce_t4t_process_timeout (TIMER_LIST_ENT *p_tle)
 *******************************************************************************/
 static void ce_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_data)
 {
-    BT_HDR  *p_c_apdu = (BT_HDR *) p_data->data.p_data;
+    BT_HDR  *p_c_apdu;
     UINT8   *p_cmd;
     UINT8    cla, instruct, select_type = 0, length;
     UINT16   offset, max_file_size;
@@ -612,6 +612,8 @@ static void ce_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
     {
         return;
     }
+
+    p_c_apdu = (BT_HDR *) p_data->data.p_data;
 
 #if (BT_TRACE_PROTOCOL == TRUE)
     DispCET4Tags (p_c_apdu, TRUE);

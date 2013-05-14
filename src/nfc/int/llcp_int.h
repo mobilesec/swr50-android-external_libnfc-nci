@@ -35,7 +35,8 @@ enum
 {
     LLCP_LINK_STATE_DEACTIVATED,                /* llcp link is deactivated     */
     LLCP_LINK_STATE_ACTIVATED,                  /* llcp link has been activated */
-    LLCP_LINK_STATE_DEACTIVATING                /* llcp link is deactivating    */
+    LLCP_LINK_STATE_DEACTIVATING,               /* llcp link is deactivating    */
+    LLCP_LINK_STATE_ACTIVATION_FAILED           /* llcp link activation was failed */
 };
 typedef UINT8 tLLCP_LINK_STATE;
 
@@ -264,9 +265,6 @@ typedef struct
     UINT8           total_rx_ui_pdu;                /* total number of rx UI PDU in all of ui_rx_q  */
     UINT8           total_rx_i_pdu;                 /* total number of rx I PDU in all of i_rx_q    */
     BOOLEAN         overall_rx_congested;           /* TRUE if overall rx link is congested         */
-
-    tLLCP_DTA_CBACK *p_dta_cback;                   /* callback to notify DTA when respoding SNL    */
-    BOOLEAN         dta_snl_resp;                   /* TRUE if need to notify DTA when respoding SNL*/
 } tLLCP_CB;
 
 #if (LLCP_TEST_INCLUDED == TRUE) /* this is for LLCP testing */

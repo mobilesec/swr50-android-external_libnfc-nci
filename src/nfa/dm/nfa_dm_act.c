@@ -712,6 +712,9 @@ BOOLEAN nfa_dm_act_release_excl_rf_ctrl (tNFA_DM_MSG *p_data)
         nfa_dm_rf_deactivate (NFA_DEACTIVATE_TYPE_IDLE);
     }
 
+    if (nfa_dm_cb.disc_cb.kovio_tle.in_use)
+        nfa_sys_stop_timer (&nfa_dm_cb.disc_cb.kovio_tle);
+
     return TRUE;
 }
 
@@ -734,7 +737,8 @@ BOOLEAN nfa_dm_act_deactivate (tNFA_DM_MSG *p_data)
     if (  (p_data->deactivate.sleep_mode == FALSE)                 /* Always allow deactivate to IDLE */
         ||(  (nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_T1T)      /* Do not allow deactivate to SLEEP for T1T,NFCDEP, ISO15693 */
            &&(nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_NFC_DEP)
-           &&(nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_ISO15693)  )  )
+           &&(nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_ISO15693)
+           &&(nfa_dm_cb.disc_cb.activated_protocol != NFC_PROTOCOL_KOVIO)  )  )
     {
         if (  (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_NFC_DEP)
             &&((nfa_dm_cb.flags & NFA_DM_FLAGS_EXCL_RF_ACTIVE) == 0x00)  )
@@ -766,13 +770,15 @@ BOOLEAN nfa_dm_act_deactivate (tNFA_DM_MSG *p_data)
             }
             if (nfa_dm_rf_deactivate (deact_type) == NFA_STATUS_OK)
             {
+                if (nfa_dm_cb.disc_cb.kovio_tle.in_use)
+                    nfa_sys_stop_timer (&nfa_dm_cb.disc_cb.kovio_tle);
                 nfa_rw_stop_presence_check_timer ();
                 return (TRUE);
             }
         }
     }
 
-    NFA_TRACE_ERROR0 ("nfa_dm_act_deactivate (): invalid protocol or mode");
+    NFA_TRACE_ERROR0 ("nfa_dm_act_deactivate (): invalid protocol, mode or state");
 
     /* Notify error to application */
     conn_evt.status = NFA_STATUS_FAILED;
@@ -1061,8 +1067,7 @@ BOOLEAN nfa_dm_act_send_raw_frame (tNFA_DM_MSG *p_data)
             &&(  (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_T1T)
                ||(nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_T2T)
                ||(nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_T3T)
-               ||(  (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_ISO_DEP)
-                  &&(nfa_dm_cb.disc_cb.activated_rf_interface == NFC_INTERFACE_ISO_DEP)  )
+               ||(nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_ISO_DEP)
                ||(nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_ISO15693)  )  )
         {
             /* if RW is checking presence then it will put into pending queue */
@@ -1177,7 +1182,13 @@ BOOLEAN nfa_dm_act_stop_rf_discovery (tNFA_DM_MSG *p_data)
     {
         nfa_dm_cb.disc_cb.disc_flags &= ~NFA_DM_DISC_FLAGS_ENABLED;
         nfa_dm_cb.disc_cb.disc_flags |= NFA_DM_DISC_FLAGS_STOPPING;
-        nfa_dm_rf_deactivate (NFA_DEACTIVATE_TYPE_IDLE);
+
+        if (nfa_dm_rf_deactivate (NFA_DEACTIVATE_TYPE_IDLE) == NFA_STATUS_OK)
+        {
+            if (nfa_dm_cb.disc_cb.kovio_tle.in_use)
+                nfa_sys_stop_timer (&nfa_dm_cb.disc_cb.kovio_tle);
+            nfa_rw_stop_presence_check_timer ();
+        }
     }
     return (TRUE);
 }
@@ -1311,13 +1322,15 @@ void nfa_dm_act_conn_cback_notify (UINT8 event, tNFA_CONN_EVT_DATA *p_data)
 *******************************************************************************/
 static void nfa_dm_act_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_data)
 {
-    BT_HDR             *p_msg = (BT_HDR *) p_data->data.p_data;
+    BT_HDR             *p_msg;
     tNFA_CONN_EVT_DATA evt_data;
 
     NFA_TRACE_DEBUG1 ("nfa_dm_act_data_cback (): event = 0x%X", event);
 
     if (event == NFC_DATA_CEVT)
     {
+        p_msg = (BT_HDR *) p_data->data.p_data;
+
         if (p_msg)
         {
             evt_data.data.p_data = (UINT8 *) (p_msg + 1) + p_msg->offset;
@@ -1391,9 +1404,9 @@ static void nfa_dm_excl_disc_cback (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_
                 if (  (nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_T1T)
                     ||(nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_T2T)
                     ||(nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_T3T)
-                    ||(  (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_ISO_DEP)
-                       &&(nfa_dm_cb.disc_cb.activated_rf_interface == NFC_INTERFACE_ISO_DEP) )
-                    ||(nfa_dm_cb.disc_cb.activated_protocol  == NFA_PROTOCOL_ISO15693) )
+                    ||(nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_ISO_DEP)
+                    ||(nfa_dm_cb.disc_cb.activated_protocol  == NFA_PROTOCOL_ISO15693)
+                    ||(nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_KOVIO)  )
                 {
                     /* Notify NFA tag sub-system */
                     nfa_rw_proc_disc_evt (NFA_DM_RF_DISC_ACTIVATED_EVT, p_data, FALSE);
@@ -1415,8 +1428,13 @@ static void nfa_dm_excl_disc_cback (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_
 
     case NFA_DM_RF_DISC_DEACTIVATED_EVT:
 
-        /* clear stored NFCID/UID */
-        nfa_dm_cb.activated_nfcid_len = 0;
+        /* if deactivated to idle or discovery */
+        if (  (p_data->deactivate.type == NFC_DEACTIVATE_TYPE_IDLE)
+            ||(p_data->deactivate.type == NFC_DEACTIVATE_TYPE_DISCOVERY)  )
+        {
+            /* clear stored NFCID/UID/KOVIO bar code */
+            nfa_dm_cb.activated_nfcid_len = 0;
+        }
 
         if (nfa_dm_cb.disc_cb.activated_protocol != NFC_PROTOCOL_NFC_DEP)
         {
@@ -1494,9 +1512,9 @@ static void nfa_dm_poll_disc_cback (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_
             else if (  (nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_T1T)
                      ||(nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_T2T)
                      ||(nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_T3T)
-                     ||(  (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_ISO_DEP)
-                        &&(nfa_dm_cb.disc_cb.activated_rf_interface == NFC_INTERFACE_ISO_DEP)  )
-                     ||(nfa_dm_cb.disc_cb.activated_protocol  == NFA_PROTOCOL_ISO15693)  )
+                     ||(nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_ISO_DEP)
+                     ||(nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_15693)
+                     ||(nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_KOVIO)  )
             {
                 /* Notify NFA tag sub-system */
                 nfa_rw_proc_disc_evt (NFA_DM_RF_DISC_ACTIVATED_EVT, p_data, TRUE);
@@ -1517,8 +1535,13 @@ static void nfa_dm_poll_disc_cback (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_
 
     case NFA_DM_RF_DISC_DEACTIVATED_EVT:
 
-        /* clear stored NFCID/UID */
-        nfa_dm_cb.activated_nfcid_len = 0;
+        /* if deactivated to idle or discovery */
+        if (  (p_data->deactivate.type == NFC_DEACTIVATE_TYPE_IDLE)
+            ||(p_data->deactivate.type == NFC_DEACTIVATE_TYPE_DISCOVERY)  )
+        {
+            /* clear stored NFCID/UID/KOVIO bar code */
+            nfa_dm_cb.activated_nfcid_len = 0;
+        }
 
         if (  (nfa_dm_cb.disc_cb.activated_protocol     == NFC_PROTOCOL_NFC_DEP)
             &&(nfa_dm_cb.disc_cb.activated_rf_interface == NFC_INTERFACE_NFC_DEP)  )
@@ -1636,6 +1659,11 @@ void nfa_dm_notify_activation_status (tNFA_STATUS status, tNFA_TAG_PARAMS *p_par
             nfcid_len = NFC_ISO15693_UID_LEN;
             p_nfcid   = p_tech_params->param.pi93.uid;
         }
+        else if (p_tech_params->mode == NFC_DISCOVERY_TYPE_POLL_KOVIO)
+        {
+            nfcid_len = p_tech_params->param.pk.uid_len;
+            p_nfcid   = p_tech_params->param.pk.uid;
+        }
         else
         {
             nfcid_len = 0;
@@ -1653,11 +1681,6 @@ void nfa_dm_notify_activation_status (tNFA_STATUS status, tNFA_TAG_PARAMS *p_par
             ** after receiving NFA_LLCP_ACTIVATED_EVT.
             */
         }
-        /* Do not perform NDEF operations on KOVIO */
-        else if (p_tech_params->mode == NFC_DISCOVERY_TYPE_POLL_KOVIO)
-        {
-            NFA_TRACE_DEBUG1 ("Not an NFC-Forum tag, bypassing NDEF detection", nfa_dm_cb.disc_cb.activated_protocol);
-        }
         else if (!(nfa_dm_cb.flags & NFA_DM_FLAGS_EXCL_RF_ACTIVE))
         {
             /*
@@ -1665,7 +1688,7 @@ void nfa_dm_notify_activation_status (tNFA_STATUS status, tNFA_TAG_PARAMS *p_par
             ** Application may put a tag into sleep mode and reactivate the same tag.
             */
 
-            if (  (p_tech_params->mode != nfa_dm_cb.disc_cb.activated_tech_mode)
+            if (  (p_tech_params->mode != nfa_dm_cb.activated_tech_mode)
                 ||(nfcid_len != nfa_dm_cb.activated_nfcid_len)
                 ||(memcmp (p_nfcid, nfa_dm_cb.activated_nfcid, nfcid_len)))
             {
@@ -1693,6 +1716,7 @@ void nfa_dm_notify_activation_status (tNFA_STATUS status, tNFA_TAG_PARAMS *p_par
         }
 
         /* store activated tag information */
+        nfa_dm_cb.activated_tech_mode = p_tech_params->mode;
         nfa_dm_cb.activated_nfcid_len = nfcid_len;
         if (nfcid_len)
             memcpy (nfa_dm_cb.activated_nfcid, p_nfcid, nfcid_len);

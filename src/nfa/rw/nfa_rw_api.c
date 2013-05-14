@@ -271,6 +271,8 @@ tNFA_STATUS NFA_RwSetTagReadOnly (BOOLEAN b_hard_lock)
         return (NFA_STATUS_REJECTED);
     }
 
+    NFA_TRACE_API1 ("NFA_RwSetTagReadOnly (): %s", b_hard_lock ? "Hard lock" : "Soft lock");
+
     if ((p_msg = (tNFA_RW_OPERATION *) GKI_getbuf ((UINT16) (sizeof (tNFA_RW_OPERATION)))) != NULL)
     {
         /* Fill in tNFA_RW_OPERATION struct */

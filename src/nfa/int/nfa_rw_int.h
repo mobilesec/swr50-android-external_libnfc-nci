@@ -336,6 +336,7 @@ extern BOOLEAN nfa_rw_activate_ntf (tNFA_RW_MSG *p_data);
 extern BOOLEAN nfa_rw_deactivate_ntf (tNFA_RW_MSG *p_data);
 extern BOOLEAN nfa_rw_presence_check_tick (tNFA_RW_MSG *p_data);
 extern void    nfa_rw_handle_sleep_wakeup_rsp (tNFC_STATUS status);
+extern void    nfa_rw_handle_presence_check_rsp (tNFC_STATUS status);
 extern void    nfa_rw_command_complete (void);
 extern BOOLEAN nfa_rw_handle_event (BT_HDR *p_msg);
 

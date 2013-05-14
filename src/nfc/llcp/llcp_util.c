@@ -496,6 +496,7 @@ tLLCP_STATUS llcp_util_parse_connect (UINT8  *p_bytes, UINT16 length, tLLCP_CONN
     p_params->miu = LLCP_DEFAULT_MIU;
     p_params->rw  = LLCP_DEFAULT_RW;
     p_params->sn[0] = 0;
+    p_params->sn[1] = 0;
 
     while (length)
     {
@@ -524,7 +525,12 @@ tLLCP_STATUS llcp_util_parse_connect (UINT8  *p_bytes, UINT16 length, tLLCP_CONN
         case LLCP_SN_TYPE:
             BE_STREAM_TO_UINT8 (param_len, p);
 
-            if (param_len <= LLCP_MAX_SN_LEN)
+            if (param_len == 0)
+            {
+                /* indicate that SN type is included without SN */
+                p_params->sn[1] = LLCP_SN_TYPE;
+            }
+            else if (param_len <= LLCP_MAX_SN_LEN)
             {
                 memcpy (p_params->sn, p, param_len);
                 p_params->sn[param_len] = 0;

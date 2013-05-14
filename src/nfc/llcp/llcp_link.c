@@ -183,6 +183,13 @@ tLLCP_STATUS llcp_link_activate (tLLCP_ACTIVATE_CONFIG *p_config)
     {
         LLCP_TRACE_ERROR0 ("llcp_link_activate (): Failed to parse general bytes");
         (*llcp_cb.lcb.p_link_cback) (LLCP_LINK_ACTIVATION_FAILED_EVT, LLCP_LINK_BAD_GEN_BYTES);
+
+        if (p_config->is_initiator == FALSE)
+        {
+            /* repond to any incoming PDU with invalid LLCP PDU */
+            llcp_cb.lcb.link_state = LLCP_LINK_STATE_ACTIVATION_FAILED;
+            NFC_SetStaticRfCback (llcp_link_connection_cback);
+        }
         return LLCP_STATUS_FAIL;
     }
 
@@ -206,6 +213,13 @@ tLLCP_STATUS llcp_link_activate (tLLCP_ACTIVATE_CONFIG *p_config)
     {
         LLCP_TRACE_ERROR0 ("llcp_link_activate (): Failed to agree version");
         (*llcp_cb.lcb.p_link_cback) (LLCP_LINK_ACTIVATION_FAILED_EVT, LLCP_LINK_VERSION_FAILED);
+
+        if (p_config->is_initiator == FALSE)
+        {
+            /* repond to any incoming PDU with invalid LLCP PDU */
+            llcp_cb.lcb.link_state = LLCP_LINK_STATE_ACTIVATION_FAILED;
+            NFC_SetStaticRfCback (llcp_link_connection_cback);
+        }
         return LLCP_STATUS_FAIL;
     }
 
@@ -812,6 +826,35 @@ static void llcp_link_send_SYMM (void)
         UINT16_TO_BE_STREAM (p, LLCP_GET_PDU_HEADER (LLCP_SAP_LM, LLCP_PDU_SYMM_TYPE, LLCP_SAP_LM ));
 
         llcp_link_send_to_lower (p_msg);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         llcp_link_send_invalid_pdu
+**
+** Description      Send invalid LLC PDU in LLCP_LINK_STATE_ACTIVATION_FAILED
+**
+** Returns          void
+**
+*******************************************************************************/
+static void llcp_link_send_invalid_pdu (void)
+{
+    BT_HDR *p_msg;
+    UINT8  *p;
+
+    p_msg = (BT_HDR*) GKI_getpoolbuf (LLCP_POOL_ID);
+
+    if (p_msg)
+    {
+        /* send one byte of 0x00 as invalid LLC PDU */
+        p_msg->len    = 1;
+        p_msg->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE;
+
+        p = (UINT8 *) (p_msg + 1) + p_msg->offset;
+        *p = 0x00;
+
+        NFC_SendData (NFC_RF_CONN_ID, p_msg);
     }
 }
 
@@ -1668,6 +1711,14 @@ void llcp_link_connection_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *
             llcp_link_send_SYMM ();
             GKI_freebuf ((BT_HDR *) p_data->data.p_data);
         }
+        else if (llcp_cb.lcb.link_state == LLCP_LINK_STATE_ACTIVATION_FAILED)
+        {
+            /* respoding with invalid LLC PDU until initiator deactivates RF link after LLCP activation was failed,
+            ** so that initiator knows LLCP link activation was failed.
+            */
+            llcp_link_send_invalid_pdu ();
+            GKI_freebuf ((BT_HDR *) p_data->data.p_data);
+        }
         else
         {
             llcp_cb.lcb.flags |= LLCP_LINK_FLAGS_RX_ANY_LLC_PDU;
@@ -1688,11 +1739,26 @@ void llcp_link_connection_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *
             llcp_link_stop_link_timer ();
             llcp_link_process_link_timeout ();
         }
+        else if (llcp_cb.lcb.link_state == LLCP_LINK_STATE_ACTIVATION_FAILED)
+        {
+            /* do not notify to upper layer because activation failure was already notified */
+            NFC_FlushData (NFC_RF_CONN_ID);
+            llcp_cb.lcb.link_state = LLCP_LINK_STATE_DEACTIVATED;
+        }
         else if (llcp_cb.lcb.link_state != LLCP_LINK_STATE_DEACTIVATED)
         {
             llcp_link_deactivate (LLCP_LINK_RF_LINK_LOSS_ERR);
         }
+
         NFC_SetStaticRfCback (NULL);
+    }
+    else if (event == NFC_DATA_START_CEVT)
+    {
+        if (llcp_cb.lcb.symm_state == LLCP_LINK_SYMM_REMOTE_XMIT_NEXT)
+        {
+            /* LLCP shall stop LTO timer when receiving the first bit of LLC PDU */
+            llcp_link_stop_link_timer ();
+        }
     }
 
     /* LLCP ignores the following events

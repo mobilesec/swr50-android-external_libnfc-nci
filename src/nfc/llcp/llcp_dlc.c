@@ -643,7 +643,7 @@ static void llcp_dlc_proc_connect_pdu (UINT8 dsap, UINT8 ssap, UINT16 length, UI
     if (llcp_util_parse_connect (p_data, length, &params) != LLCP_STATUS_SUCCESS)
     {
         LLCP_TRACE_ERROR0 ("llcp_dlc_proc_connect_pdu (): Bad format CONNECT");
-        llcp_util_send_dm (ssap, dsap, LLCP_SAP_DM_REASON_TEMP_REJECT_THIS );
+        llcp_util_send_dm (ssap, dsap, LLCP_SAP_DM_REASON_NO_SERVICE );
         return;
     }
 
@@ -655,7 +655,16 @@ static void llcp_dlc_proc_connect_pdu (UINT8 dsap, UINT8 ssap, UINT16 length, UI
             dsap = llcp_sdp_get_sap_by_name (params.sn, (UINT8) strlen (params.sn));
         else
         {
-            llcp_util_send_dm (ssap, LLCP_SAP_SDP, LLCP_SAP_DM_REASON_PERM_REJECT_THIS );
+            /* if SN type is included without SN */
+            if (params.sn[1] == LLCP_SN_TYPE)
+            {
+                llcp_util_send_dm (ssap, LLCP_SAP_SDP, LLCP_SAP_DM_REASON_NO_SERVICE );
+            }
+            else
+            {
+                /* SDP doesn't accept connection */
+                llcp_util_send_dm (ssap, LLCP_SAP_SDP, LLCP_SAP_DM_REASON_PERM_REJECT_THIS );
+            }
             return;
         }
 
@@ -864,7 +873,7 @@ void llcp_dlc_proc_i_pdu (UINT8 dsap, UINT8 ssap, UINT16 i_pdu_length, UINT8 *p_
 
     p_dlcb = llcp_dlc_find_dlcb_by_sap (dsap, ssap);
 
-    if (p_dlcb)
+    if ((p_dlcb)&&(p_dlcb->state == LLCP_DLC_STATE_CONNECTED))
     {
         error_flags = 0;
 
@@ -1046,7 +1055,6 @@ void llcp_dlc_proc_i_pdu (UINT8 dsap, UINT8 ssap, UINT16 i_pdu_length, UINT8 *p_
     else
     {
         LLCP_TRACE_ERROR2 ("llcp_dlc_proc_i_pdu (): No data link for SAP (0x%x,0x%x)", dsap, ssap);
-        llcp_util_send_dm (ssap, dsap, LLCP_SAP_DM_REASON_NO_ACTIVE_CONNECTION );
     }
 
     if (p_msg)

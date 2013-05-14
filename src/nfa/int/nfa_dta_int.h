@@ -39,6 +39,15 @@
 *****************************************************************************/
 #define NFA_DTA_PATTERN_NUMBER_INVALID              0xFFFF
 
+#define NFA_DTA_PATTERN_NUMBER_LLCP_CONNECT_BY_SAP  0x1200
+#define NFA_DTA_PATTERN_NUMBER_LLCP_CONNECT_BY_SN   0x1240
+#define NFA_DTA_PATTERN_NUMBER_LLCP_CONNECT_BY_SNL  0x1280
+
+#define NFA_DTA_PATTERN_NUMBER_SNEP_SERVER_ONLY             0x1300
+#define NFA_DTA_PATTERN_NUMBER_SNEP_DEFAULT_PUT_SHORT_NDEF  0x1301
+#define NFA_DTA_PATTERN_NUMBER_SNEP_DEFAULT_PUT_LONG_NDEF   0x1302
+#define NFA_DTA_PATTERN_NUMBER_SNEP_EXTENDED_GET            0x1303
+
 #define NFA_DTA_DISCOVER_PARAMS_MAX     6
 
 #define NDEF_WKT_TEXT_HDR_LEN   7               /* Header length for long NDEF text message */
@@ -50,7 +59,7 @@
 #define NFA_DTA_SCRATCH_BUF_SIZE        T3T_MSG_BLOCKSIZE
 
 #ifndef NFA_DTA_DEFAULT_CO_OUT_DSAP
-#define NFA_DTA_DEFAULT_CO_OUT_DSAP     0x10    /* Default SAP[LT,CO-OUT-DEST] if SDP was not performed to get SAP from the LT */
+#define NFA_DTA_DEFAULT_CO_OUT_DSAP     0x12    /* Default SAP[LT,CO-OUT-DEST] if SDP was not performed to get SAP from the LT */
 #endif
 
 /*****************************************************************************
@@ -63,8 +72,6 @@ typedef struct {
     BOOLEAN t4at_nfcdep_priority;           /* NFA_DTA_CFG_T4AT_NFCDEP_PRIORITY */
     BOOLEAN reactivation;                   /* NFA_DTA_CFG_REACTIVATION   */
     UINT16  total_duration;                 /* NFA_DTA_CFG_TOTAL_DURATION */
-    BOOLEAN enable_dta_llcp;                /* NFA_DTA_CFG_LLCP */
-    tNFA_DTA_SNEP_MODE dta_snep_mode;       /* NFA_DTA_CFG_SNEP */
     tNFA_DTA_EMVCO_PCD_MODE emvco_pcd_mode; /* NFA_DTA_CFG_EMVCO_PCD */
 } tNFA_DTA_CONFIG;
 
@@ -100,7 +107,7 @@ typedef struct
 typedef struct
 {
     BT_HDR                  hdr;
-    UINT8                   pattern_number;
+    UINT16                  pattern_number;
     UINT8                   tlv_len;
     UINT8                   *p_tlv_params;
 } tNFA_DTA_API_START;
@@ -250,8 +257,8 @@ typedef struct {
     tNFA_DTA_CBACK          *p_cback;       /* Applicatation for DTA event notification */
 
     /* DTA test parameters */
-    UINT32                  pattern_number;
-    UINT32                  pattern_number_old;
+    UINT16                  pattern_number;
+    UINT16                  pattern_number_old;
 
     /* Discovery Parameters */
     UINT8                   disc_state;
@@ -278,6 +285,8 @@ typedef struct {
     UINT16                  llcp_local_link_miu;    /* link MIU of IUT               */
     UINT16                  llcp_remote_link_miu;   /* link MIU of LT                */
 
+    UINT8                   llcp_pattern_num_sap;   /* SAP of pattern number exchange */
+
     UINT8                   llcp_cl_in_local_sap;   /* SAP of IUT-CL-IN-DEST */
     UINT8                   llcp_cl_out_local_sap;  /* SAP of IUT-CL-OUT-SRC */
     UINT8                   llcp_cl_out_remote_sap; /* SAP of LT-CL-OUT-DEST */
@@ -294,7 +303,8 @@ typedef struct {
 #define NFA_DTA_LLCP_FLAGS_CO_OUT_CONNECTED     0x02    /* established outbound on connection-oriented  */
 
     UINT8                   llcp_flags;             /* internal flags for LLCP echo test */
-    UINT8                   llcp_sdp_tid;           /* transaction ID for SDP */
+    UINT8                   llcp_sdp_tid_cl;        /* SDP transaction ID for outbound connectionless */
+    UINT8                   llcp_sdp_tid_co;        /* SDP transaction ID for outbound connection-oriented */
 
     TIMER_LIST_ENT          llcp_cl_echo_timer;     /* timer for the connectionless echo test application      */
     TIMER_LIST_ENT          llcp_co_echo_timer;     /* timer for the connection-oriented echo test application */
@@ -304,14 +314,6 @@ typedef struct {
     tNFA_HANDLE             snep_server_handle;
     tNFA_HANDLE             snep_server_conn_handle;
     tNFA_HANDLE             snep_client_handle;
-
-#define NFA_DTA_SNEP_CLIENT_TEST_FLAGS_DEFAULT_SERVER    0x01
-#define NFA_DTA_SNEP_CLIENT_TEST_FLAGS_EXTENDED_SERVER   0x02
-#define NFA_DTA_SNEP_CLIENT_TEST_FLAGS_PUT_SHORT_NDEF    0x04
-#define NFA_DTA_SNEP_CLIENT_TEST_FLAGS_PUT_LONG_NDEF     0x08
-#define NFA_DTA_SNEP_CLIENT_TEST_FLAGS_GET               0x10
-
-    UINT8                   snep_client_test_flags;
 
     UINT8                   *p_snep_short_ndef;
     UINT32                  snep_short_ndef_size;
@@ -392,15 +394,20 @@ void nfa_dta_ce_cback (UINT8 event, tCE_DATA *p_ce_data);
 void nfa_dta_t4t_register_apps (void);
 void nfa_dta_t4t_deregister_apps (void);
 
+void nfa_dta_llcp_init (void);
+void nfa_dta_llcp_set_gen_bytes (void);
+void nfa_dta_llcp_clear_gen_bytes (void);
+void nfa_dta_llcp_register_pattern_number_service (void);
+void nfa_dta_llcp_deregister_pattern_number_service (void);
 void nfa_dta_llcp_register_echo (void);
 void nfa_dta_llcp_deregister_echo (void);
 void nfa_dta_llcp_activate_link (void);
 void nfa_dta_llcp_connect_co_echo_out (void);
 void nfa_dta_llcp_disconnect_co_echo_out (void);
 
+void nfa_dta_snep_init (void);
 void nfa_dta_snep_register (void);
 void nfa_dta_snep_deregister (void);
-void nfa_dta_snep_mode (tNFA_DTA_SNEP_MODE mode);
 
 void nfa_dta_emvco_pcd_config_nfcc (BOOLEAN enable);
 void nfa_dta_emvco_pcd_start (void);

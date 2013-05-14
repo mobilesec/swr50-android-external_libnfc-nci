@@ -50,6 +50,8 @@ static void nfa_dm_notify_discovery (tNFA_DM_RF_DISC_DATA *p_data);
 static tNFA_STATUS nfa_dm_disc_notify_activation (tNFC_DISCOVER *p_data);
 static void nfa_dm_disc_notify_deactivation (tNFA_DM_RF_DISC_SM_EVENT sm_event, tNFC_DISCOVER *p_data);
 static void nfa_dm_disc_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_data);
+static void nfa_dm_disc_kovio_timeout_cback (TIMER_LIST_ENT *p_tle);
+static void nfa_dm_disc_report_kovio_presence_check (tNFC_STATUS status);
 
 #if (BT_TRACE_VERBOSE == TRUE)
 static char *nfa_dm_disc_state_2_str (UINT8 state);
@@ -360,29 +362,16 @@ static tNFA_STATUS nfa_dm_set_rf_listen_mode_config (tNFA_DM_DISC_TECH_PROTO_MAS
     }
 
     /* for Listen F */
-    if (nfa_dm_cb.disc_cb.listen_RT[NFA_DM_DISC_LRT_NFC_F] == NFA_DM_DISC_HOST_ID_DH)
+    /* NFCC can support NFC-DEP and T3T listening based on NFCID routing regardless of NFC-F tech routing */
+    UINT8_TO_STREAM (p, NFC_PMID_LF_PROTOCOL);
+    UINT8_TO_STREAM (p, NCI_PARAM_LEN_LF_PROTOCOL);
+    if (tech_proto_mask & NFA_DM_DISC_MASK_LF_NFC_DEP)
     {
-        UINT8_TO_STREAM (p, NFC_PMID_LF_PROTOCOL);
-        UINT8_TO_STREAM (p, NCI_PARAM_LEN_LF_PROTOCOL);
-        if (tech_proto_mask & NFA_DM_DISC_MASK_LF_NFC_DEP)
-        {
-            UINT8_TO_STREAM (p, NCI_LISTEN_PROTOCOL_NFC_DEP);
-        }
-        else
-        {
-            UINT8_TO_STREAM (p, 0x00);
-        }
+        UINT8_TO_STREAM (p, NCI_LISTEN_PROTOCOL_NFC_DEP);
     }
     else
     {
-        /* If DH is not listening on T3T, let NFCC use UICC configuration by configuring with length = 0 */
-        if ((tech_proto_mask & NFA_DM_DISC_MASK_LF_T3T) == 0)
-        {
-            UINT8_TO_STREAM (p, NFC_PMID_LF_PROTOCOL);
-            UINT8_TO_STREAM (p, 0);
-            UINT8_TO_STREAM (p, NFC_PMID_LF_T3T_FLAGS2);
-            UINT8_TO_STREAM (p, 0);
-        }
+        UINT8_TO_STREAM (p, 0x00);
     }
 
     if (p > params)
@@ -1004,18 +993,11 @@ void nfa_dm_start_rf_discover (void)
                                & NFA_DM_DISC_MASK_LB_ISO_DEP;
 
                 /* NFC-F */
-                if (nfa_dm_cb.disc_cb.entry[xx].host_id == nfa_dm_cb.disc_cb.listen_RT[NFA_DM_DISC_LRT_NFC_F])
-                {
-                    listen_mask |= nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask
-                                   & ( NFA_DM_DISC_MASK_LF_T3T
-                                      |NFA_DM_DISC_MASK_LF_NFC_DEP
-                                      |NFA_DM_DISC_MASK_LFA_NFC_DEP );
-                }
-                else
-                {
-                    /* NFCC can listen T3T based on NFCID routing */
-                    listen_mask |= (nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask  & NFA_DM_DISC_MASK_LF_T3T);
-                }
+                /* NFCC can support NFC-DEP and T3T listening based on NFCID routing regardless of NFC-F tech routing */
+                listen_mask |= nfa_dm_cb.disc_cb.entry[xx].requested_disc_mask
+                               & ( NFA_DM_DISC_MASK_LF_T3T
+                                  |NFA_DM_DISC_MASK_LF_NFC_DEP
+                                  |NFA_DM_DISC_MASK_LFA_NFC_DEP );
 
                 /* NFC-B Prime */
                 if (nfa_dm_cb.disc_cb.entry[xx].host_id == nfa_dm_cb.disc_cb.listen_RT[NFA_DM_DISC_LRT_NFC_BP])
@@ -1114,8 +1096,14 @@ void nfa_dm_start_rf_discover (void)
         nfa_dm_disc_notify_started (NFA_STATUS_OK);
     }
 
-    /* reset hanlde of activated sub-module */
-    nfa_dm_cb.disc_cb.activated_handle = NFA_HANDLE_INVALID;
+    /* if Kovio presence check timer is running, timeout callback will reset the activation information */
+    if (  (nfa_dm_cb.disc_cb.activated_protocol != NFC_PROTOCOL_KOVIO)
+        ||(!nfa_dm_cb.disc_cb.kovio_tle.in_use)  )
+    {
+        /* reset protocol and hanlde of activated sub-module */
+        nfa_dm_cb.disc_cb.activated_protocol = NFA_PROTOCOL_INVALID;
+        nfa_dm_cb.disc_cb.activated_handle   = NFA_HANDLE_INVALID;
+    }
 }
 
 /*******************************************************************************
@@ -1138,6 +1126,62 @@ static void nfa_dm_notify_discovery (tNFA_DM_RF_DISC_DATA *p_data)
             sizeof (tNFC_RESULT_DEVT));
 
     nfa_dm_conn_cback_event_notify (NFA_DISC_RESULT_EVT, &conn_evt);
+}
+
+
+/*******************************************************************************
+**
+** Function         nfa_dm_disc_handle_kovio_activation
+**
+** Description      Handle Kovio activation; whether it's new or repeated activation
+**
+** Returns          TRUE if repeated activation. No need to notify activated event to upper layer
+**
+*******************************************************************************/
+BOOLEAN nfa_dm_disc_handle_kovio_activation (tNFC_DISCOVER *p_data, tNFA_DISCOVER_CBACK *p_disc_cback)
+{
+    tNFC_DISCOVER disc_data;
+
+    if (nfa_dm_cb.disc_cb.kovio_tle.in_use)
+    {
+        /* if this is new Kovio bar code tag */
+        if (  (nfa_dm_cb.activated_nfcid_len != p_data->activate.rf_tech_param.param.pk.uid_len)
+            ||(memcmp (p_data->activate.rf_tech_param.param.pk.uid,
+                       nfa_dm_cb.activated_nfcid, nfa_dm_cb.activated_nfcid_len)))
+        {
+            NFA_TRACE_DEBUG0 ("new Kovio tag is detected");
+
+            /* notify presence check failure for previous tag, if presence check is pending */
+            nfa_dm_disc_report_kovio_presence_check (NFA_STATUS_FAILED);
+
+            /* notify deactivation of previous activation before notifying new activation */
+            if (p_disc_cback)
+            {
+                disc_data.deactivate.type = NFA_DEACTIVATE_TYPE_IDLE;
+                (*(p_disc_cback)) (NFA_DM_RF_DISC_DEACTIVATED_EVT, &disc_data);
+            }
+
+            /* restart timer */
+            nfa_sys_start_timer (&nfa_dm_cb.disc_cb.kovio_tle, 0, NFA_DM_DISC_TIMEOUT_KOVIO_PRESENCE_CHECK);
+        }
+        else
+        {
+            /* notify presence check ok, if presence check is pending */
+            nfa_dm_disc_report_kovio_presence_check (NFC_STATUS_OK);
+
+            /* restart timer and do not notify upper layer */
+            nfa_sys_start_timer (&nfa_dm_cb.disc_cb.kovio_tle, 0, NFA_DM_DISC_TIMEOUT_KOVIO_PRESENCE_CHECK);
+            return (TRUE);
+        }
+    }
+    else
+    {
+        /* this is the first activation, so start timer and notify upper layer */
+        nfa_dm_cb.disc_cb.kovio_tle.p_cback = (TIMER_CBACK *)nfa_dm_disc_kovio_timeout_cback;
+        nfa_sys_start_timer (&nfa_dm_cb.disc_cb.kovio_tle, 0, NFA_DM_DISC_TIMEOUT_KOVIO_PRESENCE_CHECK);
+    }
+
+    return (FALSE);
 }
 
 /*******************************************************************************
@@ -1169,6 +1213,16 @@ static tNFA_STATUS nfa_dm_disc_notify_activation (tNFC_DISCOVER *p_data)
         nfa_dm_cb.disc_cb.activated_rf_interface = p_data->activate.intf_param.type;
         nfa_dm_cb.disc_cb.activated_protocol     = protocol;
         nfa_dm_cb.disc_cb.activated_handle       = NFA_HANDLE_INVALID;
+
+        if (protocol == NFC_PROTOCOL_KOVIO)
+        {
+            /* check whether it's new or repeated activation */
+            if (nfa_dm_disc_handle_kovio_activation (p_data, nfa_dm_cb.disc_cb.excl_disc_entry.p_disc_cback))
+            {
+                /* do not notify activation of Kovio to upper layer */
+                return (NFA_STATUS_OK);
+            }
+        }
 
         if (nfa_dm_cb.disc_cb.excl_disc_entry.p_disc_cback)
             (*(nfa_dm_cb.disc_cb.excl_disc_entry.p_disc_cback)) (NFA_DM_RF_DISC_ACTIVATED_EVT, p_data);
@@ -1290,6 +1344,16 @@ static tNFA_STATUS nfa_dm_disc_notify_activation (tNFC_DISCOVER *p_data)
                            nfa_dm_cb.disc_cb.activated_protocol,
                            nfa_dm_cb.disc_cb.activated_handle);
 
+        if (protocol == NFC_PROTOCOL_KOVIO)
+        {
+            /* check whether it's new or repeated activation */
+            if (nfa_dm_disc_handle_kovio_activation (p_data, nfa_dm_cb.disc_cb.entry[xx].p_disc_cback))
+            {
+                /* do not notify activation of Kovio to upper layer */
+                return (NFA_STATUS_OK);
+            }
+        }
+
         if (nfa_dm_cb.disc_cb.entry[xx].p_disc_cback)
             (*(nfa_dm_cb.disc_cb.entry[xx].p_disc_cback)) (NFA_DM_RF_DISC_ACTIVATED_EVT, p_data);
 
@@ -1362,13 +1426,44 @@ static void nfa_dm_disc_notify_deactivation (tNFA_DM_RF_DISC_SM_EVENT sm_event,
         }
         else if (!(nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_STOPPING))
         {
-            evt_data.deactivated.type = NFA_DEACTIVATE_TYPE_IDLE;
-            /* notify deactivation to application */
-            nfa_dm_conn_cback_event_notify (NFA_DEACTIVATED_EVT, &evt_data);
+            xx = nfa_dm_cb.disc_cb.activated_handle;
+
+            /* notify event to activated module if failed while reactivation */
+            if (nfa_dm_cb.disc_cb.excl_disc_entry.in_use)
+            {
+                if (nfa_dm_cb.disc_cb.excl_disc_entry.p_disc_cback)
+                {
+                    disc_data.deactivate.type = NFA_DEACTIVATE_TYPE_IDLE;
+                    (*(nfa_dm_cb.disc_cb.excl_disc_entry.p_disc_cback)) (NFA_DM_RF_DISC_DEACTIVATED_EVT, p_data);
+                }
+            }
+            else if (  (xx < NFA_DM_DISC_NUM_ENTRIES)
+                     &&(nfa_dm_cb.disc_cb.entry[xx].in_use)
+                     &&(nfa_dm_cb.disc_cb.entry[xx].p_disc_cback)  )
+            {
+                (*(nfa_dm_cb.disc_cb.entry[xx].p_disc_cback)) (NFA_DM_RF_DISC_DEACTIVATED_EVT, p_data);
+            }
+            else
+            {
+                /* notify deactivation to application if there is no activated module */
+                evt_data.deactivated.type = NFA_DEACTIVATE_TYPE_IDLE;
+                nfa_dm_conn_cback_event_notify (NFA_DEACTIVATED_EVT, &evt_data);
+            }
         }
     }
     else
     {
+        if (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_KOVIO)
+        {
+            if (nfa_dm_cb.disc_cb.kovio_tle.in_use)
+            {
+                /* restart timer and do not notify upper layer */
+                nfa_sys_start_timer (&nfa_dm_cb.disc_cb.kovio_tle, 0, NFA_DM_DISC_TIMEOUT_KOVIO_PRESENCE_CHECK);
+                return;
+            }
+            /* Otherwise, upper layer initiated deactivation. */
+        }
+
         /* notify event to activated module */
         if (nfa_dm_cb.disc_cb.excl_disc_entry.in_use)
         {
@@ -1421,8 +1516,8 @@ tNFC_STATUS nfa_dm_disc_sleep_wakeup (void)
         {
             /* deactivate to sleep is sent on behalf of sleep wakeup.
              * set the sleep wakeup information in control block */
-            nfa_dm_cb.disc_cb.disc_flags          |= NFA_DM_DISC_FLAGS_CHECKING;
-            nfa_dm_cb.sleep_wakeup_deact_pending = FALSE;
+            nfa_dm_cb.disc_cb.disc_flags    |= NFA_DM_DISC_FLAGS_CHECKING;
+            nfa_dm_cb.disc_cb.deact_pending = FALSE;
         }
     }
 
@@ -1440,6 +1535,13 @@ tNFC_STATUS nfa_dm_disc_sleep_wakeup (void)
 *******************************************************************************/
 static void nfa_dm_disc_end_sleep_wakeup (tNFC_STATUS status)
 {
+    if (  (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_KOVIO)
+        &&(nfa_dm_cb.disc_cb.kovio_tle.in_use)  )
+    {
+        /* ignore it while doing Kovio presence check */
+        return;
+    }
+
     if (nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_CHECKING)
     {
         nfa_dm_cb.disc_cb.disc_flags &= ~NFA_DM_DISC_FLAGS_CHECKING;
@@ -1447,11 +1549,119 @@ static void nfa_dm_disc_end_sleep_wakeup (tNFC_STATUS status)
         /* notify RW module that sleep wakeup is finished */
         nfa_rw_handle_sleep_wakeup_rsp (status);
 
-        if (nfa_dm_cb.sleep_wakeup_deact_pending)
+        if (nfa_dm_cb.disc_cb.deact_pending)
         {
-            nfa_dm_cb.sleep_wakeup_deact_pending = FALSE;
+            nfa_dm_cb.disc_cb.deact_pending = FALSE;
             nfa_dm_disc_sm_execute (NFA_DM_RF_DEACTIVATE_CMD,
-                                   (tNFA_DM_RF_DISC_DATA *) &nfa_dm_cb.sleep_wakeup_deact_type);
+                                   (tNFA_DM_RF_DISC_DATA *) &nfa_dm_cb.disc_cb.pending_deact_type);
+        }
+    }
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_disc_kovio_timeout_cback
+**
+** Description      Timeout for Kovio bar code tag presence check
+**
+** Returns          void
+**
+*******************************************************************************/
+static void nfa_dm_disc_kovio_timeout_cback (TIMER_LIST_ENT *p_tle)
+{
+    tNFC_DEACTIVATE_DEVT deact;
+
+    NFA_TRACE_DEBUG0 ("nfa_dm_disc_kovio_timeout_cback()");
+
+    /* notify presence check failure, if presence check is pending */
+    nfa_dm_disc_report_kovio_presence_check (NFC_STATUS_FAILED);
+
+    if (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_POLL_ACTIVE)
+    {
+        /* restart timer in case that upper layer's presence check interval is too long */
+        nfa_sys_start_timer (&nfa_dm_cb.disc_cb.kovio_tle, 0, NFA_DM_DISC_TIMEOUT_KOVIO_PRESENCE_CHECK);
+    }
+    else
+    {
+        /* notify upper layer deactivated event */
+        deact.status = NFC_STATUS_OK;
+        deact.type   = NFC_DEACTIVATE_TYPE_DISCOVERY;
+        deact.is_ntf = TRUE;
+        nfa_dm_disc_notify_deactivation (NFA_DM_RF_DEACTIVATE_NTF, (tNFC_DISCOVER*)&deact);
+    }
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_disc_start_kovio_presence_check
+**
+** Description      Deactivate to discovery mode and wait for activation
+**
+** Returns          TRUE if operation started
+**
+*******************************************************************************/
+tNFC_STATUS nfa_dm_disc_start_kovio_presence_check (void)
+{
+    tNFC_STATUS status = NFC_STATUS_FAILED;
+
+    NFA_TRACE_DEBUG0 ("nfa_dm_disc_start_kovio_presence_check ()");
+
+    if (  (nfa_dm_cb.disc_cb.activated_protocol == NFC_PROTOCOL_KOVIO)
+        &&(nfa_dm_cb.disc_cb.kovio_tle.in_use)  )
+    {
+        if (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_POLL_ACTIVE)
+        {
+            /* restart timer */
+            nfa_sys_start_timer (&nfa_dm_cb.disc_cb.kovio_tle, 0, NFA_DM_DISC_TIMEOUT_KOVIO_PRESENCE_CHECK);
+
+            /* Deactivate to discovery mode */
+            status = nfa_dm_send_deactivate_cmd (NFC_DEACTIVATE_TYPE_DISCOVERY);
+
+            if (status == NFC_STATUS_OK)
+            {
+                /* deactivate to sleep is sent on behalf of sleep wakeup.
+                 * set the sleep wakeup information in control block */
+                nfa_dm_cb.disc_cb.disc_flags    |= NFA_DM_DISC_FLAGS_CHECKING;
+                nfa_dm_cb.disc_cb.deact_pending = FALSE;
+            }
+        }
+        else
+        {
+            /* wait for next activation */
+            nfa_dm_cb.disc_cb.disc_flags    |= NFA_DM_DISC_FLAGS_CHECKING;
+            nfa_dm_cb.disc_cb.deact_pending = FALSE;
+            status = NFC_STATUS_OK;
+        }
+    }
+
+    return (status);
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_disc_report_kovio_presence_check
+**
+** Description      Report Kovio presence check status
+**
+** Returns          None
+**
+*******************************************************************************/
+static void nfa_dm_disc_report_kovio_presence_check (tNFC_STATUS status)
+{
+    NFA_TRACE_DEBUG0 ("nfa_dm_disc_report_kovio_presence_check ()");
+
+    if (nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_CHECKING)
+    {
+        nfa_dm_cb.disc_cb.disc_flags &= ~NFA_DM_DISC_FLAGS_CHECKING;
+
+        /* notify RW module that sleep wakeup is finished */
+        nfa_rw_handle_presence_check_rsp (status);
+
+        if (nfa_dm_cb.disc_cb.deact_pending)
+        {
+            nfa_dm_cb.disc_cb.deact_pending = FALSE;
+            nfa_dm_disc_sm_execute (NFA_DM_RF_DEACTIVATE_CMD,
+                                   (tNFA_DM_RF_DISC_DATA *) &nfa_dm_cb.disc_cb.pending_deact_type);
         }
     }
 }
@@ -1502,7 +1712,9 @@ void nfa_dm_disc_new_state (tNFA_DM_RF_DISC_STATE new_state)
     NFA_TRACE_DEBUG3 ("nfa_dm_disc_new_state(): old_state: %d, new_state: %d disc_flags: 0x%x",
                        nfa_dm_cb.disc_cb.disc_state, new_state, nfa_dm_cb.disc_cb.disc_flags);
 #endif
+
     nfa_dm_cb.disc_cb.disc_state = new_state;
+
     if (  (new_state == NFA_DM_RFST_IDLE)
         &&(!(nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_W4_RSP))  ) /* not error recovering */
     {
@@ -1909,8 +2121,8 @@ static void nfa_dm_disc_sm_w4_host_select (tNFA_DM_RF_DISC_SM_EVENT event,
     case NFA_DM_RF_DEACTIVATE_CMD:
         if (old_sleep_wakeup_flag)
         {
-            nfa_dm_cb.sleep_wakeup_deact_pending = TRUE;
-            nfa_dm_cb.sleep_wakeup_deact_type    = p_data->deactivate_type;
+            nfa_dm_cb.disc_cb.deact_pending      = TRUE;
+            nfa_dm_cb.disc_cb.pending_deact_type = p_data->deactivate_type;
         }
         /* if deactivate CMD was not sent to NFCC */
         else if (!(nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_W4_RSP))
@@ -1976,8 +2188,8 @@ static void nfa_dm_disc_sm_poll_active (tNFA_DM_RF_DISC_SM_EVENT event,
         {
             /* sleep wakeup is already enabled when deactivate cmd is requested,
              * keep the information in control block to issue it later */
-            nfa_dm_cb.sleep_wakeup_deact_pending = TRUE;
-            nfa_dm_cb.sleep_wakeup_deact_type    = p_data->deactivate_type;
+            nfa_dm_cb.disc_cb.deact_pending      = TRUE;
+            nfa_dm_cb.disc_cb.pending_deact_type = p_data->deactivate_type;
         }
         else
         {
@@ -2029,7 +2241,7 @@ static void nfa_dm_disc_sm_poll_active (tNFA_DM_RF_DISC_SM_EVENT event,
             {
                 sleep_wakeup_event_processed  = TRUE;
                 /* process pending deactivate request */
-                if (nfa_dm_cb.sleep_wakeup_deact_pending)
+                if (nfa_dm_cb.disc_cb.deact_pending)
                 {
                     /* notify RW module that sleep wakeup is finished */
                     /* if deactivation is pending then deactivate  */
@@ -2256,6 +2468,10 @@ static void nfa_dm_disc_sm_lp_listen (tNFA_DM_RF_DISC_SM_EVENT event,
     case NFA_DM_RF_INTF_ACTIVATED_NTF:
         nfa_dm_disc_new_state (NFA_DM_RFST_LP_ACTIVE);
         nfa_dm_disc_notify_activation (&(p_data->nfc_discover));
+        if (nfa_dm_disc_notify_activation (&(p_data->nfc_discover)) == NFA_STATUS_FAILED)
+        {
+            NFA_TRACE_DEBUG0 ("Not matched, unexpected activation");
+        }
         break;
 
     default:
@@ -2565,6 +2781,38 @@ tNFA_STATUS nfa_dm_rf_deactivate (tNFA_DEACTIVATE_TYPE deactivate_type)
     if (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_IDLE)
     {
         return NFA_STATUS_FAILED;
+    }
+    else if (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_DISCOVERY)
+    {
+        if (deactivate_type == NFA_DEACTIVATE_TYPE_DISCOVERY)
+        {
+            if (nfa_dm_cb.disc_cb.kovio_tle.in_use)
+            {
+                nfa_sys_stop_timer (&nfa_dm_cb.disc_cb.kovio_tle);
+                nfa_dm_disc_kovio_timeout_cback (&nfa_dm_cb.disc_cb.kovio_tle);
+                return NFA_STATUS_OK;
+            }
+            else
+            {
+                /* it could be race condition. */
+                NFA_TRACE_DEBUG0 ("nfa_dm_rf_deactivate (): already in discovery state");
+                return NFA_STATUS_FAILED;
+            }
+        }
+        else if (deactivate_type == NFA_DEACTIVATE_TYPE_IDLE)
+        {
+            if (nfa_dm_cb.disc_cb.kovio_tle.in_use)
+            {
+                nfa_sys_stop_timer (&nfa_dm_cb.disc_cb.kovio_tle);
+                nfa_dm_disc_kovio_timeout_cback (&nfa_dm_cb.disc_cb.kovio_tle);
+            }
+            nfa_dm_disc_sm_execute (NFA_DM_RF_DEACTIVATE_CMD, (tNFA_DM_RF_DISC_DATA *) &deactivate_type);
+            return NFA_STATUS_OK;
+        }
+        else
+        {
+            return NFA_STATUS_FAILED;
+        }
     }
     else
     {

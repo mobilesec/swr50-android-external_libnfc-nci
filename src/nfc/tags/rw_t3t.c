@@ -3004,7 +3004,7 @@ tNFC_STATUS RW_T3tSetReadOnly (BOOLEAN b_hard_lock)
     tRW_T3T_CB  *p_cb  = &rw_cb.tcb.t3t;
     tRW_DATA    evt_data;
 
-    RW_TRACE_API0 ("RW_T4tSetTagReadOnly ()");
+    RW_TRACE_API1 ("RW_T3tSetReadOnly (): b_hard_lock=%d", b_hard_lock);
 
     /* Check if we are in valid state to handle this API */
     if (p_cb->rw_state != RW_T3T_STATE_IDLE)
@@ -3022,7 +3022,7 @@ tNFC_STATUS RW_T3tSetReadOnly (BOOLEAN b_hard_lock)
     if ((!b_hard_lock) && (p_cb->ndef_attrib.rwflag == T3T_MSG_NDEF_RWFLAG_RO))/* Tag's NDEF memory is read-only already */
     {
         evt_data.status = NFC_STATUS_OK;
-        (*(rw_cb.p_cback)) (RW_T4T_SET_TO_RO_EVT, &evt_data);
+        (*(rw_cb.p_cback)) (RW_T3T_SET_READ_ONLY_CPLT_EVT, &evt_data);
         return (retval);
     }
     else

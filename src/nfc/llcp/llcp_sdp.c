@@ -76,15 +76,6 @@ void llcp_sdp_check_send_snl (void)
         GKI_enqueue (&llcp_cb.lcb.sig_xmit_q, llcp_cb.sdp_cb.p_snl);
         llcp_cb.sdp_cb.p_snl = NULL;
     }
-    else
-    {
-        /* Notify DTA after sending out SNL with SDRES not to send SNLs in AGF PDU */
-        if ((llcp_cb.p_dta_cback) && (llcp_cb.dta_snl_resp))
-        {
-            llcp_cb.dta_snl_resp = FALSE;
-            (*llcp_cb.p_dta_cback) ();
-        }
-    }
 }
 
 /*******************************************************************************
@@ -321,12 +312,6 @@ UINT8 llcp_sdp_get_sap_by_name (char *p_name, UINT8 length)
             &&(strlen((char*)p_app_cb->p_service_name) == length)
             &&(!strncmp((char*)p_app_cb->p_service_name, p_name, length))  )
         {
-            /* if device is under LLCP DTA testing */
-            if (  (llcp_cb.p_dta_cback)
-                &&(!strncmp((char*)p_app_cb->p_service_name, "urn:nfc:sn:cl-echo-in", length))  )
-            {
-                llcp_cb.dta_snl_resp = TRUE;
-            }
             return (sap);
         }
     }
@@ -395,7 +380,6 @@ void llcp_sdp_proc_deactivation (void)
     }
 
     llcp_cb.sdp_cb.next_tid = 0;
-    llcp_cb.dta_snl_resp = FALSE;
 }
 
 /*******************************************************************************

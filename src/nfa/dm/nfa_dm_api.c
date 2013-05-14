@@ -56,13 +56,16 @@ void NFA_Init(tHAL_NFC_ENTRY *p_hal_entry_tbl)
     NFA_TRACE_API0 ("NFA_Init ()");
     nfa_sys_init();
     nfa_dm_init();
-    nfa_ee_init();
     nfa_p2p_init();
     nfa_cho_init();
     nfa_snep_init(FALSE);
     nfa_rw_init();
     nfa_ce_init();
-    nfa_hci_init();
+    if (nfa_ee_max_ee_cfg != 0)
+    {
+        nfa_ee_init();
+        nfa_hci_init();
+    }
 
 
     /* Initialize NFC module */

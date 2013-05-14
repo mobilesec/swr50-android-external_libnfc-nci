@@ -3003,18 +3003,21 @@ void rw_i93_process_timeout (TIMER_LIST_ENT *p_tle)
 
             p_buf = rw_cb.tcb.i93.p_retry_cmd;
             rw_cb.tcb.i93.p_retry_cmd = NULL;
-            rw_i93_send_to_lower (p_buf);
-        }
-        else
-        {
-            if (rw_cb.tcb.i93.p_retry_cmd)
+
+            if (rw_i93_send_to_lower (p_buf))
             {
-                GKI_freebuf (rw_cb.tcb.i93.p_retry_cmd);
-                rw_cb.tcb.i93.p_retry_cmd = NULL;
-                rw_cb.tcb.i93.retry_count = 0;
+                return;
             }
-            rw_i93_handle_error (NFC_STATUS_TIMEOUT);
         }
+
+        /* all retrial is done or failed to send command to lower layer */
+        if (rw_cb.tcb.i93.p_retry_cmd)
+        {
+            GKI_freebuf (rw_cb.tcb.i93.p_retry_cmd);
+            rw_cb.tcb.i93.p_retry_cmd = NULL;
+            rw_cb.tcb.i93.retry_count = 0;
+        }
+        rw_i93_handle_error (NFC_STATUS_TIMEOUT);
     }
     else
     {
@@ -3034,7 +3037,7 @@ void rw_i93_process_timeout (TIMER_LIST_ENT *p_tle)
 static void rw_i93_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_data)
 {
     tRW_I93_CB *p_i93  = &rw_cb.tcb.i93;
-    BT_HDR     *p_resp = (BT_HDR *) p_data->data.p_data;
+    BT_HDR     *p_resp;
     tRW_DATA    rw_data;
 
 #if (BT_TRACE_VERBOSE == TRUE)
@@ -3059,19 +3062,21 @@ static void rw_i93_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
 
                 p_resp = p_i93->p_retry_cmd;
                 p_i93->p_retry_cmd = NULL;
-                rw_i93_send_to_lower (p_resp);
-            }
-            else
-            {
-                if (p_i93->p_retry_cmd)
+                if (rw_i93_send_to_lower (p_resp))
                 {
-                    GKI_freebuf (p_i93->p_retry_cmd);
-                    p_i93->p_retry_cmd = NULL;
-                    p_i93->retry_count = 0;
+                    return;
                 }
-
-                rw_i93_handle_error ((tNFC_STATUS) (*(UINT8*) p_data));
             }
+
+            /* all retrial is done or failed to send command to lower layer */
+            if (p_i93->p_retry_cmd)
+            {
+                GKI_freebuf (p_i93->p_retry_cmd);
+                p_i93->p_retry_cmd = NULL;
+                p_i93->retry_count = 0;
+            }
+
+            rw_i93_handle_error ((tNFC_STATUS) (*(UINT8*) p_data));
         }
         else
         {
@@ -3085,6 +3090,8 @@ static void rw_i93_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
     {
         return;
     }
+
+    p_resp = (BT_HDR *) p_data->data.p_data;
 
     nfc_stop_quick_timer (&p_i93->timer);
 

@@ -655,18 +655,6 @@ LLCP_API extern tLLCP_STATUS LLCP_DiscoverService (char            *p_name,
 *******************************************************************************/
 LLCP_API extern UINT8 LLCP_SetTraceLevel (UINT8 new_level);
 
-/*******************************************************************************
-**
-** Function         LLCP_RegisterDtaCback
-**
-** Description      Register callback function for LLCP DTA testing
-**
-**
-** Returns          void
-**
-*******************************************************************************/
-LLCP_API extern void LLCP_RegisterDtaCback (tLLCP_DTA_CBACK *p_dta_cback);
-
 #if (LLCP_TEST_INCLUDED == TRUE)
 /*******************************************************************************
 **

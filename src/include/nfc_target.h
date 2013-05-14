@@ -567,9 +567,9 @@
 #define NFA_DM_DEFAULT_PRESENCE_CHECK_START_DELAY   750
 #endif
 
-/* Time to restart discovery after deactivated */
-#ifndef NFA_DM_DISC_DELAY_DISCOVERY
-#define NFA_DM_DISC_DELAY_DISCOVERY     1000
+/* Timeout for reactivation of Kovio bar code tag (presence check) */
+#ifndef NFA_DM_DISC_TIMEOUT_KOVIO_PRESENCE_CHECK
+#define NFA_DM_DISC_TIMEOUT_KOVIO_PRESENCE_CHECK    (1000)
 #endif
 
 /* Max number of NDEF type handlers that can be registered (including the default handler) */
