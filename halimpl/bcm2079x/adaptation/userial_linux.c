@@ -638,6 +638,8 @@ int my_read(int fd, uchar *pbuf, int len)
         {
             offset += count;
             count = pbuf[offset-1];
+            if (count > (len - offset)) //if (count > (remaining buffer size))
+                count = len - offset; //only read what the remaining buffer size can hold
         }
         else
         {
