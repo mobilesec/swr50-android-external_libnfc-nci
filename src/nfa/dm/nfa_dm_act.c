@@ -264,8 +264,6 @@ static void nfa_dm_nfc_response_cback (tNFC_RESPONSE_EVT event, tNFC_RESPONSE *p
         /* NFC stack enabled. Enable nfa sub-systems */
         if (p_data->enable.status == NFC_STATUS_OK)
         {
-            nfa_dm_set_init_nci_params ();
-
             /* Initialize NFA subsystems */
             nfa_sys_enable_subsystems ();
         }
@@ -1631,6 +1629,7 @@ void nfa_dm_notify_activation_status (tNFA_STATUS status, tNFA_TAG_PARAMS *p_par
 
         p_tech_params = &evt_data.activated.activate_ntf.rf_tech_param;
 
+        memset (&(evt_data.activated.params), 0x00, sizeof (tNFA_TAG_PARAMS));
         if (p_params)
         {
             memcpy (&(evt_data.activated.params),

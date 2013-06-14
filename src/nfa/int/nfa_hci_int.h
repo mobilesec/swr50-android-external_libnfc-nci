@@ -508,7 +508,7 @@ extern char *nfa_hciu_instr_2_str (UINT8 type);
 extern char *nfa_hciu_get_event_name (UINT16 event);
 extern char *nfa_hciu_get_response_name (UINT8 rsp_code);
 extern char *nfa_hciu_get_state_name (UINT8 state);
-extern char *nfa_hciu_get_type_inst_names (UINT8 pipe, UINT8 type, UINT8 inst);
+extern char *nfa_hciu_get_type_inst_names (UINT8 pipe, UINT8 type, UINT8 inst, char *p_buff);
 extern char *nfa_hciu_evt_2_str (UINT8 pipe_id, UINT8 evt);
 #endif
 

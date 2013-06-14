@@ -469,8 +469,8 @@ void nfa_hci_dh_startup_complete (void)
         if (nfa_hci_cb.hci_state == NFA_HCI_STATE_STARTUP)
         {
             nfa_hci_cb.hci_state = NFA_HCI_STATE_WAIT_NETWK_ENABLE;
-            /* No HCP packet to DH for a specified period of time indicates all host in the network is initialized */
-            nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, p_nfa_hci_cfg->hci_netwk_enable_timeout);
+            /* Wait for EE Discovery to complete */
+            nfa_sys_start_timer (&nfa_hci_cb.timer, NFA_HCI_RSP_TIMEOUT_EVT, NFA_EE_DISCV_TIMEOUT_VAL);
         }
         else if (nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)
         {
@@ -659,6 +659,9 @@ static void nfa_hci_conn_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p
     UINT8   chaining_bit;
     UINT8   pipe;
     UINT16  pkt_len;
+#if (BT_TRACE_VERBOSE == TRUE)
+    char    buff[100];
+#endif
 
     if (event == NFC_CONN_CREATE_CEVT)
     {
@@ -764,7 +767,7 @@ static void nfa_hci_conn_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p
 
 #if (BT_TRACE_VERBOSE == TRUE)
     NFA_TRACE_EVENT5 ("nfa_hci_conn_cback Recvd data pipe:%d  %s  chain:%d  assmbl:%d  len:%d",
-                      (UINT8)pipe, nfa_hciu_get_type_inst_names (pipe, nfa_hci_cb.type, nfa_hci_cb.inst),
+                      (UINT8)pipe, nfa_hciu_get_type_inst_names (pipe, nfa_hci_cb.type, nfa_hci_cb.inst, buff),
                       (UINT8)chaining_bit, (UINT8)nfa_hci_cb.assembling, p_pkt->len);
 #else
     NFA_TRACE_EVENT6 ("nfa_hci_conn_cback Recvd data pipe:%d  Type: %u  Inst: %u  chain:%d reassm:%d len:%d",

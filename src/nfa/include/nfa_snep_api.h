@@ -63,10 +63,11 @@
 #define NFA_SNEP_DISC_EVT                   0x08    /* Failed to connect or disconnected    */
 
 #define NFA_SNEP_ALLOC_BUFF_EVT	            0x09    /* Request to allocate a buffer for NDEF*/
-#define NFA_SNEP_GET_RESP_CMPL_EVT          0x0A    /* GET response sent to client          */
+#define NFA_SNEP_FREE_BUFF_EVT	            0x0A    /* Request to deallocate buffer for NDEF*/
+#define NFA_SNEP_GET_RESP_CMPL_EVT          0x0B    /* GET response sent to client          */
 
-#define NFA_SNEP_DEFAULT_SERVER_STARTED_EVT 0x0B    /* SNEP default server is started       */
-#define NFA_SNEP_DEFAULT_SERVER_STOPPED_EVT 0x0C    /* SNEP default server is stopped       */
+#define NFA_SNEP_DEFAULT_SERVER_STARTED_EVT 0x0C    /* SNEP default server is started       */
+#define NFA_SNEP_DEFAULT_SERVER_STOPPED_EVT 0x0D    /* SNEP default server is stopped       */
 
 typedef UINT8 tNFA_SNEP_EVT;
 
@@ -150,6 +151,13 @@ typedef struct
     UINT8               *p_buff;            /* buffer for NDEF message                        */
 } tNFA_SNEP_ALLOC;
 
+/* Data for NFA_SNEP_FREE_BUFF_EVT */
+typedef struct
+{
+    tNFA_HANDLE         conn_handle;        /* handle for data link connection */
+    UINT8               *p_buff;            /* buffer to free                  */
+} tNFA_SNEP_FREE;
+
 /* Data for NFA_SNEP_GET_RESP_CMPL_EVT */
 typedef struct
 {
@@ -170,6 +178,7 @@ typedef union
     tNFA_SNEP_PUT_RESP      put_resp;       /* NFA_SNEP_PUT_RESP_EVT        */
     tNFA_SNEP_DISC          disc;           /* NFA_SNEP_DISC_EVT            */
     tNFA_SNEP_ALLOC         alloc;          /* NFA_SNEP_ALLOC_BUFF_EVT      */
+    tNFA_SNEP_FREE          free;           /* NFA_SNEP_FREE_BUFF_EVT       */
     tNFA_SNEP_GET_RESP_CMPL get_resp_cmpl;  /* NFA_SNEP_GET_RESP_CMPL_EVT   */
 } tNFA_SNEP_EVT_DATA;
 

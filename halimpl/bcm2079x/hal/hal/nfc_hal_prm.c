@@ -365,53 +365,20 @@ void nfc_hal_prm_spd_check_version (void)
         /*********************************************************************
         * Version check of patchfile against NVM
         *********************************************************************/
-
-#if (!defined (NFC_HAL_PRM_SKIP_VERSION_CHECK) || (NFC_HAL_PRM_SKIP_VERSION_CHECK == FALSE))
-        /* Download the patchfile if no patches in NVM */
-        if ((nfc_hal_cb.nvm_cb.project_id == 0) || !(nfc_hal_cb.nvm_cb.flags & NFC_HAL_NVM_FLAGS_PATCH_PRESENT))
+        if (  (nfc_hal_cb.nvm_cb.ver_major == patchfile_ver_major)
+            &&(nfc_hal_cb.nvm_cb.ver_minor == patchfile_ver_minor)
+            && !(nfc_hal_cb.nvm_cb.flags & (NFC_HAL_NVM_FLAGS_FPM_BAD | NFC_HAL_NVM_FLAGS_LPM_BAD))  )
         {
-            /* No patch in NVM, need to download all */
-            nfc_hal_cb.prm.spd_patch_needed_mask = patchfile_patch_present_mask;
-
-            HAL_TRACE_DEBUG2 ("No previous patch detected. Downloading patch %i.%i",
-                              patchfile_ver_major, patchfile_ver_minor);
-        }
-        /* Skip download if project ID of patchfile does not match NVM */
-        else if (nfc_hal_cb.nvm_cb.project_id != patchfile_project_id)
-        {
-            /* Project IDs mismatch */
-            HAL_TRACE_DEBUG2 ("Patch download skipped: Mismatched Project ID (NVM ProjId: 0x%04x, Patchfile ProjId: 0x%04x)",
-                              nfc_hal_cb.nvm_cb.project_id, patchfile_project_id);
-
-            return_code = NFC_HAL_PRM_ABORT_INVALID_PATCH_EVT;
-        }
-        /* Skip download if version of patchfile older or equal to version in NVM */
-        /* unless NVM is corrupted (then don't skip download if patchfile has the same major ver)*/
-        else if (  (nfc_hal_cb.nvm_cb.ver_major > patchfile_ver_major)
-                 ||(  (nfc_hal_cb.nvm_cb.ver_major == patchfile_ver_major) && (nfc_hal_cb.nvm_cb.ver_minor == patchfile_ver_minor)
-                    && !((patchfile_patch_present_mask & ( 1 << NFC_HAL_PRM_SPD_POWER_MODE_LPM)) && (nfc_hal_cb.nvm_cb.lpm_size == 0))  /* Do not skip download: patchfile has LPM, but NVM does not */
-                    && !((patchfile_patch_present_mask & ( 1 << NFC_HAL_PRM_SPD_POWER_MODE_FPM)) && (nfc_hal_cb.nvm_cb.fpm_size == 0))  /* Do not skip download: patchfile has FPM, but NVM does not */
-                    && !(nfc_hal_cb.nvm_cb.flags & (NFC_HAL_NVM_FLAGS_FPM_BAD |NFC_HAL_NVM_FLAGS_LPM_BAD))  )  )
-        {
-            /* NVM version is newer than patchfile */
-            HAL_TRACE_DEBUG2 ("Patch download skipped. NVM patch (version %i.%i) is newer than the patchfile ",
-                              nfc_hal_cb.nvm_cb.ver_major, nfc_hal_cb.nvm_cb.ver_minor);
-
+            HAL_TRACE_DEBUG0 ("NVM contains the same patch version as in the patch file. Skip");
             return_code = NFC_HAL_PRM_COMPLETE_EVT;
         }
-        /* Remaining cases: patchfile major version is newer than NVM; or major version is the same with different minor version */
-        /* Download all patches in the patchfile */
         else
         {
+            HAL_TRACE_DEBUG5 ("NVM patch version %i.%i. Downloading version %i.%i flags:0x%x",
+                nfc_hal_cb.nvm_cb.ver_major, nfc_hal_cb.nvm_cb.ver_minor,
+                patchfile_ver_major, patchfile_ver_minor, nfc_hal_cb.nvm_cb.flags);
             nfc_hal_cb.prm.spd_patch_needed_mask = patchfile_patch_present_mask;
-
-            HAL_TRACE_DEBUG4 ("Downloading patch version: %i.%i (previous version in NVM: %i.%i)...",
-                              patchfile_ver_major, patchfile_ver_minor,
-                              nfc_hal_cb.nvm_cb.ver_major, nfc_hal_cb.nvm_cb.ver_minor);
         }
-#else   /* NFC_HAL_PRM_SKIP_VERSION_CHECK */
-        nfc_hal_cb.prm.spd_patch_needed_mask = patchfile_patch_present_mask;
-#endif
     }
     else
     {

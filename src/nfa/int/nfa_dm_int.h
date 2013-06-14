@@ -388,6 +388,7 @@ typedef struct
     TIMER_LIST_ENT          kovio_tle;              /* timer for Kovio bar code tag presence check      */
 
     BOOLEAN                 deact_pending;          /* TRUE if deactivate while checking presence       */
+    BOOLEAN                 deact_notify_pending;   /* TRUE if notify DEACTIVATED EVT while Stop rf discovery*/
     tNFA_DEACTIVATE_TYPE    pending_deact_type;     /* pending deactivate type                          */
 
 } tNFA_DM_DISC_CB;

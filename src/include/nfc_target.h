@@ -250,6 +250,11 @@
 #define NFC_MAX_EE_TLV_SIZE        150
 #endif
 
+/* Maximum time to discover NFCEE */
+#ifndef NFA_EE_DISCV_TIMEOUT_VAL
+#define NFA_EE_DISCV_TIMEOUT_VAL    2000
+#endif
+
 /* Number of times reader/writer should attempt to resend a command on failure */
 #ifndef RW_MAX_RETRIES
 #define RW_MAX_RETRIES              5
@@ -647,7 +652,7 @@
 
 /* Max number of NFCEE supported */
 #ifndef NFA_EE_MAX_EE_SUPPORTED
-#define NFA_EE_MAX_EE_SUPPORTED         3
+#define NFA_EE_MAX_EE_SUPPORTED         4
 #endif
 
 /* Maximum number of AID entries per target_handle  */

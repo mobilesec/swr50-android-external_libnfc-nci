@@ -1341,18 +1341,18 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
                        nfa_hci_cb.cmd_sent, nfa_hci_cb.app_in_use, nfa_hci_cb.local_gate_in_use, nfa_hci_cb.pipe_in_use);
 #endif
 
-    if (nfa_hci_cb.inst == NFA_HCI_ANY_E_PIPE_NOT_OPENED)
-    {
-        nfa_hciu_send_open_pipe_cmd (NFA_HCI_ADMIN_PIPE);
-        return;
-    }
-
     /* If starting up, handle events here */
     if (  (nfa_hci_cb.hci_state == NFA_HCI_STATE_STARTUP)
         ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE)
         ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_WAIT_NETWK_ENABLE)
         ||(nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE_NETWK_ENABLE))
     {
+        if (nfa_hci_cb.inst == NFA_HCI_ANY_E_PIPE_NOT_OPENED)
+        {
+            nfa_hciu_send_open_pipe_cmd (NFA_HCI_ADMIN_PIPE);
+            return;
+        }
+
         if (nfa_hci_cb.inst != NFA_HCI_ANY_OK)
         {
             NFA_TRACE_ERROR0 ("nfa_hci_handle_admin_gate_rsp - Initialization failed");

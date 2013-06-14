@@ -327,8 +327,10 @@ tNFA_STATUS nfa_hciu_send_msg (UINT8 pipe_id, UINT8 type, UINT8 instruction, UIN
     UINT16          max_seg_hcp_pkt_size = nfa_hci_cb.buff_size - NCI_DATA_HDR_SIZE;
 
 #if (BT_TRACE_VERBOSE == TRUE)
+    char    buff[100];
+
     NFA_TRACE_DEBUG3 ("nfa_hciu_send_msg pipe_id:%d   %s  len:%d",
-                      pipe_id, nfa_hciu_get_type_inst_names (pipe_id, type, instruction), msg_len);
+                      pipe_id, nfa_hciu_get_type_inst_names (pipe_id, type, instruction, buff), msg_len);
 #else
     NFA_TRACE_DEBUG4 ("nfa_hciu_send_msg pipe_id:%d   Type: %u  Inst: %u  len: %d",
                       pipe_id, type, instruction, msg_len);
@@ -1139,8 +1141,6 @@ void nfa_hciu_send_to_apps_handling_connectivity_evts (tNFA_HCI_EVT event, tNFA_
 *******************************************************************************/
 char *nfa_hciu_get_response_name (UINT8 rsp_code)
 {
-    static char unknown[50];
-
     switch (rsp_code)
     {
     case NFA_HCI_ANY_OK:
@@ -1168,8 +1168,7 @@ char *nfa_hciu_get_response_name (UINT8 rsp_code)
     case NFA_HCI_ANY_E_PIPE_ACCESS_DENIED:
         return ("ANY_E_PIPE_ACCESS_DENIED");
     default:
-        sprintf (unknown, "?? Unknown: %u ?? ", rsp_code);
-        return (unknown);
+        return ("UNKNOWN");
     }
 }
 
@@ -1184,8 +1183,6 @@ char *nfa_hciu_get_response_name (UINT8 rsp_code)
 *******************************************************************************/
 char *nfa_hciu_type_2_str(UINT8 type)
 {
-    static char unknown[40];
-
     switch (type)
     {
     case NFA_HCI_COMMAND_TYPE:
@@ -1195,8 +1192,7 @@ char *nfa_hciu_type_2_str(UINT8 type)
     case NFA_HCI_RESPONSE_TYPE:
         return ("RESPONSE");
     default:
-        sprintf (unknown, "?? Unknown: %u ?? ", type);
-        return (unknown);
+        return ("UNKNOWN");
     }
 }
 
@@ -1211,8 +1207,6 @@ char *nfa_hciu_type_2_str(UINT8 type)
 *******************************************************************************/
 char *nfa_hciu_instr_2_str (UINT8 instruction)
 {
-    static char unknown[40];
-
     switch (instruction)
     {
     case NFA_HCI_ANY_SET_PARAMETER:
@@ -1236,8 +1230,7 @@ char *nfa_hciu_instr_2_str (UINT8 instruction)
     case NFA_HCI_ADM_NOTIFY_ALL_PIPE_CLEARED:
         return ("ADM_NOTIFY_ALL_PIPE_CLEARED");
     default:
-        sprintf (unknown, "?? Unknown: %u ?? ", instruction);
-        return (unknown);
+        return ("UNKNOWN");
     }
 }
 
@@ -1253,8 +1246,6 @@ char *nfa_hciu_instr_2_str (UINT8 instruction)
 *******************************************************************************/
 char *nfa_hciu_get_event_name (UINT16 event)
 {
-    static char unknown[40];
-
     switch (event)
     {
     case NFA_HCI_API_REGISTER_APP_EVT:        return ("API_REGISTER");
@@ -1278,8 +1269,7 @@ char *nfa_hciu_get_event_name (UINT16 event)
     case NFA_HCI_CHECK_QUEUE_EVT:             return ("CHECK_QUEUE");
 
     default:
-        sprintf (unknown, "?? Unknown: %u ?? ", event);
-        return (unknown);
+        return ("UNKNOWN");
     }
 }
 
@@ -1294,8 +1284,6 @@ char *nfa_hciu_get_event_name (UINT16 event)
 *******************************************************************************/
 char *nfa_hciu_get_state_name (UINT8 state)
 {
-    static char unknown[40];
-
     switch (state)
     {
     case NFA_HCI_STATE_DISABLED:             return ("DISABLED");
@@ -1309,8 +1297,7 @@ char *nfa_hciu_get_state_name (UINT8 state)
     case NFA_HCI_STATE_RESTORE_NETWK_ENABLE: return ("WAIT_NETWK_ENABLE_AFTER_RESTORE");
 
     default:
-        sprintf (unknown, "?? Unknown: %u ?? ", state);
-        return (unknown);
+        return ("UNKNOWN");
     }
 }
 
@@ -1320,48 +1307,44 @@ char *nfa_hciu_get_state_name (UINT8 state)
 **
 ** Description      This function returns command/response/event name.
 **
-** Returns          pointer to the name
+** Returns          none
 **
 *******************************************************************************/
-char *nfa_hciu_get_type_inst_names (UINT8 pipe, UINT8 type, UINT8 inst)
+char *nfa_hciu_get_type_inst_names (UINT8 pipe, UINT8 type, UINT8 inst, char *p_buff)
 {
-    static char buff[100];
     int   xx;
 
-    xx = sprintf (buff, "Type: %s  ", nfa_hciu_type_2_str (type));
+    xx = sprintf (p_buff, "Type: %s [0x%02x] ", nfa_hciu_type_2_str (type), type);
 
     switch (type)
     {
     case NFA_HCI_COMMAND_TYPE:
-        sprintf (&buff[xx], "Inst: %s ", nfa_hciu_instr_2_str (inst));
+        sprintf (&p_buff[xx], "Inst: %s [0x%02x] ", nfa_hciu_instr_2_str (inst), inst);
         break;
     case NFA_HCI_EVENT_TYPE:
-        sprintf (&buff[xx], "Evt: %s ", nfa_hciu_evt_2_str (pipe, inst));
+        sprintf (&p_buff[xx], "Evt: %s [0x%02x] ", nfa_hciu_evt_2_str (pipe, inst), inst);
         break;
     case NFA_HCI_RESPONSE_TYPE:
-        sprintf (&buff[xx], "Resp: %s ", nfa_hciu_get_response_name (inst));
+        sprintf (&p_buff[xx], "Resp: %s [0x%02x] ", nfa_hciu_get_response_name (inst), inst);
         break;
     default:
-        sprintf (&buff[xx], "Inst: %u ", inst);
+        sprintf (&p_buff[xx], "Inst: %u ", inst);
         break;
     }
-    return (buff);
+    return (p_buff);
 }
-
-
 
 /*******************************************************************************
 **
-** Function         nfa_hciu_instr_2_str
+** Function         nfa_hciu_evt_2_str
 **
-** Description      This function returns the instruction name.
+** Description      This function returns the event name.
 **
 ** Returns          pointer to the name
 **
 *******************************************************************************/
 char *nfa_hciu_evt_2_str (UINT8 pipe_id, UINT8 evt)
 {
-    static char         unknown[40];
     tNFA_HCI_DYN_PIPE   *p_pipe;
 
     if (  (pipe_id != NFA_HCI_ADMIN_PIPE)
@@ -1379,7 +1362,7 @@ char *nfa_hciu_evt_2_str (UINT8 pipe_id, UINT8 evt)
             case NFA_HCI_EVT_OPERATION_ENDED:
                 return ("EVT_OPERATION_ENDED");
             default:
-                break;
+                return ("UNKNOWN");
             }
         }
     }
@@ -1393,8 +1376,7 @@ char *nfa_hciu_evt_2_str (UINT8 pipe_id, UINT8 evt)
     case NFA_HCI_EVT_HOT_PLUG:
         return ("EVT_HOT_PLUG");
     default:
-        sprintf (unknown, "?? Unknown: %u ?? ", evt);
-        return (unknown);
+        return ("UNKNOWN");
     }
 }
 #endif

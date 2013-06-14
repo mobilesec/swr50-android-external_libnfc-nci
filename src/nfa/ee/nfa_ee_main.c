@@ -39,11 +39,6 @@ extern void nfa_ee_vs_cback (tNFC_VS_EVT event, BT_HDR *p_data);
 tNFA_EE_CB nfa_ee_cb;
 #endif
 
-#ifndef NFA_EE_DISCV_TIMEOUT_VAL
-#define NFA_EE_DISCV_TIMEOUT_VAL    2000
-#endif
-
-
 /*****************************************************************************
 **  Constants
 *****************************************************************************/

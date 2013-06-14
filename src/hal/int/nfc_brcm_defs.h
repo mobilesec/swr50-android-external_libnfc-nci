@@ -28,6 +28,24 @@
 #define NFC_BRCM_DEFS_H
 
 /*****************************************************************************
+** Broadcom HW ID definitions
+*****************************************************************************/
+#define BRCM_20791B3_ID             0x20791b03
+#define BRCM_20791B4_ID             0x20791b04
+#define BRCM_20791B5_ID             0x20791b05
+#define BRCM_43341B0_ID             0x43341b00
+#define BRCM_20795A0_ID             0x20795a00
+
+#define BRCM_NFC_GEN_MASK           0xFFFFF000  /* HW generation mask */
+#define BRCM_NFC_REV_MASK           0x00000FFF  /* HW revision mask   */
+#define BRCM_NFC_20791_GEN          0x20791000
+#define BRCM_NFC_20791_GEN_MAX_EE   3           /* HCI access and 2 UICCs */
+#define BRCM_NFC_43341_GEN          0x43341000
+#define BRCM_NFC_43341_GEN_MAX_EE   3           /* HCI access and 2 UICCs */
+#define BRCM_NFC_20795_GEN          0x20795000
+#define BRCM_NFC_20795_GEN_MAX_EE   4           /* HCI access and 3 UICCs */
+
+/*****************************************************************************
 ** Broadcom-specific NCI definitions
 *****************************************************************************/
 

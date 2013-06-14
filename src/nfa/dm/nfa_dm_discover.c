@@ -1424,7 +1424,8 @@ static void nfa_dm_disc_notify_deactivation (tNFA_DM_RF_DISC_SM_EVENT sm_event,
                 }
             }
         }
-        else if (!(nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_STOPPING))
+        else if (  (!(nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_STOPPING))
+                 ||(nfa_dm_cb.disc_cb.deact_notify_pending)  )
         {
             xx = nfa_dm_cb.disc_cb.activated_handle;
 
@@ -1491,6 +1492,7 @@ static void nfa_dm_disc_notify_deactivation (tNFA_DM_RF_DISC_SM_EVENT sm_event,
     nfa_dm_cb.disc_cb.activated_rf_interface = 0;
     nfa_dm_cb.disc_cb.activated_protocol     = NFA_PROTOCOL_INVALID;
     nfa_dm_cb.disc_cb.activated_handle       = NFA_HANDLE_INVALID;
+    nfa_dm_cb.disc_cb.deact_notify_pending   = FALSE;
 }
 
 /*******************************************************************************
@@ -1552,6 +1554,8 @@ static void nfa_dm_disc_end_sleep_wakeup (tNFC_STATUS status)
         if (nfa_dm_cb.disc_cb.deact_pending)
         {
             nfa_dm_cb.disc_cb.deact_pending = FALSE;
+            /* Perform pending deactivate command and on response notfiy deactivation */
+            nfa_dm_cb.disc_cb.deact_notify_pending = TRUE;
             nfa_dm_disc_sm_execute (NFA_DM_RF_DEACTIVATE_CMD,
                                    (tNFA_DM_RF_DISC_DATA *) &nfa_dm_cb.disc_cb.pending_deact_type);
         }
@@ -2109,7 +2113,6 @@ static void nfa_dm_disc_sm_w4_host_select (tNFA_DM_RF_DISC_SM_EVENT event,
             /* Handle sleep wakeup success: notify RW module of sleep wakeup of tag; if deactivation is pending then deactivate  */
             nfa_dm_disc_end_sleep_wakeup (NFC_STATUS_OK);
         }
-
         else if (nfa_dm_disc_notify_activation (&(p_data->nfc_discover)) == NFA_STATUS_FAILED)
         {
             NFA_TRACE_DEBUG0 ("Not matched, restart discovery after receiving deactivate ntf");
@@ -2279,7 +2282,11 @@ static void nfa_dm_disc_sm_poll_active (tNFA_DM_RF_DISC_SM_EVENT event,
 
     case NFA_DM_CORE_INTF_ERROR_NTF:
         sleep_wakeup_event    = TRUE;
-        NFC_Deactivate (NFC_DEACTIVATE_TYPE_DISCOVERY);
+        if (  (!old_sleep_wakeup_flag)
+            ||(!nfa_dm_cb.disc_cb.deact_pending)  )
+        {
+            NFC_Deactivate (NFC_DEACTIVATE_TYPE_DISCOVERY);
+        }
         break;
 
     default:

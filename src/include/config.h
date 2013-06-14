@@ -74,7 +74,6 @@ int GetNumValue(const char* name, void* p_value, unsigned long len);
 #define NAME_SPD_MAXRETRYCOUNT          "SPD_MAX_RETRY_COUNT"
 #define NAME_SPI_NEGOTIATION            "SPI_NEGOTIATION"
 #define NAME_AID_FOR_EMPTY_SELECT       "AID_FOR_EMPTY_SELECT"
-#define NAME_SPD_IGNORE_VERSION         "SPD_IGNORE_VERSION"
 #define NAME_PRESERVE_STORAGE           "PRESERVE_STORAGE"
 #define NAME_NFA_MAX_EE_SUPPORTED       "NFA_MAX_EE_SUPPORTED"
 #define NAME_NFCC_ENABLE_TIMEOUT        "NFCC_ENABLE_TIMEOUT"

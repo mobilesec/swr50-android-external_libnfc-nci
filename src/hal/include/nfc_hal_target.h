@@ -91,11 +91,6 @@
 #define NFC_HAL_PRE_I2C_PATCH_INCLUDED          TRUE
 #endif
 
-/* Set to TRUE to always download patch regardless of version */
-#ifndef NFC_HAL_PRM_SKIP_VERSION_CHECK
-#define NFC_HAL_PRM_SKIP_VERSION_CHECK          FALSE
-#endif
-
 /* Mininum payload size for SPD NCI commands (used to validate HAL_NfcPrmSetSpdNciCmdPayloadSize) */
 /* Default is 32, as required by the NCI specifications; however this value may be          */
 /* over-riden for platforms that have transport packet limitations                          */

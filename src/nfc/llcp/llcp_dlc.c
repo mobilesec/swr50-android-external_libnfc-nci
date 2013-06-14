@@ -1055,6 +1055,7 @@ void llcp_dlc_proc_i_pdu (UINT8 dsap, UINT8 ssap, UINT16 i_pdu_length, UINT8 *p_
     else
     {
         LLCP_TRACE_ERROR2 ("llcp_dlc_proc_i_pdu (): No data link for SAP (0x%x,0x%x)", dsap, ssap);
+        llcp_util_send_dm (ssap, dsap, LLCP_SAP_DM_REASON_NO_ACTIVE_CONNECTION );
     }
 
     if (p_msg)
