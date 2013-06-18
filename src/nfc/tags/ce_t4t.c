@@ -626,7 +626,9 @@ static void ce_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
 
     /* Don't check class if registered AID has been selected */
     if (  (cla != T4T_CMD_CLASS)
-        &&((ce_cb.mem.t4t.status & CE_T4T_STATUS_REG_AID_SELECTED) == 0)  )
+        &&((ce_cb.mem.t4t.status & CE_T4T_STATUS_REG_AID_SELECTED) == 0)
+        &&((ce_cb.mem.t4t.status & CE_T4T_STATUS_WILDCARD_AID_SELECTED) == 0)
+       )
     {
         CE_TRACE_ERROR1 ("CET4T: Unsupported Class byte (0x%02X)", cla);
         GKI_freebuf (p_c_apdu);
