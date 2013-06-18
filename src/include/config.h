@@ -30,13 +30,10 @@ int GetNumValue(const char* name, void* p_value, unsigned long len);
 };
 #endif
 
-#define NAME_NFA_DM_ENABLE_SLEEP        "NFA_DM_ENABLE_SLEEP"
-#define NAME_ENABLE_BRCM_EXTRAS_API     "ENABLE_BRCM_EXTRAS_API"
 #define NAME_POLLING_TECH_MASK          "POLLING_TECH_MASK"
 #define NAME_REGISTER_VIRTUAL_SE        "REGISTER_VIRTUAL_SE"
 #define NAME_APPL_TRACE_LEVEL           "APPL_TRACE_LEVEL"
 #define NAME_USE_RAW_NCI_TRACE          "USE_RAW_NCI_TRACE"
-#define NAME_LOG_TO_FILE                "LOG_TO_FILE"
 #define NAME_LOGCAT_FILTER              "LOGCAT_FILTER"
 #define NAME_LPTD_CFG                   "LPTD_CFG"
 #define NAME_SCREEN_OFF_POWER_STATE     "SCREEN_OFF_POWER_STATE"
@@ -68,7 +65,6 @@ int GetNumValue(const char* name, void* p_value, unsigned long len);
 #define NAME_NFA_DTA_START_UP_VSC_CFG   "NFA_DTA_START_UP_VSC_CFG"
 #define NAME_UICC_LISTEN_TECH_MASK      "UICC_LISTEN_TECH_MASK"
 #define NAME_SNOOZE_MODE_CFG            "SNOOZE_MODE_CFG"
-#define NAME_XTAL_FREQUENCY             "XTAL_FREQUENCY"
 #define NAME_NFA_DM_DISC_DURATION_POLL  "NFA_DM_DISC_DURATION_POLL"
 #define NAME_SPD_DEBUG                  "SPD_DEBUG"
 #define NAME_SPD_MAXRETRYCOUNT          "SPD_MAX_RETRY_COUNT"
