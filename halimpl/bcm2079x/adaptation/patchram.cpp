@@ -65,8 +65,6 @@ static void mayDisableSecureElement (StartupConfig& config);
 #define NFA_APP_DEFAULT_I2C_PATCHFILE_NAME  "\0"
 #endif
 
-#define BRCM_43341B0_ID 0x43341b00
-
 tNFC_POST_RESET_CB nfc_post_reset_cb =
 {
     /* Default Patch & Pre-Patch */
@@ -82,7 +80,7 @@ tNFC_POST_RESET_CB nfc_post_reset_cb =
     {
         1, /* number of valid entries */
         {
-            {BRCM_43341B0_ID, 37400, NFC_HAL_XTAL_INDEX_37400},
+            {0x43341000, 37400, NFC_HAL_XTAL_INDEX_37400},      // All revisions of 43341 use 37,400
             {0, 0, 0},
             {0, 0, 0},
             {0, 0, 0},
