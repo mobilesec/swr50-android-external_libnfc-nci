@@ -82,7 +82,7 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
                         |NFA_DM_DISC_MASK_P_LEGACY) )
     {
         disc_params[num_params].type      = NFC_DISCOVERY_TYPE_POLL_A;
-        disc_params[num_params].frequency = 1;
+        disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pa;
         num_params++;
 
         if (num_params >= max_params)
@@ -93,7 +93,7 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
     if (dm_disc_mask & NFA_DM_DISC_MASK_PB_ISO_DEP)
     {
         disc_params[num_params].type      = NFC_DISCOVERY_TYPE_POLL_B;
-        disc_params[num_params].frequency = 1;
+        disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pb;
         num_params++;
 
         if (num_params >= max_params)
@@ -105,7 +105,7 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
                         |NFA_DM_DISC_MASK_PF_NFC_DEP) )
     {
         disc_params[num_params].type      = NFC_DISCOVERY_TYPE_POLL_F;
-        disc_params[num_params].frequency = 1;
+        disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pf;
         num_params++;
 
         if (num_params >= max_params)
@@ -116,7 +116,7 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
     if (dm_disc_mask & NFA_DM_DISC_MASK_PAA_NFC_DEP)
     {
         disc_params[num_params].type      = NFC_DISCOVERY_TYPE_POLL_A_ACTIVE;
-        disc_params[num_params].frequency = 1;
+        disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->paa;
         num_params++;
 
         if (num_params >= max_params)
@@ -127,7 +127,7 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
     if (dm_disc_mask & NFA_DM_DISC_MASK_PFA_NFC_DEP)
     {
         disc_params[num_params].type      = NFC_DISCOVERY_TYPE_POLL_F_ACTIVE;
-        disc_params[num_params].frequency = 1;
+        disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pfa;
         num_params++;
 
         if (num_params >= max_params)
@@ -197,7 +197,7 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
     if (dm_disc_mask & NFA_DM_DISC_MASK_P_ISO15693)
     {
         disc_params[num_params].type      = NFC_DISCOVERY_TYPE_POLL_ISO15693;
-        disc_params[num_params].frequency = 1;
+        disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pi93;
         num_params++;
 
         if (num_params >= max_params)
@@ -208,7 +208,7 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
     if (dm_disc_mask & NFA_DM_DISC_MASK_P_B_PRIME)
     {
         disc_params[num_params].type      = NFC_DISCOVERY_TYPE_POLL_B_PRIME;
-        disc_params[num_params].frequency = 1;
+        disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pbp;
         num_params++;
 
         if (num_params >= max_params)
@@ -219,7 +219,7 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
     if (dm_disc_mask & NFA_DM_DISC_MASK_P_KOVIO)
     {
         disc_params[num_params].type      = NFC_DISCOVERY_TYPE_POLL_KOVIO;
-        disc_params[num_params].frequency = 1;
+        disc_params[num_params].frequency = p_nfa_dm_rf_disc_freq_cfg->pk;
         num_params++;
 
         if (num_params >= max_params)

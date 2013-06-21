@@ -56,6 +56,22 @@ const UINT8 nfa_dm_gen_cfg[] =
 
 UINT8 *p_nfa_dm_gen_cfg = NULL;
 
+
+/* the RF Discovery Frequency for each technology */
+const tNFA_DM_DISC_FREQ_CFG nfa_dm_rf_disc_freq_cfg =
+{
+    1,      /* Frequency for NFC Technology A               */
+    1,      /* Frequency for NFC Technology B               */
+    1,      /* Frequency for NFC Technology F               */
+    1,      /* Frequency for Proprietary Technology/15693   */
+    1,      /* Frequency for Proprietary Technology/B-Prime */
+    1,      /* Frequency for Proprietary Technology/Kovio   */
+    1,      /* Frequency for NFC Technology A active mode   */
+    1       /* Frequency for NFC Technology F active mode   */
+};
+
+tNFA_DM_DISC_FREQ_CFG *p_nfa_dm_rf_disc_freq_cfg = (tNFA_DM_DISC_FREQ_CFG *)&nfa_dm_rf_disc_freq_cfg;
+
 UINT8 nfa_ee_max_ee_cfg = NFA_EE_MAX_EE_SUPPORTED;
 
 

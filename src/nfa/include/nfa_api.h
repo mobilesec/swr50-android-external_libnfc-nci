@@ -483,6 +483,19 @@ typedef void (tNFA_CONN_CBACK) (UINT8 event, tNFA_CONN_EVT_DATA *p_data);
 #define NFA_DM_NUM_INTERFACE_MAP    3
 #endif
 
+/* compile-time configuration structure for the RF Discovery Frequency for each technology */
+typedef struct
+{
+    UINT8   pa;     /* Frequency for NFC Technology A               */
+    UINT8   pb;     /* Frequency for NFC Technology B               */
+    UINT8   pf;     /* Frequency for NFC Technology F               */
+    UINT8   pi93;   /* Frequency for Proprietary Technology/15693   */
+    UINT8   pbp;    /* Frequency for Proprietary Technology/B-Prime */
+    UINT8   pk;     /* Frequency for Proprietary Technology/Kovio   */
+    UINT8   paa;    /* Frequency for NFC Technology A active mode   */
+    UINT8   pfa;    /* Frequency for NFC Technology F active mode   */
+} tNFA_DM_DISC_FREQ_CFG;
+
 /* compile-time configuration structure */
 typedef struct
 {

@@ -25,4 +25,4 @@ const UINT8 nfca_version_string[] = "NFCDROID_MI_422.10.0.6";
 //
 // NOTE: IF additional branches are used add a "+" at the end of the string
 */
-const UINT8 nfa_version_string[] =  "NFA_MI_1.03.62";
+const UINT8 nfa_version_string[] =  "NFA_MI_1.03.62+";

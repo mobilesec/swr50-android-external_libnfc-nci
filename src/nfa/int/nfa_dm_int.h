@@ -509,6 +509,7 @@ tNFA_STATUS nfa_rw_send_raw_frame (BT_HDR *p_data);
 void nfa_ce_init (void);
 
 /* Pointer to compile-time configuration structure */
+extern tNFA_DM_DISC_FREQ_CFG *p_nfa_dm_rf_disc_freq_cfg;
 extern tNFA_HCI_CFG *p_nfa_hci_cfg;
 extern tNFA_DM_CFG *p_nfa_dm_cfg;
 extern UINT8 *p_nfa_dm_ce_cfg;
