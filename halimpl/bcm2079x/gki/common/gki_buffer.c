@@ -407,6 +407,7 @@ void *GKI_getbuf (UINT16 size)
             if(Q->p_first == 0 && gki_alloc_free_queue(i) != TRUE)
             {
                 GKI_TRACE_ERROR_0("GKI_getbuf() out of buffer");
+                GKI_enable();
                 return NULL;
             }
         #endif
@@ -415,6 +416,7 @@ void *GKI_getbuf (UINT16 size)
             {
                 /* gki_alloc_free_queue() failed to alloc memory */
                 GKI_TRACE_ERROR_0("GKI_getbuf() fail alloc free queue");
+                GKI_enable();
                 return NULL;
             }
 

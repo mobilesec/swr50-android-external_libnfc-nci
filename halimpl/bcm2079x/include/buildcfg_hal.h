@@ -26,5 +26,7 @@
 #define GKI_RUNNER_HAL_TASK 2  //execute GKI_run(), which runs forever
 #define GKI_MAX_TASKS  3 //total of 3 tasks
 
+#define GKI_BUF0_MAX                16
+#define GKI_BUF1_MAX                16
 
 #define NFC_HAL_PRM_POST_I2C_FIX_DELAY (500)
