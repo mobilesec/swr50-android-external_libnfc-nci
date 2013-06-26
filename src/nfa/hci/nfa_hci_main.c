@@ -96,12 +96,16 @@ void nfa_hci_ee_info_cback (tNFA_EE_DISC_STS status)
     switch (status)
     {
     case NFA_EE_DISC_STS_ON:
-        /* NFCEE Discovery is in progress */
-        nfa_hci_cb.ee_disc_cmplt      = TRUE;
-        nfa_hci_cb.num_ee_dis_req_ntf = 0;
-        nfa_hci_cb.num_hot_plug_evts  = 0;
-        nfa_hci_cb.conn_id            = 0;
-        nfa_hci_startup ();
+        if (  (!nfa_hci_cb.ee_disc_cmplt)
+            &&((nfa_hci_cb.hci_state == NFA_HCI_STATE_STARTUP) || (nfa_hci_cb.hci_state == NFA_HCI_STATE_RESTORE))  )
+        {
+            /* NFCEE Discovery is in progress */
+            nfa_hci_cb.ee_disc_cmplt      = TRUE;
+            nfa_hci_cb.num_ee_dis_req_ntf = 0;
+            nfa_hci_cb.num_hot_plug_evts  = 0;
+            nfa_hci_cb.conn_id            = 0;
+            nfa_hci_startup ();
+        }
         break;
 
     case NFA_EE_DISC_STS_OFF:

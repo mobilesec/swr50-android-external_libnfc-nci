@@ -607,6 +607,9 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
 
             /* Get chip version string */
             STREAM_TO_UINT8 (u8, p);
+            if (u8 > NFC_HAL_PRM_MAX_CHIP_VER_LEN)
+                u8 = NFC_HAL_PRM_MAX_CHIP_VER_LEN;
+            memcpy (nfc_hal_cb.nvm_cb.chip_ver, p, u8);
             p += NCI_PATCH_INFO_VERSION_LEN;
 
             /* Get major/minor version */
