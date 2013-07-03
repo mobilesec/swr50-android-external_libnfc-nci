@@ -277,7 +277,7 @@
 
 /* RW Type 2 Tag timeout for each API call, in ms */
 #ifndef RW_T2T_TOUT_RESP
-#define RW_T2T_TOUT_RESP            100
+#define RW_T2T_TOUT_RESP            150 /* Android requires 150 instead of 100 for presence-check*/
 #endif
 
 /* RW Type 2 Tag timeout for each API call, in ms */
