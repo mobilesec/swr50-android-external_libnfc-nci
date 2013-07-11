@@ -308,4 +308,19 @@ void HAL_NfcPowerCycle (void)
     }
 }
 
+/*******************************************************************************
+**
+** Function         HAL_NfcGetMaxNfcee
+**
+** Description      Retrieve the maximum number of NFCEEs supported by NFCC
+**
+** Returns          the maximum number of NFCEEs supported by NFCC
+**
+*******************************************************************************/
+UINT8 HAL_NfcGetMaxNfcee (void)
+{
+    HAL_TRACE_API1 ("HAL_NfcGetMaxNfcee: %d",nfc_hal_cb.max_ee);
+    return nfc_hal_cb.max_ee;
+}
+
 

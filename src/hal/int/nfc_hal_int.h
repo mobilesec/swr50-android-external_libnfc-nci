@@ -425,6 +425,7 @@ typedef struct
     UINT8                   pre_discover_done;  /* TRUE, when the prediscover config is complete */
 
     UINT8                   max_rf_credits;     /* NFC Max RF data credits */
+    UINT8                   max_ee;             /* NFC Max number of NFCEE supported by NFCC */
     UINT8                   trace_level;        /* NFC HAL trace level */
 } tNFC_HAL_CB;
 

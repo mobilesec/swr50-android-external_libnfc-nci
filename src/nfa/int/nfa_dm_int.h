@@ -471,6 +471,7 @@ typedef struct
     tNFA_HANDLE                 poll_disc_handle;   /* discovery handle for polling         */
 
     UINT8                      *p_activate_ntf;     /* temp holding activation notfication  */
+    tHAL_API_GET_MAX_NFCEE     *get_max_ee;
 
     tNFC_RF_TECH_N_MODE         activated_tech_mode;/* previous activated technology and mode */
     UINT8                       activated_nfcid[NFC_KOVIO_MAX_LEN]; /* NFCID 0/1/2 or UID of ISO15694/Kovio  */

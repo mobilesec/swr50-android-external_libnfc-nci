@@ -63,6 +63,7 @@ void NFA_Init(tHAL_NFC_ENTRY *p_hal_entry_tbl)
     nfa_ce_init();
     if (nfa_ee_max_ee_cfg != 0)
     {
+        nfa_dm_cb.get_max_ee    = p_hal_entry_tbl->get_max_ee;
         nfa_ee_init();
         nfa_hci_init();
     }

@@ -90,6 +90,7 @@ typedef void (tHAL_API_WRITE) (UINT16 data_len, UINT8 *p_data);
 typedef BOOLEAN (tHAL_API_PREDISCOVER) (void);
 typedef void (tHAL_API_CONTROL_GRANTED) (void);
 typedef void (tHAL_API_POWER_CYCLE) (void);
+typedef UINT8 (tHAL_API_GET_MAX_NFCEE) (void);
 
 
 /* data members for NFC_HAL-HCI */
@@ -112,6 +113,7 @@ typedef struct
     tHAL_API_PREDISCOVER *prediscover;
     tHAL_API_CONTROL_GRANTED *control_granted;
     tHAL_API_POWER_CYCLE *power_cycle;
+    tHAL_API_GET_MAX_NFCEE *get_max_ee;
 
 
 } tHAL_NFC_ENTRY;
@@ -256,6 +258,17 @@ EXPORT_HAL_API void HAL_NfcControlGranted (void);
 **
 *******************************************************************************/
 EXPORT_HAL_API void HAL_NfcPowerCycle (void);
+
+/*******************************************************************************
+**
+** Function         HAL_NfcGetMaxNfcee
+**
+** Description      Retrieve the maximum number of NFCEEs supported by NFCC
+**
+** Returns          the maximum number of NFCEEs supported by NFCC
+**
+*******************************************************************************/
+EXPORT_HAL_API UINT8 HAL_NfcGetMaxNfcee (void);
 
 
 #ifdef __cplusplus

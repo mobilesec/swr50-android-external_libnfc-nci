@@ -78,9 +78,6 @@ tNFC_POST_RESET_CB nfc_post_reset_cb =
 
     /* Default tNFC_HAL_DEV_INIT_CFG (flags, num_xtal_cfg, {brcm_hw_id, xtal-freq, xtal-index} ) */
     {
-#if (NFC_BRCM_NOT_OPEN_INCLUDED == TRUE)
-        0,
-#endif
         2, /* number of valid entries */
         {
             {0x43341000, 37400, NFC_HAL_XTAL_INDEX_37400},      // All revisions of 43341 use 37,400
