@@ -164,6 +164,12 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
         p_nfc_hal_cfg->nfc_hal_nfcc_enable_timeout = num;
     }
 
+    if ( GetNumValue ( NAME_NFA_MAX_EE_SUPPORTED, &num, sizeof ( num ) ) && num == 0 )
+    {
+        // Since NFA_MAX_EE_SUPPORTED is explicetly set to 0, no UICC support is needed.
+        p_nfc_hal_cfg->nfc_hal_hci_uicc_support = 0;
+    }
+
     HAL_NfcInitialize ();
     HAL_NfcSetTraceLevel (logLevel); // Initialize HAL's logging level
 
@@ -339,3 +345,27 @@ int HaiPowerCycle (const bcm2079x_dev_t* device)
     return retval;
 }
 
+
+int HaiGetMaxNfcee (const bcm2079x_dev_t* device, uint8_t* maxNfcee)
+{
+    ALOGD ("%s: enter", __FUNCTION__);
+    int retval = EACCES;
+
+    if ( maxNfcee )
+    {
+        unsigned long num;
+
+        // At this point we can see if there is a chip-specific value for max ee.
+        if ( GetNumValue ( NAME_NFA_MAX_EE_SUPPORTED, &num, sizeof ( num ) ) )
+        {
+            *maxNfcee = num;
+        }
+        else
+            *maxNfcee = HAL_NfcGetMaxNfcee ();
+
+        ALOGD("%s: max_ee from HAL to use %d", __FUNCTION__, *maxNfcee);
+        retval = 0;
+    }
+    ALOGD ("%s: exit %d", __FUNCTION__, retval);
+    return retval;
+}

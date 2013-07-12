@@ -282,6 +282,7 @@ void NfcAdaptation::InitializeHalDeviceContext ()
     mHalEntryFuncs.prediscover = HalPrediscover;
     mHalEntryFuncs.control_granted = HalControlGranted;
     mHalEntryFuncs.power_cycle = HalPowerCycle;
+    mHalEntryFuncs.get_max_ee = HalGetMaxNfcee;
 
     ret = hw_get_module (NFC_NCI_HARDWARE_MODULE_ID, &hw_module);
     if (ret == 0)
@@ -509,6 +510,27 @@ void NfcAdaptation::HalPowerCycle ()
     }
 }
 
+/*******************************************************************************
+**
+** Function:    NfcAdaptation::HalGetMaxNfcee
+**
+** Description: Turn off and turn on the controller.
+**
+** Returns:     None.
+**
+*******************************************************************************/
+UINT8 NfcAdaptation::HalGetMaxNfcee()
+{
+    const char* func = "NfcAdaptation::HalPowerCycle";
+    UINT8 maxNfcee = 0;
+    ALOGD ("%s", func);
+    if (mHalDeviceContext)
+    {
+        mHalDeviceContext->get_max_ee (mHalDeviceContext, &maxNfcee);
+    }
+
+    return maxNfcee;
+}
 
 /*******************************************************************************
 **

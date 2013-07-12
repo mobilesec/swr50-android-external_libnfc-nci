@@ -100,6 +100,7 @@ private:
     static BOOLEAN HalPrediscover ();
     static void HalControlGranted ();
     static void HalPowerCycle ();
+    static UINT8 HalGetMaxNfcee ();
     static void HalDownloadFirmwareCallback (nfc_event_t event, nfc_status_t event_status);
     static void HalDownloadFirmwareDataCallback (uint16_t data_len, uint8_t* p_data);
 };

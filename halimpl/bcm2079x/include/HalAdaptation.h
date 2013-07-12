@@ -58,6 +58,7 @@ extern int HaiWrite (const bcm2079x_dev_t* dev, uint16_t dataLen, const uint8_t*
 extern int HaiPreDiscover (const bcm2079x_dev_t* device);
 extern int HaiControlGranted (const bcm2079x_dev_t* device);
 extern int HaiPowerCycle (const bcm2079x_dev_t* device);
+extern int HaiGetMaxNfcee (const bcm2079x_dev_t* device, uint8_t* maxNfcee);
 
 
 #ifdef __cplusplus

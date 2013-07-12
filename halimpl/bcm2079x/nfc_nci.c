@@ -102,6 +102,15 @@ static int hal_power_cycle (const struct nfc_nci_device *p_dev)
 }
 
 
+static int hal_get_max_nfcee (const struct nfc_nci_device *p_dev, uint8_t* maxNfcee)
+{
+    int retval = 0;
+    bcm2079x_dev_t* dev = (bcm2079x_dev_t*) p_dev;
+
+    retval = HaiGetMaxNfcee (dev, maxNfcee);
+    return retval;
+}
+
 /*************************************
  * Generic device handling.
  *************************************/
@@ -140,6 +149,7 @@ static int nfc_open (const hw_module_t* module, const char* name, hw_device_t** 
         dev->nci_device.close = hal_close;
         dev->nci_device.control_granted = hal_control_granted;
         dev->nci_device.power_cycle = hal_power_cycle;
+        dev->nci_device.get_max_ee = hal_get_max_nfcee;
 
 
         // Copy in
