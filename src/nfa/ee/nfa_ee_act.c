@@ -496,7 +496,6 @@ void nfa_ee_api_add_aid(tNFA_EE_MSG *p_data)
         /* mark AID changed */
         p_cb->ecb_flags                       |= NFA_EE_ECB_FLAGS_AID;
         nfa_ee_cb.ee_cfged                    |= nfa_ee_ecb_to_mask(p_cb);
-        nfa_ee_start_timer();
     }
     NFA_TRACE_DEBUG2 ("status:%d ee_cfged:0x%02x ",evt_data.status, nfa_ee_cb.ee_cfged);
     /* report the status of this operation */
@@ -552,7 +551,6 @@ void nfa_ee_api_remove_aid(tNFA_EE_MSG *p_data)
         /* else the last entry, just reduce the aid_entries by 1 */
         p_cb->aid_entries--;
         nfa_ee_cb.ee_cfged      |= nfa_ee_ecb_to_mask(p_cb);
-        nfa_ee_start_timer();
         /* report NFA_EE_REMOVE_AID_EVT to the callback associated the NFCEE */
         p_cback = p_cb->p_ee_cback;
     }
