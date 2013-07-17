@@ -17,7 +17,7 @@
  ******************************************************************************/
 #include "bt_types.h"
 
-const UINT8 nfca_version_string[] = "NFCDROID_MI_422.10.0.6";
+const UINT8 nfca_version_string[] = "NFCDROID_MI_422.10.0.15";
 
 /*
 // The following string should be manually updated to contain the
