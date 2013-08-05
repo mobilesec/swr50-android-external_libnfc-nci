@@ -523,10 +523,10 @@ UINT8 NfcAdaptation::HalGetMaxNfcee()
 {
     const char* func = "NfcAdaptation::HalPowerCycle";
     UINT8 maxNfcee = 0;
-    ALOGD ("%s", func);
     if (mHalDeviceContext)
     {
-        mHalDeviceContext->get_max_ee (mHalDeviceContext, &maxNfcee);
+        // TODO maco call into HAL when we figure out binary compatibility.
+        return nfa_ee_max_ee_cfg;
     }
 
     return maxNfcee;

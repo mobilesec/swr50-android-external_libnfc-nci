@@ -149,7 +149,8 @@ static int nfc_open (const hw_module_t* module, const char* name, hw_device_t** 
         dev->nci_device.close = hal_close;
         dev->nci_device.control_granted = hal_control_granted;
         dev->nci_device.power_cycle = hal_power_cycle;
-        dev->nci_device.get_max_ee = hal_get_max_nfcee;
+        // TODO maco commented out for binary HAL compatibility
+        // dev->nci_device.get_max_ee = hal_get_max_nfcee;
 
 
         // Copy in
