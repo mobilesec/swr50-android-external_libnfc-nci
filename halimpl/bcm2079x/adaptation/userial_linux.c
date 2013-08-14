@@ -1694,12 +1694,9 @@ static int change_client_addr(int addr)
     /* If it fails, it is likely a B3 we are talking to */
     if (ret != size) {
         ALOGD( "change_client_addr() change addr to 0x%x by setting BSP address to 0x%x\n", addr, ALIAS_CLIENT_ADDRESS);
-        /* legacy kernel */
-        ioctl(linux_cb.sock, BCMNFC_CHANGE_ADDR, addr);
-        /* We'll tweak address to make it look like 0x1FA address */
-        ret = ioctl(linux_cb.sock, BCMNFC_SET_CLIENT_ADDR, ALIAS_CLIENT_ADDRESS);
-        size++;
-        ret = write(linux_cb.sock, addr_data, size);
+        /* MACO changed to support B3 with old kernel driver */
+        ret = ioctl(linux_cb.sock, BCMNFC_CHANGE_ADDR, addr);
+        return ret;
     }
 
     if (ret == size) {
