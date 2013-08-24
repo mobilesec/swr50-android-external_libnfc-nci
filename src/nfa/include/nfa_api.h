@@ -854,6 +854,9 @@ NFC_API extern tNFA_STATUS NFA_EnablePolling (tNFA_TECHNOLOGY_MASK poll_mask);
 *******************************************************************************/
 NFC_API extern tNFA_STATUS NFA_DisablePolling (void);
 
+NFC_API extern tNFA_STATUS NFA_EnableListening ();
+NFC_API extern tNFA_STATUS NFA_DisableListening ();
+
 /*******************************************************************************
 **
 ** Function         NFA_SetP2pListenTech

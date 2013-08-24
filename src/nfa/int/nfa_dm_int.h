@@ -59,6 +59,8 @@ enum
     NFA_DM_API_REG_VSC_EVT,
     NFA_DM_API_SEND_VSC_EVT,
     NFA_DM_TIMEOUT_DISABLE_EVT,
+    NFA_DM_API_ENABLE_LISTENING_EVT,
+    NFA_DM_API_DISABLE_LISTENING_EVT,
     NFA_DM_MAX_EVT
 };
 
@@ -148,6 +150,7 @@ typedef struct
     BT_HDR              hdr;
     UINT16              rf_disc_dur_ms;
 } tNFA_DM_API_SET_RF_DISC_DUR;
+
 #define NFA_RF_DISC_DURATION_MAX                0xFFFF
 
 /* data type for NFA_DM_API_REG_NDEF_HDLR_EVT */
@@ -391,6 +394,8 @@ typedef struct
     BOOLEAN                 deact_notify_pending;   /* TRUE if notify DEACTIVATED EVT while Stop rf discovery*/
     tNFA_DEACTIVATE_TYPE    pending_deact_type;     /* pending deactivate type                          */
 
+    BOOLEAN                 listen_disabled;        /* TRUE if listen mode discovery must be disabled */
+
 } tNFA_DM_DISC_CB;
 
 /* NDEF Type Handler Definitions */
@@ -573,6 +578,8 @@ BOOLEAN nfa_dm_tout (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_reg_vsc (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_send_vsc (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_disable_timeout (tNFA_DM_MSG *p_data);
+BOOLEAN nfa_dm_act_enable_listening (tNFA_DM_MSG *p_data);
+BOOLEAN nfa_dm_act_disable_listening (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_nfc_cback_data (tNFA_DM_MSG *p_data);
 
 void nfa_dm_proc_nfcc_power_mode (UINT8 nfcc_power_mode);

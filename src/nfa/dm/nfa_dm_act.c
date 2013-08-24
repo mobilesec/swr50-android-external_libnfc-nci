@@ -1125,6 +1125,42 @@ BOOLEAN nfa_dm_set_p2p_listen_tech (tNFA_DM_MSG *p_data)
 
 /*******************************************************************************
 **
+** Function         nfa_dm_act_enable_listening
+**
+** Description      Enables listen mode discovery
+**
+** Returns          TRUE (message buffer to be freed by caller)
+**
+*******************************************************************************/
+BOOLEAN nfa_dm_act_enable_listening (tNFA_DM_MSG *p_data)
+{
+    NFA_TRACE_DEBUG0 ("nfa_dm_act_enable_listening ()");
+
+    nfa_dm_cb.disc_cb.listen_disabled = FALSE;
+
+    return (TRUE);
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_act_disable_listening
+**
+** Description      Temporarily disables listen mode discovery
+**
+** Returns          TRUE (message buffer to be freed by caller)
+**
+*******************************************************************************/
+BOOLEAN nfa_dm_act_disable_listening (tNFA_DM_MSG *p_data)
+{
+    NFA_TRACE_DEBUG0 ("nfa_dm_act_disable_listening ()");
+
+    nfa_dm_cb.disc_cb.listen_disabled = TRUE;
+
+    return (TRUE);
+}
+
+/*******************************************************************************
+**
 ** Function         nfa_dm_act_start_rf_discovery
 **
 ** Description      Process start RF discovery command

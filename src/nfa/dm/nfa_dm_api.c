@@ -465,6 +465,42 @@ tNFA_STATUS NFA_SetP2pListenTech (tNFA_TECHNOLOGY_MASK tech_mask)
     return (NFA_STATUS_FAILED);
 }
 
+tNFA_STATUS NFA_EnableListening ()
+{
+    BT_HDR *p_msg;
+
+    NFA_TRACE_API0 ("NFA_EnableListening ()");
+
+    if ((p_msg = (BT_HDR *) GKI_getbuf (sizeof (BT_HDR))) != NULL)
+    {
+        p_msg->event = NFA_DM_API_ENABLE_LISTENING_EVT;
+
+        nfa_sys_sendmsg (p_msg);
+
+        return (NFA_STATUS_OK);
+    }
+
+    return (NFA_STATUS_FAILED);
+}
+
+tNFA_STATUS NFA_DisableListening ()
+{
+    BT_HDR *p_msg;
+
+    NFA_TRACE_API0 ("NFA_DisableListening ()");
+
+    if ((p_msg = (BT_HDR *) GKI_getbuf (sizeof (BT_HDR))) != NULL)
+    {
+        p_msg->event = NFA_DM_API_DISABLE_LISTENING_EVT;
+
+        nfa_sys_sendmsg (p_msg);
+
+        return (NFA_STATUS_OK);
+    }
+
+    return (NFA_STATUS_FAILED);
+}
+
 /*******************************************************************************
 **
 ** Function         NFA_StartRfDiscovery
