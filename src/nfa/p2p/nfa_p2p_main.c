@@ -509,6 +509,10 @@ void nfa_p2p_set_config (tNFA_DM_DISC_TECH_PROTO_MASK disc_mask)
     P2P_TRACE_DEBUG0 ("nfa_p2p_set_config ()");
 
     LLCP_GetDiscoveryConfig (&wt, params + 2, &gen_bytes_len);
+    if (nfa_dm_is_p2p_paused ())
+    {
+        gen_bytes_len = 0;
+    }
 
     if (disc_mask & ( NFA_DM_DISC_MASK_PA_NFC_DEP
                      |NFA_DM_DISC_MASK_PF_NFC_DEP

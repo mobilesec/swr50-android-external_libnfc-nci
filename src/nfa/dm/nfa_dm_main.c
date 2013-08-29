@@ -62,6 +62,10 @@ const tNFA_DM_ACTION nfa_dm_action[] =
     nfa_dm_act_release_excl_rf_ctrl,    /* NFA_DM_API_RELEASE_EXCL_RF_CTRL_EVT  */
     nfa_dm_act_enable_polling,          /* NFA_DM_API_ENABLE_POLLING_EVT        */
     nfa_dm_act_disable_polling,         /* NFA_DM_API_DISABLE_POLLING_EVT       */
+    nfa_dm_act_enable_listening,        /* NFA_DM_API_ENABLE_LISTENING_EVT      */
+    nfa_dm_act_disable_listening,       /* NFA_DM_API_DISABLE_LISTENING_EVT     */
+    nfa_dm_act_pause_p2p,               /* NFA_DM_API_PAUSE_P2P_EVT             */
+    nfa_dm_act_resume_p2p,              /* NFA_DM_API_RESUME_P2P_EVT            */
     nfa_dm_act_send_raw_frame,          /* NFA_DM_API_RAW_FRAME_EVT             */
     nfa_dm_set_p2p_listen_tech,         /* NFA_DM_API_SET_P2P_LISTEN_TECH_EVT   */
     nfa_dm_act_start_rf_discovery,      /* NFA_DM_API_START_RF_DISCOVERY_EVT    */
@@ -75,9 +79,7 @@ const tNFA_DM_ACTION nfa_dm_action[] =
     nfa_dm_ndef_dereg_hdlr,             /* NFA_DM_API_DEREG_NDEF_HDLR_EVT       */
     nfa_dm_act_reg_vsc,                 /* NFA_DM_API_REG_VSC_EVT               */
     nfa_dm_act_send_vsc,                /* NFA_DM_API_SEND_VSC_EVT              */
-    nfa_dm_act_disable_timeout,         /* NFA_DM_TIMEOUT_DISABLE_EVT           */
-    nfa_dm_act_enable_listening,        /* NFA_DM_ENABLE_LISTENING_EVT          */
-    nfa_dm_act_disable_listening        /* NFA_DM_DISABLE_LISTENING_EVT         */
+    nfa_dm_act_disable_timeout          /* NFA_DM_TIMEOUT_DISABLE_EVT           */
 };
 
 /*****************************************************************************
@@ -476,6 +478,18 @@ static char *nfa_dm_evt_2_str (UINT16 event)
 
     case NFA_DM_API_DISABLE_POLLING_EVT:
         return "NFA_DM_API_DISABLE_POLLING_EVT";
+
+    case NFA_DM_API_ENABLE_LISTENING_EVT:
+        return "NFA_DM_API_ENABLE_LISTENING_EVT";
+
+    case NFA_DM_API_DISABLE_LISTENING_EVT:
+        return "NFA_DM_API_DISABLE_LISTENING_EVT";
+
+    case NFA_DM_API_PAUSE_P2P_EVT:
+        return "NFA_DM_API_PAUSE_P2P_EVT";
+
+    case NFA_DM_API_RESUME_P2P_EVT:
+        return "NFA_DM_API_RESUME_P2P_EVT";
 
     case NFA_DM_API_RAW_FRAME_EVT:
         return "NFA_DM_API_RAW_FRAME_EVT";

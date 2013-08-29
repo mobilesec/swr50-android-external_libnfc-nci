@@ -256,6 +256,10 @@ typedef void (tNFA_DM_CBACK) (UINT8 event, tNFA_DM_CBACK_DATA *p_data);
 #define NFA_SET_P2P_LISTEN_TECH_EVT             33  /* status of setting P2P listen technologies    */
 #define NFA_RW_INTF_ERROR_EVT                   34  /* RF Interface error event                     */
 #define NFA_LLCP_FIRST_PACKET_RECEIVED_EVT      35  /* First packet received over LLCP link         */
+#define NFA_LISTEN_ENABLED_EVT                  36  /* Listening enabled event                      */
+#define NFA_LISTEN_DISABLED_EVT                 37  /* Listening disabled event                     */
+#define NFA_P2P_PAUSED_EVT                      38  /* P2P services paused event                    */
+#define NFA_P2P_RESUMED_EVT                     39  /* P2P services resumed event                   */
 
 /* NFC deactivation type */
 #define NFA_DEACTIVATE_TYPE_IDLE        NFC_DEACTIVATE_TYPE_IDLE
@@ -854,8 +858,83 @@ NFC_API extern tNFA_STATUS NFA_EnablePolling (tNFA_TECHNOLOGY_MASK poll_mask);
 *******************************************************************************/
 NFC_API extern tNFA_STATUS NFA_DisablePolling (void);
 
-NFC_API extern tNFA_STATUS NFA_EnableListening ();
-NFC_API extern tNFA_STATUS NFA_DisableListening ();
+/*******************************************************************************
+**
+** Function         NFA_EnableListening
+**
+** Description      Enable listening.
+**                  NFA_LISTEN_ENABLED_EVT will be returned after listening is allowed.
+**
+**                  The actual listening technologies are specified by other NFA
+**                  API functions. Such functions include (but not limited to)
+**                  NFA_CeConfigureUiccListenTech.
+**                  If NFA_DisableListening () is called to ignore the listening technologies,
+**                  NFA_EnableListening () is called to restore the listening technologies
+**                  set by these functions.
+**
+** Note:            If RF discovery is started, NFA_StopRfDiscovery()/NFA_RF_DISCOVERY_STOPPED_EVT
+**                  should happen before calling this function
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+NFC_API extern tNFA_STATUS NFA_EnableListening (void);
+
+/*******************************************************************************
+**
+** Function         NFA_DisableListening
+**
+** Description      Disable listening
+**                  NFA_LISTEN_DISABLED_EVT will be returned after stopping listening.
+**                  This function is called to exclude listen at RF discovery.
+**
+** Note:            If RF discovery is started, NFA_StopRfDiscovery()/NFA_RF_DISCOVERY_STOPPED_EVT
+**                  should happen before calling this function
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+NFC_API extern tNFA_STATUS NFA_DisableListening (void);
+
+/*******************************************************************************
+**
+** Function         NFA_PauseP2p
+**
+** Description      Pause P2P services.
+**                  NFA_P2P_PAUSED_EVT will be returned after P2P services are
+**                  disabled.
+**
+**                  The P2P services enabled by NFA_P2p* API functions are not
+**                  available. NFA_ResumeP2p() is called to resume the P2P
+**                  services.
+**
+** Note:            If RF discovery is started, NFA_StopRfDiscovery()/NFA_RF_DISCOVERY_STOPPED_EVT
+**                  should happen before calling this function
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+NFC_API extern tNFA_STATUS NFA_PauseP2p (void);
+
+/*******************************************************************************
+**
+** Function         NFA_ResumeP2p
+**
+** Description      Resume P2P services.
+**                  NFA_P2P_RESUMED_EVT will be returned after P2P services are.
+**                  enables again.
+**
+** Note:            If RF discovery is started, NFA_StopRfDiscovery()/NFA_RF_DISCOVERY_STOPPED_EVT
+**                  should happen before calling this function
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+NFC_API extern tNFA_STATUS NFA_ResumeP2p (void);
 
 /*******************************************************************************
 **

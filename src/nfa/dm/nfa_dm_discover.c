@@ -74,6 +74,12 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
 {
     UINT8 num_params = 0;
 
+    if (nfa_dm_cb.flags & NFA_DM_FLAGS_LISTEN_DISABLED)
+    {
+        NFA_TRACE_DEBUG1 ("nfa_dm_get_rf_discover_config () listen disabled, rm listen from 0x%x", dm_disc_mask);
+        dm_disc_mask &= NFA_DM_DISC_MASK_POLL;
+    }
+
     /* Check polling A */
     if (dm_disc_mask & ( NFA_DM_DISC_MASK_PA_T1T
                         |NFA_DM_DISC_MASK_PA_T2T
@@ -307,19 +313,7 @@ static tNFA_STATUS nfa_dm_set_rf_listen_mode_config (tNFA_DM_DISC_TECH_PROTO_MAS
     ** If the ATQA values are 0x0000, then the FW will use 0x0400
     ** which works for ISODEP, T2T and NFCDEP.
     */
-    if (nfa_dm_cb.disc_cb.listen_disabled)
-    {
-        UINT8_TO_STREAM (p, NFC_PMID_LA_BIT_FRAME_SDD);
-        UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_BIT_FRAME_SDD);
-        UINT8_TO_STREAM (p, 0x04);
-        UINT8_TO_STREAM (p, NFC_PMID_LA_PLATFORM_CONFIG);
-        UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_PLATFORM_CONFIG);
-        UINT8_TO_STREAM (p, 0);
-        UINT8_TO_STREAM (p, NFC_PMID_LA_SEL_INFO);
-        UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_SEL_INFO);
-        UINT8_TO_STREAM (p, 0);
-    }
-    else if (nfa_dm_cb.disc_cb.listen_RT[NFA_DM_DISC_LRT_NFC_A] == NFA_DM_DISC_HOST_ID_DH)
+    if (nfa_dm_cb.disc_cb.listen_RT[NFA_DM_DISC_LRT_NFC_A] == NFA_DM_DISC_HOST_ID_DH)
     {
         UINT8_TO_STREAM (p, NFC_PMID_LA_BIT_FRAME_SDD);
         UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_BIT_FRAME_SDD);
@@ -1048,11 +1042,6 @@ void nfa_dm_start_rf_discover (void)
                                      |NFA_DM_DISC_MASK_LAA_NFC_DEP );
                 }
 
-                if (nfa_dm_cb.disc_cb.listen_disabled)
-                {
-                    NFA_TRACE_DEBUG0 ("disabling listen mode");
-                    listen_mask = 0;
-                }
                 nfa_dm_cb.disc_cb.entry[xx].selected_disc_mask = poll_mask | listen_mask;
 
                 NFA_TRACE_DEBUG2 ("nfa_dm_cb.disc_cb.entry[%d].selected_disc_mask = 0x%x",
@@ -1541,6 +1530,21 @@ tNFC_STATUS nfa_dm_disc_sleep_wakeup (void)
     }
 
     return (status);
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_is_p2p_paused
+**
+** Description      If NFA_PauseP2p is called sand still effective,
+**                  this function returns TRUE.
+**
+** Returns          TRUE if NFA_SendRawFrame is called
+**
+*******************************************************************************/
+BOOLEAN nfa_dm_is_p2p_paused (void)
+{
+    return ((nfa_dm_cb.flags & NFA_DM_FLAGS_P2P_PAUSED) ? TRUE : FALSE);
 }
 
 /*******************************************************************************

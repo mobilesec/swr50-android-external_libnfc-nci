@@ -429,6 +429,148 @@ tNFA_STATUS NFA_DisablePolling (void)
 
 /*******************************************************************************
 **
+** Function         NFA_EnableListening
+**
+** Description      Enable listening.
+**                  NFA_LISTEN_ENABLED_EVT will be returned after listening is allowed.
+**
+**                  The actual listening technologies are specified by other NFA
+**                  API functions. Such functions include (but not limited to)
+**                  NFA_CeConfigureUiccListenTech.
+**                  If NFA_DisableListening () is called to ignore the listening technologies,
+**                  NFA_EnableListening () is called to restore the listening technologies
+**                  set by these functions.
+**
+** Note:            If RF discovery is started, NFA_StopRfDiscovery()/NFA_RF_DISCOVERY_STOPPED_EVT
+**                  should happen before calling this function
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+tNFA_STATUS NFA_EnableListening (void)
+{
+    BT_HDR *p_msg;
+
+    NFA_TRACE_API0 ("NFA_EnableListening ()");
+
+    if ((p_msg = (BT_HDR *) GKI_getbuf (sizeof (BT_HDR))) != NULL)
+    {
+        p_msg->event = NFA_DM_API_ENABLE_LISTENING_EVT;
+
+        nfa_sys_sendmsg (p_msg);
+
+        return (NFA_STATUS_OK);
+    }
+
+    return (NFA_STATUS_FAILED);
+}
+
+/*******************************************************************************
+**
+** Function         NFA_DisableListening
+**
+** Description      Disable listening
+**                  NFA_LISTEN_DISABLED_EVT will be returned after stopping listening.
+**                  This function is called to exclude listen at RF discovery.
+**
+** Note:            If RF discovery is started, NFA_StopRfDiscovery()/NFA_RF_DISCOVERY_STOPPED_EVT
+**                  should happen before calling this function
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+tNFA_STATUS NFA_DisableListening (void)
+{
+    BT_HDR *p_msg;
+
+    NFA_TRACE_API0 ("NFA_DisableListening ()");
+
+    if ((p_msg = (BT_HDR *) GKI_getbuf (sizeof (BT_HDR))) != NULL)
+    {
+        p_msg->event = NFA_DM_API_DISABLE_LISTENING_EVT;
+
+        nfa_sys_sendmsg (p_msg);
+
+        return (NFA_STATUS_OK);
+    }
+
+    return (NFA_STATUS_FAILED);
+}
+
+/*******************************************************************************
+**
+** Function         NFA_PauseP2p
+**
+** Description      Pause P2P services.
+**                  NFA_P2P_PAUSED_EVT will be returned after P2P services are
+**                  disabled.
+**
+**                  The P2P services enabled by NFA_P2p* API functions are not
+**                  available. NFA_ResumeP2p() is called to resume the P2P
+**                  services.
+**
+** Note:            If RF discovery is started, NFA_StopRfDiscovery()/NFA_RF_DISCOVERY_STOPPED_EVT
+**                  should happen before calling this function
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+tNFA_STATUS NFA_PauseP2p (void)
+{
+    BT_HDR *p_msg;
+
+    NFA_TRACE_API0 ("NFA_PauseP2p ()");
+
+    if ((p_msg = (BT_HDR *) GKI_getbuf (sizeof (BT_HDR))) != NULL)
+    {
+        p_msg->event = NFA_DM_API_PAUSE_P2P_EVT;
+
+        nfa_sys_sendmsg (p_msg);
+
+        return (NFA_STATUS_OK);
+    }
+
+    return (NFA_STATUS_FAILED);
+}
+
+/*******************************************************************************
+**
+** Function         NFA_ResumeP2p
+**
+** Description      Resume P2P services.
+**                  NFA_P2P_RESUMED_EVT will be returned after P2P services are.
+**                  enables again.
+**
+** Note:            If RF discovery is started, NFA_StopRfDiscovery()/NFA_RF_DISCOVERY_STOPPED_EVT
+**                  should happen before calling this function
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+tNFA_STATUS NFA_ResumeP2p (void)
+{
+    BT_HDR *p_msg;
+
+    NFA_TRACE_API0 ("NFA_ResumeP2p ()");
+
+    if ((p_msg = (BT_HDR *) GKI_getbuf (sizeof (BT_HDR))) != NULL)
+    {
+        p_msg->event = NFA_DM_API_RESUME_P2P_EVT;
+
+        nfa_sys_sendmsg (p_msg);
+
+        return (NFA_STATUS_OK);
+    }
+
+    return (NFA_STATUS_FAILED);
+}
+
+/*******************************************************************************
+**
 ** Function         NFA_SetP2pListenTech
 **
 ** Description      This function is called to set listen technology for NFC-DEP.
@@ -456,42 +598,6 @@ tNFA_STATUS NFA_SetP2pListenTech (tNFA_TECHNOLOGY_MASK tech_mask)
     {
         p_msg->hdr.event = NFA_DM_API_SET_P2P_LISTEN_TECH_EVT;
         p_msg->tech_mask = tech_mask;
-
-        nfa_sys_sendmsg (p_msg);
-
-        return (NFA_STATUS_OK);
-    }
-
-    return (NFA_STATUS_FAILED);
-}
-
-tNFA_STATUS NFA_EnableListening ()
-{
-    BT_HDR *p_msg;
-
-    NFA_TRACE_API0 ("NFA_EnableListening ()");
-
-    if ((p_msg = (BT_HDR *) GKI_getbuf (sizeof (BT_HDR))) != NULL)
-    {
-        p_msg->event = NFA_DM_API_ENABLE_LISTENING_EVT;
-
-        nfa_sys_sendmsg (p_msg);
-
-        return (NFA_STATUS_OK);
-    }
-
-    return (NFA_STATUS_FAILED);
-}
-
-tNFA_STATUS NFA_DisableListening ()
-{
-    BT_HDR *p_msg;
-
-    NFA_TRACE_API0 ("NFA_DisableListening ()");
-
-    if ((p_msg = (BT_HDR *) GKI_getbuf (sizeof (BT_HDR))) != NULL)
-    {
-        p_msg->event = NFA_DM_API_DISABLE_LISTENING_EVT;
 
         nfa_sys_sendmsg (p_msg);
 

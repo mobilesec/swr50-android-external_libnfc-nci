@@ -750,34 +750,43 @@ BOOLEAN nfa_dm_act_deactivate (tNFA_DM_MSG *p_data)
            &&(nfa_dm_cb.disc_cb.activated_protocol != NFA_PROTOCOL_ISO15693)
            &&(nfa_dm_cb.disc_cb.activated_protocol != NFC_PROTOCOL_KOVIO)  )  )
     {
+        deact_type  = NFA_DEACTIVATE_TYPE_DISCOVERY;
+        if (p_data->deactivate.sleep_mode)
+        {
+            if (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_W4_HOST_SELECT)
+            {
+                /* Deactivate to sleep mode not allowed in this state. */
+                deact_type = NFA_DEACTIVATE_TYPE_IDLE;
+            }
+            else if (nfa_dm_cb.disc_cb.disc_state != NFA_DM_RFST_LISTEN_SLEEP)
+            {
+                deact_type = NFA_DEACTIVATE_TYPE_SLEEP;
+            }
+        }
+        if (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_W4_ALL_DISCOVERIES)
+        {
+            /* Only deactivate to IDLE is allowed in this state. */
+            deact_type = NFA_DEACTIVATE_TYPE_IDLE;
+        }
+
         if (  (nfa_dm_cb.disc_cb.activated_protocol == NFA_PROTOCOL_NFC_DEP)
             &&((nfa_dm_cb.flags & NFA_DM_FLAGS_EXCL_RF_ACTIVE) == 0x00)  )
         {
             /* Exclusive RF control doesn't use NFA P2P */
             /* NFA P2P will deactivate NFC link after deactivating LLCP link */
-            nfa_p2p_deactivate_llcp ();
+            if (!(nfa_dm_cb.flags & NFA_DM_FLAGS_P2P_PAUSED))
+            {
+                nfa_p2p_deactivate_llcp ();
+            }
+            else
+            {
+                nfa_dm_rf_deactivate (deact_type);
+            }
             return (TRUE);
         }
         else
         {
-            deact_type  = NFA_DEACTIVATE_TYPE_DISCOVERY;
-            if (p_data->deactivate.sleep_mode)
-            {
-                if (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_W4_HOST_SELECT)
-                {
-                    /* Deactivate to sleep mode not allowed in this state. */
-                    deact_type = NFA_DEACTIVATE_TYPE_IDLE;
-                }
-                else if (nfa_dm_cb.disc_cb.disc_state != NFA_DM_RFST_LISTEN_SLEEP)
-                {
-                    deact_type = NFA_DEACTIVATE_TYPE_SLEEP;
-                }
-            }
-            if (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_W4_ALL_DISCOVERIES)
-            {
-                /* Only deactivate to IDLE is allowed in this state. */
-                deact_type = NFA_DEACTIVATE_TYPE_IDLE;
-            }
+
             if (nfa_dm_rf_deactivate (deact_type) == NFA_STATUS_OK)
             {
                 if (nfa_dm_cb.disc_cb.kovio_tle.in_use)
@@ -1054,6 +1063,94 @@ BOOLEAN nfa_dm_act_disable_polling (tNFA_DM_MSG *p_data)
 
 /*******************************************************************************
 **
+** Function         nfa_dm_act_enable_listening
+**
+** Description      Process enable listening command
+**
+** Returns          TRUE (message buffer to be freed by caller)
+**
+*******************************************************************************/
+BOOLEAN nfa_dm_act_enable_listening (tNFA_DM_MSG *p_data)
+{
+    tNFA_CONN_EVT_DATA evt_data;
+
+    NFA_TRACE_DEBUG0 ("nfa_dm_act_enable_listening ()");
+
+    nfa_dm_cb.flags &= ~NFA_DM_FLAGS_LISTEN_DISABLED;
+    evt_data.status = NFA_STATUS_OK;
+    nfa_dm_conn_cback_event_notify (NFA_LISTEN_ENABLED_EVT, &evt_data);
+
+    return (TRUE);
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_act_disable_listening
+**
+** Description      Process disable listening command
+**
+** Returns          TRUE (message buffer to be freed by caller)
+**
+*******************************************************************************/
+BOOLEAN nfa_dm_act_disable_listening (tNFA_DM_MSG *p_data)
+{
+    tNFA_CONN_EVT_DATA evt_data;
+
+    NFA_TRACE_DEBUG0 ("nfa_dm_act_disable_listening ()");
+
+    nfa_dm_cb.flags |= NFA_DM_FLAGS_LISTEN_DISABLED;
+    evt_data.status = NFA_STATUS_OK;
+    nfa_dm_conn_cback_event_notify (NFA_LISTEN_DISABLED_EVT, &evt_data);
+
+    return (TRUE);
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_act_pause_p2p
+**
+** Description      Process Pause P2P command
+**
+** Returns          TRUE (message buffer to be freed by caller)
+**
+*******************************************************************************/
+BOOLEAN nfa_dm_act_pause_p2p (tNFA_DM_MSG *p_data)
+{
+    tNFA_CONN_EVT_DATA evt_data;
+
+    NFA_TRACE_DEBUG0 ("nfa_dm_act_pause_p2p ()");
+
+    nfa_dm_cb.flags |= NFA_DM_FLAGS_P2P_PAUSED;
+    evt_data.status = NFA_STATUS_OK;
+    nfa_dm_conn_cback_event_notify (NFA_P2P_PAUSED_EVT, &evt_data);
+
+    return (TRUE);
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_act_resume_p2p
+**
+** Description      Process resume P2P command
+**
+** Returns          TRUE (message buffer to be freed by caller)
+**
+*******************************************************************************/
+BOOLEAN nfa_dm_act_resume_p2p (tNFA_DM_MSG *p_data)
+{
+    tNFA_CONN_EVT_DATA evt_data;
+
+    NFA_TRACE_DEBUG0 ("nfa_dm_act_resume_p2p ()");
+
+    nfa_dm_cb.flags &= ~NFA_DM_FLAGS_P2P_PAUSED;
+    evt_data.status = NFA_STATUS_OK;
+    nfa_dm_conn_cback_event_notify (NFA_P2P_RESUMED_EVT, &evt_data);
+
+    return (TRUE);
+}
+
+/*******************************************************************************
+**
 ** Function         nfa_dm_act_send_raw_frame
 **
 ** Description      Send an raw frame on RF link
@@ -1119,42 +1216,6 @@ BOOLEAN nfa_dm_set_p2p_listen_tech (tNFA_DM_MSG *p_data)
 
     nfa_p2p_update_listen_tech (p_data->set_p2p_listen_tech.tech_mask);
     nfa_dm_conn_cback_event_notify (NFA_SET_P2P_LISTEN_TECH_EVT, NULL);
-
-    return (TRUE);
-}
-
-/*******************************************************************************
-**
-** Function         nfa_dm_act_enable_listening
-**
-** Description      Enables listen mode discovery
-**
-** Returns          TRUE (message buffer to be freed by caller)
-**
-*******************************************************************************/
-BOOLEAN nfa_dm_act_enable_listening (tNFA_DM_MSG *p_data)
-{
-    NFA_TRACE_DEBUG0 ("nfa_dm_act_enable_listening ()");
-
-    nfa_dm_cb.disc_cb.listen_disabled = FALSE;
-
-    return (TRUE);
-}
-
-/*******************************************************************************
-**
-** Function         nfa_dm_act_disable_listening
-**
-** Description      Temporarily disables listen mode discovery
-**
-** Returns          TRUE (message buffer to be freed by caller)
-**
-*******************************************************************************/
-BOOLEAN nfa_dm_act_disable_listening (tNFA_DM_MSG *p_data)
-{
-    NFA_TRACE_DEBUG0 ("nfa_dm_act_disable_listening ()");
-
-    nfa_dm_cb.disc_cb.listen_disabled = TRUE;
 
     return (TRUE);
 }
@@ -1552,8 +1613,16 @@ static void nfa_dm_poll_disc_cback (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_
             if (  (nfa_dm_cb.disc_cb.activated_protocol     == NFC_PROTOCOL_NFC_DEP)
                 &&(nfa_dm_cb.disc_cb.activated_rf_interface == NFC_INTERFACE_NFC_DEP)  )
             {
-                /* activate LLCP */
-                nfa_p2p_activate_llcp (p_data);
+                if (!(nfa_dm_cb.flags & NFA_DM_FLAGS_P2P_PAUSED))
+                {
+                    /* activate LLCP */
+                    nfa_p2p_activate_llcp (p_data);
+                }
+                else
+                {
+                    NFA_TRACE_DEBUG0 ("P2P is paused");
+                    nfa_dm_notify_activation_status (NFA_STATUS_OK, NULL);
+                }
             }
             else if (  (nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_T1T)
                      ||(nfa_dm_cb.disc_cb.activated_protocol  == NFC_PROTOCOL_T2T)

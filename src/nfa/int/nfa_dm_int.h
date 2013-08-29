@@ -45,6 +45,10 @@ enum
     NFA_DM_API_RELEASE_EXCL_RF_CTRL_EVT,
     NFA_DM_API_ENABLE_POLLING_EVT,
     NFA_DM_API_DISABLE_POLLING_EVT,
+    NFA_DM_API_ENABLE_LISTENING_EVT,
+    NFA_DM_API_DISABLE_LISTENING_EVT,
+    NFA_DM_API_PAUSE_P2P_EVT,
+    NFA_DM_API_RESUME_P2P_EVT,
     NFA_DM_API_RAW_FRAME_EVT,
     NFA_DM_API_SET_P2P_LISTEN_TECH_EVT,
     NFA_DM_API_START_RF_DISCOVERY_EVT,
@@ -59,8 +63,6 @@ enum
     NFA_DM_API_REG_VSC_EVT,
     NFA_DM_API_SEND_VSC_EVT,
     NFA_DM_TIMEOUT_DISABLE_EVT,
-    NFA_DM_API_ENABLE_LISTENING_EVT,
-    NFA_DM_API_DISABLE_LISTENING_EVT,
     NFA_DM_MAX_EVT
 };
 
@@ -150,7 +152,6 @@ typedef struct
     BT_HDR              hdr;
     UINT16              rf_disc_dur_ms;
 } tNFA_DM_API_SET_RF_DISC_DUR;
-
 #define NFA_RF_DISC_DURATION_MAX                0xFFFF
 
 /* data type for NFA_DM_API_REG_NDEF_HDLR_EVT */
@@ -394,8 +395,6 @@ typedef struct
     BOOLEAN                 deact_notify_pending;   /* TRUE if notify DEACTIVATED EVT while Stop rf discovery*/
     tNFA_DEACTIVATE_TYPE    pending_deact_type;     /* pending deactivate type                          */
 
-    BOOLEAN                 listen_disabled;        /* TRUE if listen mode discovery must be disabled */
-
 } tNFA_DM_DISC_CB;
 
 /* NDEF Type Handler Definitions */
@@ -417,6 +416,8 @@ typedef struct
 #define NFA_DM_FLAGS_NFCC_IS_RESTORING          0x00000100  /* NFCC is restoring after back to full power mode                      */
 #define NFA_DM_FLAGS_SETTING_PWR_MODE           0x00000200  /* NFCC power mode is updating                                          */
 #define NFA_DM_FLAGS_DM_DISABLING_NFC           0x00000400  /* NFA DM is disabling NFC                                              */
+#define NFA_DM_FLAGS_LISTEN_DISABLED            0x00001000  /* NFA_DisableListening() is called and engaged                         */
+#define NFA_DM_FLAGS_P2P_PAUSED                 0x00002000  /* NFA_PauseP2p() is called and engaged                         */
 /* stored parameters */
 typedef struct
 {
@@ -563,6 +564,10 @@ BOOLEAN nfa_dm_act_request_excl_rf_ctrl (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_release_excl_rf_ctrl (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_enable_polling (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_disable_polling (tNFA_DM_MSG *p_data);
+BOOLEAN nfa_dm_act_enable_listening (tNFA_DM_MSG *p_data);
+BOOLEAN nfa_dm_act_disable_listening (tNFA_DM_MSG *p_data);
+BOOLEAN nfa_dm_act_pause_p2p (tNFA_DM_MSG *p_data);
+BOOLEAN nfa_dm_act_resume_p2p (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_send_raw_frame (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_set_p2p_listen_tech (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_start_rf_discovery (tNFA_DM_MSG *p_data);
@@ -578,8 +583,6 @@ BOOLEAN nfa_dm_tout (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_reg_vsc (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_send_vsc (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_disable_timeout (tNFA_DM_MSG *p_data);
-BOOLEAN nfa_dm_act_enable_listening (tNFA_DM_MSG *p_data);
-BOOLEAN nfa_dm_act_disable_listening (tNFA_DM_MSG *p_data);
 BOOLEAN nfa_dm_act_nfc_cback_data (tNFA_DM_MSG *p_data);
 
 void nfa_dm_proc_nfcc_power_mode (UINT8 nfcc_power_mode);
@@ -610,6 +613,7 @@ BOOLEAN nfa_dm_is_protocol_supported (tNFA_NFC_PROTOCOL protocol, UINT8 sel_res)
 BOOLEAN nfa_dm_is_active (void);
 tNFC_STATUS nfa_dm_disc_sleep_wakeup (void);
 tNFC_STATUS nfa_dm_disc_start_kovio_presence_check (void);
+BOOLEAN nfa_dm_is_p2p_paused (void);
 
 
 #if (NFC_NFCEE_INCLUDED == FALSE)
