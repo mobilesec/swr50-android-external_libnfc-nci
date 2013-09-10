@@ -321,9 +321,10 @@ void nfc_ncif_check_cmd_queue (BT_HDR *p_buf)
                     nfc_cb.p_disc_pending = NULL;
                 }
             }
-            else
+            else if (nfc_cb.flags & NFC_FL_HAL_REQUESTED)
             {
                 /* grant the control to HAL */
+                nfc_cb.flags         &= ~NFC_FL_HAL_REQUESTED;
                 nfc_cb.flags         |= NFC_FL_CONTROL_GRANTED;
                 nfc_cb.nci_cmd_window = 0;
                 nfc_cb.p_hal->control_granted ();

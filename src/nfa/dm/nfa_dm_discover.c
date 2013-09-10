@@ -2306,7 +2306,7 @@ static void nfa_dm_disc_sm_poll_active (tNFA_DM_RF_DISC_SM_EVENT event,
         if (  (!old_sleep_wakeup_flag)
             ||(!nfa_dm_cb.disc_cb.deact_pending)  )
         {
-            NFC_Deactivate (NFC_DEACTIVATE_TYPE_DISCOVERY);
+            nfa_dm_send_deactivate_cmd (NFA_DEACTIVATE_TYPE_DISCOVERY);
         }
         break;
 

@@ -1079,6 +1079,7 @@ static void llcp_dlc_proc_rr_rnr_pdu (UINT8 dsap, UINT8 ptype, UINT8 ssap, UINT1
     tLLCP_DLCB *p_dlcb;
     BOOLEAN     flush = TRUE;
     tLLCP_SAP_CBACK_DATA cback_data;
+    BOOLEAN              old_remote_busy;
 
     LLCP_TRACE_DEBUG0 ("llcp_dlc_proc_rr_rnr_pdu ()");
 
@@ -1118,11 +1119,12 @@ static void llcp_dlc_proc_rr_rnr_pdu (UINT8 dsap, UINT8 ptype, UINT8 ssap, UINT1
                                 p_dlcb->next_tx_seq, p_dlcb->rcvd_ack_seq,
                                 p_dlcb->next_rx_seq, p_dlcb->sent_ack_seq);
 #endif
-
+            old_remote_busy = p_dlcb->remote_busy;
             if (ptype == LLCP_PDU_RNR_TYPE)
             {
+                p_dlcb->remote_busy = TRUE;
                 /* if upper layer hasn't get congestion started notification */
-                if (  (!p_dlcb->remote_busy)
+                if (  (!old_remote_busy)
                     &&(!p_dlcb->is_tx_congested)  )
                 {
                     LLCP_TRACE_WARNING3 ("llcp_dlc_proc_rr_rnr_pdu (): Data link (SSAP:DSAP=0x%X:0x%X) congestion start: i_xmit_q.count=%d",
@@ -1137,12 +1139,12 @@ static void llcp_dlc_proc_rr_rnr_pdu (UINT8 dsap, UINT8 ptype, UINT8 ssap, UINT1
 
                     (*p_dlcb->p_app_cb->p_app_cback) (&cback_data);
                 }
-                p_dlcb->remote_busy = TRUE;
             }
             else
             {
+                p_dlcb->remote_busy = FALSE;
                 /* if upper layer hasn't get congestion ended notification and data link is not congested */
-                if (  (p_dlcb->remote_busy)
+                if (  (old_remote_busy)
                     &&(!p_dlcb->is_tx_congested)  )
                 {
                     LLCP_TRACE_WARNING3 ("llcp_dlc_proc_rr_rnr_pdu (): Data link (SSAP:DSAP=0x%X:0x%X) congestion end: i_xmit_q.count=%d",
@@ -1157,7 +1159,6 @@ static void llcp_dlc_proc_rr_rnr_pdu (UINT8 dsap, UINT8 ptype, UINT8 ssap, UINT1
 
                     (*p_dlcb->p_app_cb->p_app_cback) (&cback_data);
                 }
-                p_dlcb->remote_busy = FALSE;
             }
 
             /* check flag to send DISC when tx queue is empty */

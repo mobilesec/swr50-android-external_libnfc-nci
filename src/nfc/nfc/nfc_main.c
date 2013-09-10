@@ -326,7 +326,7 @@ void nfc_gen_cleanup (void)
         nfc_cb.p_disc_pending = NULL;
     }
 
-    nfc_cb.flags &= ~(NFC_FL_CONTROL_REQUESTED|NFC_FL_CONTROL_GRANTED);
+    nfc_cb.flags &= ~(NFC_FL_CONTROL_REQUESTED | NFC_FL_CONTROL_GRANTED | NFC_FL_HAL_REQUESTED);
 
     nfc_stop_timer (&nfc_cb.deactivate_timer);
 
@@ -438,6 +438,7 @@ void nfc_main_handle_hal_evt (tNFC_HAL_EVT_MSG *p_msg)
 
     case HAL_NFC_REQUEST_CONTROL_EVT:
         nfc_cb.flags    |= NFC_FL_CONTROL_REQUESTED;
+        nfc_cb.flags    |= NFC_FL_HAL_REQUESTED;
         nfc_ncif_check_cmd_queue (NULL);
         break;
 
@@ -1147,6 +1148,11 @@ tNFC_STATUS NFC_Deactivate (tNFC_DEACT_TYPE deactivate_type)
     {
         /* the HAL pre-discover is still active - clear the pending flag */
         nfc_cb.flags &= ~NFC_FL_DISCOVER_PENDING;
+        if (!(nfc_cb.flags & NFC_FL_HAL_REQUESTED))
+        {
+            /* if HAL did not request for control, clear this bit now */
+            nfc_cb.flags &= ~NFC_FL_CONTROL_REQUESTED;
+        }
         GKI_freebuf (nfc_cb.p_disc_pending);
         nfc_cb.p_disc_pending = NULL;
         return NFC_STATUS_OK;

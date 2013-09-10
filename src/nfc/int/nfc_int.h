@@ -89,6 +89,7 @@ typedef UINT8 tNFC_STATE;
 #define NFC_FL_CONTROL_REQUESTED        0x0010  /* HAL requested control on NCI command window  */
 #define NFC_FL_CONTROL_GRANTED          0x0020  /* NCI command window is on the HAL side        */
 #define NFC_FL_DISCOVER_PENDING         0x0040  /* NCI command window is on the HAL side        */
+#define NFC_FL_HAL_REQUESTED            0x0080  /* NFC_FL_CONTROL_REQUESTED on HAL request      */
 
 #define NFC_PEND_CONN_ID               0xFE
 #define NFC_CONN_ID_INT_MASK           0xF0
