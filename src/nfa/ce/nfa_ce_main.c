@@ -86,6 +86,7 @@ void nfa_ce_init (void)
     nfa_ce_t3t_generate_rand_nfcid (nfa_ce_cb.listen_info[NFA_CE_LISTEN_INFO_IDX_NDEF].t3t_nfcid2);
     nfa_ce_cb.listen_info[NFA_CE_LISTEN_INFO_IDX_NDEF].rf_disc_handle = NFA_HANDLE_INVALID;
     nfa_ce_cb.isodep_disc_mask  = NFA_CE_DEFAULT_ISODEP_DISC_MASK;
+    nfa_ce_cb.idx_wild_card     = NFA_CE_LISTEN_INFO_IDX_INVALID;
 
     /* register message handler on NFA SYS */
     nfa_sys_register ( NFA_ID_CE,  &nfa_ce_sys_reg);

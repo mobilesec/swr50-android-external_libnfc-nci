@@ -179,6 +179,7 @@ typedef struct
     /* listen_info table (table of listen paramters and app callbacks) */
     tNFA_CE_LISTEN_INFO listen_info[NFA_CE_LISTEN_INFO_MAX];/* listen info table                            */
     UINT8               idx_cur_active;                     /* listen_info index for currently activated CE */
+    UINT8               idx_wild_card;                      /* listen_info index for T4T wild card CE */
 
     tNFA_DM_DISC_TECH_PROTO_MASK isodep_disc_mask;          /* the technology/protocol mask for ISO-DEP */
 

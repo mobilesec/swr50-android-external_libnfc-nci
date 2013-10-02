@@ -111,7 +111,6 @@ typedef struct
     UINT8               selected_aid_idx;
 } tCE_T4T_MEM;
 
-#define CE_T4T_WILDCARD_AID_HANDLE  (CE_T4T_MAX_REG_AID)    /* reserved handle for wildcard aid */
 
 /* CE memory control blocks */
 typedef struct
