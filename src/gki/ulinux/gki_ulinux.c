@@ -563,7 +563,6 @@ void GKI_run (void *p_task_id)
     } /* for */
 #endif
     GKI_TRACE_1("%s exit", __func__);
-    return(0);
 }
 
 
