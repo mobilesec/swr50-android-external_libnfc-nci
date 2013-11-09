@@ -58,6 +58,8 @@ UINT32 ScrProtocolTraceFlag = SCR_PROTO_TRACE_ALL; //0x017F00;
 static void BroadcomHalCallback (UINT8 event, tHAL_NFC_STATUS status);
 static void BroadcomHalDataCallback (UINT16 data_len, UINT8* p_data);
 
+static bool isColdBoot = true;
+
 extern tNFC_HAL_CFG *p_nfc_hal_cfg;
 extern const UINT8  nfca_version_string [];
 extern const UINT8  nfa_version_string [];
@@ -74,7 +76,6 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
     unsigned long num = 0;
     char temp[120];
     UINT8 logLevel = 0;
-    static bool isColdBoot = true;
 
     logLevel = InitializeGlobalAppLogLevel ();
 
@@ -183,13 +184,9 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
         p_nfc_hal_cfg->nfc_hal_hci_uicc_support = 0;
     }
 
-    if (isColdBoot)
-    {
-        isColdBoot = false;
-        p_nfc_hal_cfg->nfc_hal_first_boot = TRUE;
-    }
-    else
-        p_nfc_hal_cfg->nfc_hal_first_boot = FALSE;
+    // Set 'first boot' flag based on static variable that will get set to false
+    // after the stack has first initialized the EE.
+    p_nfc_hal_cfg->nfc_hal_first_boot = isColdBoot ? TRUE : FALSE;
 
     HAL_NfcInitialize ();
     HAL_NfcSetTraceLevel (logLevel); // Initialize HAL's logging level
@@ -371,6 +368,10 @@ int HaiGetMaxNfcee (const bcm2079x_dev_t* device, uint8_t* maxNfcee)
 {
     ALOGD ("%s: enter", __FUNCTION__);
     int retval = EACCES;
+
+    // This function is a clear indication that the stack is initializing
+    // EE.  So we can reset the cold-boot flag here.
+    isColdBoot = false;
 
     if ( maxNfcee )
     {
