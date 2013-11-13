@@ -148,10 +148,14 @@ tNFC_HAL_CFG nfc_hal_cfg =
                                             ** then set it to short to optimize bootup time because NFCC cannot send RESET NTF.
                                             ** Otherwise, it depends on NVM type and size of patchram.
                                             */
-    (UINT16) NFC_HAL_NFCC_ENABLE_TIMEOUT,   /* max time to wait for RESET NTF after setting Xtal frequency
+    (UINT16) NFC_HAL_NFCC_ENABLE_TIMEOUT    /* max time to wait for RESET NTF after setting Xtal frequency
                                             ** It depends on NVM type and size of patchram.
                                             */
-    (HAL_NFC_HCI_UICC0_HOST | HAL_NFC_HCI_UICC1_HOST)  /* Set bit(s) for supported UICC(s) */
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
+    ,
+    TRUE,                                   /* set nfc_hal_first_boot to TRUE, if platform enables NFC for the first time after bootup */
+    (HAL_NFC_HCI_UICC0_HOST | HAL_NFC_HCI_UICC1_HOST | HAL_NFC_HCI_UICC2_HOST)  /* Set bit(s) for supported UICC(s) */
+#endif
 };
 
 tNFC_HAL_CFG *p_nfc_hal_cfg= (tNFC_HAL_CFG *) &nfc_hal_cfg;

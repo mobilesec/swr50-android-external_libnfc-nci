@@ -108,7 +108,7 @@ BOOLEAN crcChecksumVerifyIntegrity (const char* filename)
         while (true)
         {
             char buffer [1024];
-            size_t actualReadData = read (fileStream, buffer, sizeof(buffer));
+            ssize_t actualReadData = read (fileStream, buffer, sizeof(buffer));
             if (actualReadData > 0)
                 data.append (buffer, actualReadData);
             else

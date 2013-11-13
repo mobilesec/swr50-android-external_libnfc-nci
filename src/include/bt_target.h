@@ -38,6 +38,10 @@
 **
 ******************************************************************************/
 
+#ifndef BT_BRCM_VS_INCLUDED
+#define BT_BRCM_VS_INCLUDED             TRUE
+#endif
+
 /* set to FALSE unless using Zeevo */
 #ifndef ZEEVO_CTRL_DEFINED
 #define ZEEVO_CTRL_DEFINED FALSE
@@ -530,10 +534,10 @@ BT_API extern void HCILL_RegState( tHCILL_STATE_CBACK *p_cback);
 #endif
 
 /* Quick Timer */
-/* if L2CAP_FCR_INCLUDED is TRUE then it should have 100 millisecond resolution */
+/* minimum should have 100 millisecond resolution for eL2CAP */
 /* if HCILP_INCLUDED is TRUE     then it should have 100 millisecond resolution */
 /* if SLIP_INCLUDED is TRUE      then it should have 10 millisecond resolution  */
-/* if BCM2045_USE_DELAY is FALSE then it should have 10 millisecond resolution  */
+/* if BRCM_USE_DELAY is FALSE then it should have 10 millisecond resolution  */
 /* if none of them is included then QUICK_TIMER_TICKS_PER_SEC is set to 0 to exclude quick timer */
 #ifndef QUICK_TIMER_TICKS_PER_SEC
 #define QUICK_TIMER_TICKS_PER_SEC   100       /* 10ms timer */
@@ -551,36 +555,15 @@ and USER_HW_DISABLE_API macros */
 #define BTM_AUTOMATIC_HCI_RESET      TRUE
 #endif
 
-/* Include BTM Discovery database and code. */
-#ifndef BTM_DISCOVERY_INCLUDED
-#define BTM_DISCOVERY_INCLUDED      TRUE
-#endif
-
-/* Include inquiry code. */
-#ifndef BTM_INQUIRY_INCLUDED
-#define BTM_INQUIRY_INCLUDED        TRUE
-#endif
-
 /* Cancel Inquiry on incoming SSP - Work around code for a FW issue (CQ#167446). */
 #ifndef BTM_NO_SSP_ON_INQUIRY
 #define BTM_NO_SSP_ON_INQUIRY       FALSE
-#endif
-
-/* Include periodic inquiry code (used when BTM_INQUIRY_INCLUDED is TRUE). */
-#ifndef BTM_PERIODIC_INQ_INCLUDED
-#define BTM_PERIODIC_INQ_INCLUDED   TRUE
-#endif
-
-/* Include security authorization code */
-#ifndef BTM_AUTHORIZATION_INCLUDED
-#define BTM_AUTHORIZATION_INCLUDED  TRUE
 #endif
 
 /* Include the implemenation needed by Pre-Lisbon controller (2.0_EDR or older) */
 #ifndef BTM_PRE_LISBON_INCLUDED
 #define BTM_PRE_LISBON_INCLUDED     TRUE
 #endif
-
 
 /* Includes SCO if TRUE */
 #ifndef BTM_SCO_INCLUDED
@@ -629,11 +612,6 @@ and USER_HW_DISABLE_API macros */
 #define BTM_INQ_DB_SIZE             12
 #endif
 
-/* This is set to enable automatic periodic inquiry at startup. */
-#ifndef BTM_ENABLE_AUTO_INQUIRY
-#define BTM_ENABLE_AUTO_INQUIRY     FALSE
-#endif
-
 /* This is set to always try to acquire the remote device name. */
 #ifndef BTM_INQ_GET_REMOTE_NAME
 #define BTM_INQ_GET_REMOTE_NAME     FALSE
@@ -657,16 +635,6 @@ and USER_HW_DISABLE_API macros */
 /* The default periodic inquiry minimum delay when auto inquiry is enabled, in 1.28 second units. */
 #ifndef BTM_DEFAULT_INQ_MIN_DELAY
 #define BTM_DEFAULT_INQ_MIN_DELAY   20
-#endif
-
-/* The maximum age of entries in inquiry database in seconds ('0' disables feature). */
-#ifndef BTM_INQ_MAX_AGE
-#define BTM_INQ_MAX_AGE             0
-#endif
-
-/* The maximum age of entries in inquiry database based on inquiry response failure ('0' disables feature). */
-#ifndef BTM_INQ_AGE_BY_COUNT
-#define BTM_INQ_AGE_BY_COUNT        0
 #endif
 
 /* TRUE if controller does not support inquiry event filtering. */
@@ -722,16 +690,6 @@ and USER_HW_DISABLE_API macros */
 /* When automatic inquiry scan is enabled, this sets the inquiry scan interval. */
 #ifndef BTM_DEFAULT_DISC_INTERVAL
 #define BTM_DEFAULT_DISC_INTERVAL   0x0800
-#endif
-
-/* Sets the period, in seconds, to automatically perform service discovery. */
-#ifndef BTM_AUTO_DISCOVERY_PERIOD
-#define BTM_AUTO_DISCOVERY_PERIOD   0
-#endif
-
-/* The size in bytes of the BTM discovery database (if discovery is included). */
-#ifndef BTM_DISCOVERY_DB_SIZE
-#define BTM_DISCOVERY_DB_SIZE       4000
 #endif
 
 /* Number of milliseconds to delay BTU task startup upon device initialization. */
@@ -865,7 +823,7 @@ and USER_HW_DISABLE_API macros */
 
 /* Maximum number of callbacks that can be registered using BTM_RegisterForVSEvents */
 #ifndef BTM_MAX_VSE_CALLBACKS
-#define BTM_MAX_VSE_CALLBACKS           3
+#define BTM_MAX_VSE_CALLBACKS           6
 #endif
 
 /* Number of streams for dual stack */
@@ -916,7 +874,7 @@ and USER_HW_DISABLE_API macros */
 /* The default MITM Protection Requirement for dedicated bonding using Simple Pairing
  * Possible values are BTM_AUTH_AP_YES or BTM_AUTH_AP_NO */
 #ifndef BTM_DEFAULT_DD_AUTH_REQ
-#define BTM_DEFAULT_DD_AUTH_REQ            BTM_AUTH_AP_YES
+#define BTM_DEFAULT_DD_AUTH_REQ         BTM_AUTH_AP_YES
 #endif
 
 /* Include Out-of-Band implementation for Simple Pairing */
@@ -933,9 +891,29 @@ and USER_HW_DISABLE_API macros */
 ** End of Lisbon Features
 **************************/
 
+/* This is set to use the BTM TBFC Supported. */
+#ifndef BTM_TBFC_INCLUDED
+#define BTM_TBFC_INCLUDED               FALSE
+#endif
+
+/* TRUE to include bi-directionnal TBFC */
+#ifndef BTM_BI_DIR_TBFC_INCLUDED
+#define BTM_BI_DIR_TBFC_INCLUDED        FALSE
+#endif
+
+/* TRUE to include CLB (ConnectionLess Slave Broadcast) */
+#ifndef BTM_CLB_INCLUDED
+#define BTM_CLB_INCLUDED                FALSE
+#endif
+
+/* TRUE to include CLB Rx (ConnectionLess Broadcast Reception) */
+#ifndef BTM_CLB_RX_INCLUDED
+#define BTM_CLB_RX_INCLUDED             FALSE
+#endif
+
 /* Used for conformance testing ONLY */
 #ifndef BTM_BLE_CONFORMANCE_TESTING
-#define BTM_BLE_CONFORMANCE_TESTING           FALSE
+#define BTM_BLE_CONFORMANCE_TESTING     FALSE
 #endif
 
 
@@ -944,12 +922,6 @@ and USER_HW_DISABLE_API macros */
 ** L2CAP
 **
 ******************************************************************************/
-
-/* Flow control and retransmission mode */
-
-#ifndef L2CAP_FCR_INCLUDED
-#define L2CAP_FCR_INCLUDED FALSE
-#endif
 
 /* The maximum number of simultaneous links that L2CAP can support. */
 #ifndef MAX_L2CAP_LINKS
@@ -1310,13 +1282,6 @@ and USER_HW_DISABLE_API macros */
 #define AMP_RFC_TEST            FALSE
 #endif
 
-#ifndef TIMER_PARAM_TYPE
-#ifdef  WIN2000
-#define TIMER_PARAM_TYPE    void *
-#else
-#define TIMER_PARAM_TYPE    UINT32
-#endif
-#endif
 
 /******************************************************************************
 **
@@ -1332,25 +1297,34 @@ and USER_HW_DISABLE_API macros */
 #define LOCAL_BLE_CONTROLLER_ID         (AMP_MAX_LOCAL_CTRLS + 1)
 #endif
 
+#ifndef BTM_BLE_PRIVACY_SPT
+#define BTM_BLE_PRIVACY_SPT         FALSE
+#endif
+
+#ifndef BTM_PERIPHERAL_ENABLED
+#define BTM_PERIPHERAL_ENABLED     FALSE
+#endif
+
+#ifndef HID_LE_INCLUDED
+#define HID_LE_INCLUDED         FALSE
+#endif
+
+#ifndef BLE_BRCM_INCLUDED
+#define BLE_BRCM_INCLUDED         FALSE
+#endif
+
+#ifndef BTM_DUMO_ADDR_CENTRAL_ENABLED
+#define BTM_DUMO_ADDR_CENTRAL_ENABLED         FALSE
+#endif
+
+
 /******************************************************************************
 **
 ** ATT/GATT Protocol/Profile Settings
 **
 ******************************************************************************/
-#ifndef ATT_INCLUDED
-#define ATT_INCLUDED         FALSE
-#endif
-
 #ifndef ATT_DEBUG
 #define ATT_DEBUG           FALSE
-#endif
-
-#ifndef GATT_SERVER_ENABLED
-#define GATT_SERVER_ENABLED          FALSE
-#endif
-
-#ifndef GATT_CLIENT_ENABLED
-#define GATT_CLIENT_ENABLED          FALSE
 #endif
 
 #ifndef GATT_MAX_SR_PROFILES
@@ -1362,7 +1336,7 @@ and USER_HW_DISABLE_API macros */
 #endif
 
 #ifndef GATT_MAX_PHY_CHANNEL
-#define GATT_MAX_PHY_CHANNEL        4
+#define GATT_MAX_PHY_CHANNEL        4 /* limited by the BLE controller upto 15 */
 #endif
 
 /* Used for conformance testing ONLY */
@@ -1424,11 +1398,7 @@ and USER_HW_DISABLE_API macros */
 
 /* The maximum number of attributes in each record. */
 #ifndef SDP_MAX_REC_ATTR
-#if defined(HID_DEV_INCLUDED) && (HID_DEV_INCLUDED==TRUE)
 #define SDP_MAX_REC_ATTR            25
-#else
-#define SDP_MAX_REC_ATTR            13
-#endif
 #endif
 
 #ifndef SDP_MAX_PAD_LEN
@@ -1437,11 +1407,7 @@ and USER_HW_DISABLE_API macros */
 
 /* The maximum length, in bytes, of an attribute. */
 #ifndef SDP_MAX_ATTR_LEN
-#if defined(HID_DEV_INCLUDED) && (HID_DEV_INCLUDED==TRUE)
-#define SDP_MAX_ATTR_LEN            80
-#else
-#define SDP_MAX_ATTR_LEN            100
-#endif
+#define SDP_MAX_ATTR_LEN            256
 #endif
 
 /* The maximum number of attribute filters supported by SDP databases. */
@@ -1497,11 +1463,6 @@ and USER_HW_DISABLE_API macros */
 /* The security level for BTM. */
 #ifndef SDP_SECURITY_LEVEL
 #define SDP_SECURITY_LEVEL          BTM_SEC_NONE
-#endif
-
-/* Device identification feature. */
-#ifndef SDP_DI_INCLUDED
-#define SDP_DI_INCLUDED             FALSE
 #endif
 
 /******************************************************************************
@@ -1587,11 +1548,6 @@ and USER_HW_DISABLE_API macros */
 /* The credit low watermark level. */
 #ifndef PORT_CREDIT_RX_LOW
 #define PORT_CREDIT_RX_LOW          8
-#endif
-
-/* Test code allowing l2cap FEC on RFCOMM.*/
-#ifndef PORT_ENABLE_L2CAP_FCR_TEST
-#define PORT_ENABLE_L2CAP_FCR_TEST  FALSE
 #endif
 
 /* if application like BTA, Java or script test engine is running on other than BTU thread, */
@@ -1693,30 +1649,9 @@ and USER_HW_DISABLE_API macros */
 #define OBX_SERVER_INCLUDED        TRUE
 #endif
 
-/* TRUE to include OBEX authentication/MD5 code */
-#ifndef OBX_MD5_INCLUDED
-#define OBX_MD5_INCLUDED           TRUE
-#endif
-
 /* TRUE to include OBEX authentication/MD5 test code */
 #ifndef OBX_MD5_TEST_INCLUDED
 #define OBX_MD5_TEST_INCLUDED       FALSE
-#endif
-
-/* TRUE to include OBEX 1.4 enhancement (including Obex Over L2CAP) */
-#ifndef OBX_14_INCLUDED
-#define OBX_14_INCLUDED             FALSE
-#endif
-/* MD5 code is required to use OBEX 1.4 features (Reliable session) */
-#if (OBX_MD5_INCLUDED == FALSE)
-#undef OBX_14_INCLUDED
-#define OBX_14_INCLUDED             FALSE
-#endif
-
-/* L2CAP FCR/eRTM mode is required to use OBEX Over L2CAP */
-#if (L2CAP_FCR_INCLUDED == FALSE)
-#undef OBX_14_INCLUDED
-#define OBX_14_INCLUDED             FALSE
 #endif
 
 /* The timeout value (in seconds) for reliable sessions to remain in suspend. 0xFFFFFFFF for no timeout event. */
@@ -1737,11 +1672,6 @@ and USER_HW_DISABLE_API macros */
 /* The maximum number of registered servers. */
 #ifndef OBX_NUM_SERVERS
 #define OBX_NUM_SERVERS             12
-#endif
-
-/* The maximum number of sessions per registered server. */
-#ifndef OBX_MAX_SR_SESSION
-#define OBX_MAX_SR_SESSION          4
 #endif
 
 /* The maximum number of sessions for all registered servers.
@@ -1781,7 +1711,7 @@ and USER_HW_DISABLE_API macros */
 #define OBX_MAX_RX_QUEUE_COUNT      3
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
+/* This option is application when OBEX over L2CAP is in use
    Pool ID where to reassemble the SDU.
    This Pool will allow buffers to be used that are larger than
    the L2CAP_MAX_MTU. */
@@ -1789,7 +1719,7 @@ and USER_HW_DISABLE_API macros */
 #define OBX_USER_RX_POOL_ID     OBX_LRG_DATA_POOL_ID
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
+/* This option is application when OBEX over L2CAP is in use
    Pool ID where to hold the SDU.
    This Pool will allow buffers to be used that are larger than
    the L2CAP_MAX_MTU. */
@@ -1797,14 +1727,14 @@ and USER_HW_DISABLE_API macros */
 #define OBX_USER_TX_POOL_ID     OBX_LRG_DATA_POOL_ID
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
+/* This option is application when OBEX over L2CAP is in use
 GKI Buffer Pool ID used to hold MPS segments during SDU reassembly
 */
 #ifndef OBX_FCR_RX_POOL_ID
 #define OBX_FCR_RX_POOL_ID      HCI_ACL_POOL_ID
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
+/* This option is application when OBEX over L2CAP is in use
 GKI Buffer Pool ID used to hold MPS segments used in (re)transmissions.
 L2CAP_DEFAULT_ERM_POOL_ID is specified to use the HCI ACL data pool.
 Note:  This pool needs to have enough buffers to hold two times the window size negotiated
@@ -1816,7 +1746,7 @@ Note:  This pool needs to have enough buffers to hold two times the window size 
 #define OBX_FCR_TX_POOL_ID      HCI_ACL_POOL_ID
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
+/* This option is application when OBEX over L2CAP is in use
 Size of the transmission window when using enhanced retransmission mode. Not used
 in basic and streaming modes. Range: 1 - 63
 This is used when AMP_INCLUDED == FALSE
@@ -1825,7 +1755,7 @@ This is used when AMP_INCLUDED == FALSE
 #define OBX_FCR_OPT_TX_WINDOW_SIZE_BR_EDR       20
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
+/* This option is application when OBEX over L2CAP is in use
 Size of the transmission window when using enhanced retransmission mode. Not used
 in basic and streaming modes. Range: 1 - 63
 This is used when AMP_INCLUDED == TRUE
@@ -1834,7 +1764,7 @@ This is used when AMP_INCLUDED == TRUE
 #define OBX_FCR_OPT_TX_WINDOW_SIZE_AMP          45
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
+/* This option is application when OBEX over L2CAP is in use
 Number of transmission attempts for a single I-Frame before taking
 Down the connection. Used In ERTM mode only. Value is Ignored in basic and
 Streaming modes.
@@ -1846,7 +1776,7 @@ Range: 0, 1-0xFF
 #define OBX_FCR_OPT_MAX_TX_B4_DISCNT    20
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
+/* This option is application when OBEX over L2CAP is in use
 Retransmission Timeout
 Range: Minimum 2000 (2 secs) on BR/EDR when supporting PBF.
  */
@@ -1854,7 +1784,7 @@ Range: Minimum 2000 (2 secs) on BR/EDR when supporting PBF.
 #define OBX_FCR_OPT_RETX_TOUT           2000
 #endif
 
-/* This option is application when OBX_14_INCLUDED=TRUE
+/* This option is application when OBEX over L2CAP is in use
 Monitor Timeout
 Range: Minimum 12000 (12 secs) on BR/EDR when supporting PBF.
 */
@@ -3350,11 +3280,6 @@ Range: Minimum 12000 (12 secs) on BR/EDR when supporting PBF.
 #define AVCT_BROWSE_INCLUDED        TRUE
 #endif
 
-#if ((L2CAP_FCR_INCLUDED == FALSE) && (AVCT_BROWSE_INCLUDED == TRUE))
-#undef AVCT_BROWSE_INCLUDED
-#define AVCT_BROWSE_INCLUDED        FALSE
-#endif
-
 /* Pool ID where to reassemble the SDU.
    This Pool allows buffers to be used that are larger than
    the L2CAP_MAX_MTU. */
@@ -3850,7 +3775,7 @@ The H5 work around sequence will be:
 #endif
 
 #ifndef H4IBSS_INCLUDED
-#define H4IBSS_INCLUDED                 TRUE
+#define H4IBSS_INCLUDED                 FALSE  /* !!!! Android must use FALSE */
 #endif
 
 /* display H4IBSS state and event in text */
@@ -3980,12 +3905,12 @@ The H5 work around sequence will be:
 
 
 /* Use gki_delay for patch ram */
-#ifndef BCM2045_USE_DELAY
+#ifndef BRCM_USE_DELAY
 #if ( SLIP_INCLUDED == TRUE )
 /* H5 need to be initialized after sending download mini driver HCI command */
-#define BCM2045_USE_DELAY           FALSE
+#define BRCM_USE_DELAY           FALSE
 #else
-#define BCM2045_USE_DELAY           TRUE
+#define BRCM_USE_DELAY           TRUE
 #endif
 #endif
 
@@ -4004,6 +3929,15 @@ The H5 work around sequence will be:
 #define BTA_EIR_SERVER_NUM_CUSTOM_UUID     8
 #endif
 
+/* MIP A2DP Feature enabled */
+#ifndef BTA_MIP_INCLUDED
+#define BTA_MIP_INCLUDED   FALSE
+#endif
+
+/* No 3D sync profile debug by default */
+#ifndef BTA_3DS_DEBUG
+#define BTA_3DS_DEBUG FALSE
+#endif
 /******************************************************************************
 **
 ** BTE

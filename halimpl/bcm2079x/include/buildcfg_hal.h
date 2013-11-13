@@ -18,7 +18,6 @@
 //override any HAL-specific macros
 #pragma once
 
-
 #include "bt_types.h"
 
 //NFC_HAL_TASK=0 is already defined in gki_hal_target.h; it executes the Broadcom HAL

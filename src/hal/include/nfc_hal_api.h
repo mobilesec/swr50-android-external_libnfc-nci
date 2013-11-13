@@ -24,7 +24,7 @@
  ******************************************************************************/
 #ifndef NFC_HAL_API_H
 #define NFC_HAL_API_H
-#include <hardware/nfc.h> /* Android must include HAL header */
+#include <hardware/nfc.h>
 #include "data_types.h"
 
 /****************************************************************************
@@ -40,13 +40,13 @@ typedef struct
 #define NFC_HDR_SIZE (sizeof (NFC_HDR))
 
 /*******************************************************************************
-** tHAL_STATUS Definitions are defined in hardware/libhardware/include/hardware/nfc.h
-** #define HAL_NFC_STATUS_OK               0
-** #define HAL_NFC_STATUS_FAILED           1
-** #define HAL_NFC_STATUS_ERR_TRANSPORT    2
-** #define HAL_NFC_STATUS_ERR_CMD_TIMEOUT  3
-** #define HAL_NFC_STATUS_REFUSED          4
+** tHAL_STATUS Definitions
 *******************************************************************************/
+#define HAL_NFC_STATUS_OK               0
+#define HAL_NFC_STATUS_FAILED           1
+#define HAL_NFC_STATUS_ERR_TRANSPORT    2
+#define HAL_NFC_STATUS_ERR_CMD_TIMEOUT  3
+#define HAL_NFC_STATUS_REFUSED          4
 
 typedef UINT8 tHAL_NFC_STATUS;
 
@@ -56,21 +56,20 @@ typedef UINT8 tHAL_NFC_STATUS;
 #define HAL_NFC_HCI_NO_UICC_HOST    0x00
 #define HAL_NFC_HCI_UICC0_HOST      0x01
 #define HAL_NFC_HCI_UICC1_HOST      0x02
+#define HAL_NFC_HCI_UICC2_HOST      0x04
 
 /*******************************************************************************
 ** tHAL_NFC_CBACK Definitions
 *******************************************************************************/
 
-/*******************************************************************************
-** tHAL_NFC_CBACK events are defined in hardware/libhardware/include/hardware/nfc.h
-** #define HAL_NFC_OPEN_CPLT_EVT           0x00
-** #define HAL_NFC_CLOSE_CPLT_EVT          0x01
-** #define HAL_NFC_POST_INIT_CPLT_EVT      0x02
-** #define HAL_NFC_PRE_DISCOVER_CPLT_EVT   0x03
-** #define HAL_NFC_REQUEST_CONTROL_EVT     0x04
-** #define HAL_NFC_RELEASE_CONTROL_EVT     0x05
-** #define HAL_NFC_ERROR_EVT               0x06
-*******************************************************************************/
+/* tHAL_NFC_CBACK events */
+#define HAL_NFC_OPEN_CPLT_EVT           0x00
+#define HAL_NFC_CLOSE_CPLT_EVT          0x01
+#define HAL_NFC_POST_INIT_CPLT_EVT      0x02
+#define HAL_NFC_PRE_DISCOVER_CPLT_EVT   0x03
+#define HAL_NFC_REQUEST_CONTROL_EVT     0x04
+#define HAL_NFC_RELEASE_CONTROL_EVT     0x05
+#define HAL_NFC_ERROR_EVT               0x06
 
 
 typedef void (tHAL_NFC_STATUS_CBACK) (tHAL_NFC_STATUS status);
@@ -99,7 +98,10 @@ typedef struct
     BOOLEAN nfc_hal_prm_nvm_required;       /* set nfc_hal_prm_nvm_required to TRUE, if the platform wants to abort PRM process without NVM */
     UINT16  nfc_hal_nfcc_enable_timeout;    /* max time to wait for RESET NTF after setting REG_PU to high */
     UINT16  nfc_hal_post_xtal_timeout;      /* max time to wait for RESET NTF after setting Xtal frequency */
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
+    BOOLEAN nfc_hal_first_boot;             /* set nfc_hal_first_boot to TRUE, if platform enables NFC for the first time after bootup */
     UINT8   nfc_hal_hci_uicc_support;       /* set nfc_hal_hci_uicc_support to Zero, if no UICC is supported otherwise set corresponding bit(s) for every supported UICC(s) */
+#endif
 } tNFC_HAL_CFG;
 
 typedef struct

@@ -110,7 +110,7 @@ typedef struct
     UINT8               num_gates;                      /* Number of generic gates exist for the application */
     UINT8               gate[NFA_HCI_MAX_GATE_CB];      /* List of generic gates allocated to the application */
     UINT8               num_uicc_created_pipes;         /* Number of pipes created by UICC host */
-    tNFA_HCI_PIPE_INFO  uicc_created_pipe[NFA_HCI_MAX_HOST_IN_NETWORK]; /* Pipe information of the UICC created pipe */
+    tNFA_HCI_PIPE_INFO  uicc_created_pipe[NFA_HCI_MAX_PIPE_CB]; /* Pipe information of the UICC created pipe */
 } tNFA_HCI_GET_GATE_PIPE_LIST;
 
 /* Data for NFA_HCI_ALLOCATE_GATE_EVT */
@@ -341,20 +341,19 @@ NFC_API extern tNFA_STATUS NFA_HciDeregister (char *p_app_name);
 **
 ** Function         NFA_HciAllocGate
 **
-** Description      This function will allocate an available generic gate for
-**                  the app to provide an entry point for a particular service
-**                  to other host or to establish communication with other host.
-**                  When the generic gate is allocated (or if an error occurs),
-**                  the app will be notified with NFA_HCI_ALLOCATE_GATE_EVT with
-**                  the gate id. The allocated Gate information will be stored in
-**                  non volatile memory.
+** Description      This function will allocate the gate if any specified or an
+**                  available generic gate for the app to provide an entry point
+**                  for a particular service to other host or to establish
+**                  communication with other host. When the gate is
+**                  allocated (or if an error occurs), the app will be notified
+**                  with NFA_HCI_ALLOCATE_GATE_EVT with the gate id. The allocated
+**                  Gate information will be stored in non volatile memory.
 **
 ** Returns          NFA_STATUS_OK if this API started
-**                  NFA_STATUS_BAD_HANDLE if handle is not valid
 **                  NFA_STATUS_FAILED if no generic gate is available
 **
 *******************************************************************************/
-NFC_API extern tNFA_STATUS NFA_HciAllocGate (tNFA_HANDLE hci_handle);
+NFC_API extern tNFA_STATUS NFA_HciAllocGate (tNFA_HANDLE hci_handle, UINT8 gate);
 
 /*******************************************************************************
 **

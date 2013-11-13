@@ -450,6 +450,18 @@ static void nfa_hci_api_get_gate_pipe_list (tNFA_HCI_EVENT_DATA *p_evt_data)
         {
             memcpy (&evt_data.gates_pipes.uicc_created_pipe [evt_data.gates_pipes.num_uicc_created_pipes++], pp, sizeof (tNFA_HCI_PIPE_INFO));
         }
+        else if (pp->pipe_id >= NFA_HCI_FIRST_DYNAMIC_PIPE  && pp->pipe_id <= NFA_HCI_LAST_DYNAMIC_PIPE  && pp->pipe_id && pp->local_gate >= NFA_HCI_FIRST_PROP_GATE && pp->local_gate <= NFA_HCI_LAST_PROP_GATE)
+        {
+            for (xx = 0, pg = nfa_hci_cb.cfg.dyn_gates; xx < NFA_HCI_MAX_GATE_CB; xx++, pg++)
+            {
+                if (pp->local_gate == pg->gate_id)
+                {
+                    if (!pg->gate_owner)
+                        memcpy (&evt_data.gates_pipes.uicc_created_pipe [evt_data.gates_pipes.num_uicc_created_pipes++], pp, sizeof (tNFA_HCI_PIPE_INFO));
+                    break;
+                }
+            }
+        }
     }
 
     evt_data.gates_pipes.status = NFA_STATUS_OK;
@@ -462,7 +474,7 @@ static void nfa_hci_api_get_gate_pipe_list (tNFA_HCI_EVENT_DATA *p_evt_data)
 **
 ** Function         nfa_hci_api_alloc_gate
 **
-** Description      action function to allocate a generic gate
+** Description      action function to allocate gate
 **
 ** Returns          None
 **
@@ -473,7 +485,22 @@ static void nfa_hci_api_alloc_gate (tNFA_HCI_EVENT_DATA *p_evt_data)
     tNFA_HCI_EVT_DATA   evt_data;
     tNFA_HCI_DYN_GATE   *p_gate;
 
-    p_gate = nfa_hciu_alloc_gate (0, app_handle);
+    p_gate = nfa_hciu_alloc_gate (p_evt_data->gate_info.gate, app_handle);
+
+    if (p_gate)
+    {
+        if (!p_gate->gate_owner)
+        {
+            /* No app owns the gate yet */
+            p_gate->gate_owner = app_handle;
+        }
+        else if (p_gate->gate_owner != app_handle)
+        {
+            /* Some other app owns the gate */
+            p_gate = NULL;
+            NFA_TRACE_ERROR1 ("nfa_hci_api_alloc_gate (): The Gate (0X%02x) already taken!", p_evt_data->gate_info.gate);
+        }
+    }
 
     evt_data.allocated.gate   = p_gate ? p_gate->gate_id : 0;
     evt_data.allocated.status = p_gate ? NFA_STATUS_OK : NFA_STATUS_FAILED;
@@ -599,14 +626,26 @@ static BOOLEAN nfa_hci_api_create_pipe (tNFA_HCI_EVENT_DATA *p_evt_data)
 {
     tNFA_HCI_DYN_GATE   *p_gate = nfa_hciu_find_gate_by_gid (p_evt_data->create_pipe.source_gate);
     tNFA_HCI_EVT_DATA   evt_data;
+    BOOLEAN             report_failed = FALSE;
 
     /* Verify that the app owns the gate that the pipe is being created on */
-    if ((p_gate == NULL) || (p_gate->gate_owner != p_evt_data->create_pipe.hci_handle))
+    if (  (p_gate == NULL)
+        ||(p_gate->gate_owner != p_evt_data->create_pipe.hci_handle)  )
+    {
+        report_failed = TRUE;
+        NFA_TRACE_ERROR2 ("nfa_hci_api_create_pipe Cannot create pipe! APP: 0x%02x does not own the gate:0x%x", p_evt_data->create_pipe.hci_handle, p_evt_data->create_pipe.source_gate);
+    }
+    else if (nfa_hciu_check_pipe_between_gates (p_evt_data->create_pipe.source_gate, p_evt_data->create_pipe.dest_host, p_evt_data->create_pipe.dest_gate))
+    {
+        report_failed = TRUE;
+        NFA_TRACE_ERROR0 ("nfa_hci_api_create_pipe : Cannot create multiple pipe between the same two gates!");
+    }
+
+    if (report_failed)
     {
         evt_data.created.source_gate = p_evt_data->create_pipe.source_gate;
         evt_data.created.status = NFA_STATUS_FAILED;
 
-        NFA_TRACE_ERROR2 ("nfa_hci_api_create_pipe Cannot create pipe! APP: 0x%02x does not own the gate:0x%x", p_evt_data->create_pipe.hci_handle, p_evt_data->create_pipe.source_gate);
         nfa_hciu_send_to_app (NFA_HCI_CREATE_PIPE_EVT, &evt_data, p_evt_data->open_pipe.hci_handle);
     }
     else
@@ -1253,7 +1292,12 @@ void nfa_hci_handle_admin_gate_cmd (UINT8 *p_data)
             if ((pgate = nfa_hciu_find_gate_by_gid (dest_gate)) != NULL)
             {
                 /* If the gate is valid, add the pipe to it  */
-                if ((response = nfa_hciu_add_pipe_to_gate (pipe, dest_gate, source_host, source_gate)) == NFA_HCI_ANY_OK)
+                if (nfa_hciu_check_pipe_between_gates (dest_gate, source_host, source_gate))
+                {
+                    /* Already, there is a pipe between these two gates, so will reject */
+                    response = NFA_HCI_ANY_E_NOK;
+                }
+                else if ((response = nfa_hciu_add_pipe_to_gate (pipe, dest_gate, source_host, source_gate)) == NFA_HCI_ANY_OK)
                 {
                     /* Tell the application a pipe was created with its gate */
 
@@ -1267,7 +1311,14 @@ void nfa_hci_handle_admin_gate_cmd (UINT8 *p_data)
                 }
             }
             else
+            {
                 response = NFA_HCI_ANY_E_NOK;
+                if ((dest_gate >= NFA_HCI_FIRST_PROP_GATE) && (dest_gate <= NFA_HCI_LAST_PROP_GATE))
+                {
+                    if (nfa_hciu_alloc_gate (dest_gate, 0))
+                        response = nfa_hciu_add_pipe_to_gate (pipe, dest_gate, source_host, source_gate);
+                }
+            }
         }
         break;
 
@@ -1320,7 +1371,7 @@ void nfa_hci_handle_admin_gate_cmd (UINT8 *p_data)
 *******************************************************************************/
 void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
 {
-    UINT8               hosts[2] = {NFA_HCI_HOST_ID_UICC0, (NFA_HCI_HOST_ID_UICC0 + 1)};
+    UINT8               hosts[NFA_EE_MAX_EE_SUPPORTED - 1];
     UINT8               source_host;
     UINT8               source_gate = nfa_hci_cb.local_gate_in_use;
     UINT8               dest_host   = nfa_hci_cb.remote_host_in_use;
@@ -1332,6 +1383,7 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
     UINT8               host_count  = 0;
     UINT8               host_id     = 0;
     UINT32              os_tick;
+    UINT8               xx;
 
 #if (BT_TRACE_VERBOSE == TRUE)
     NFA_TRACE_DEBUG4 ("nfa_hci_handle_admin_gate_rsp - LastCmdSent: %s  App: 0x%04x  Gate: 0x%02x  Pipe: 0x%02x",
@@ -1365,8 +1417,14 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
         case NFA_HCI_ANY_SET_PARAMETER:
             if (nfa_hci_cb.param_in_use == NFA_HCI_SESSION_IDENTITY_INDEX)
             {
+                /* Terminal Host allows all UICC(s) to communicate, using Host id RFU values for subsequent UICC(s) */
+                for (xx = 0; xx <(nfa_ee_max_ee_cfg - 1); xx++)
+                {
+                    hosts[xx] = NFA_HCI_HOST_ID_UICC0 + xx;
+                }
+
                 /* Set WHITELIST */
-                nfa_hciu_send_set_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_WHITELIST_INDEX, 0x02, hosts);
+                nfa_hciu_send_set_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_WHITELIST_INDEX, (UINT8) (nfa_ee_max_ee_cfg - 1), (UINT8 *) hosts);
             }
             else if (nfa_hci_cb.param_in_use == NFA_HCI_WHITELIST_INDEX)
             {
@@ -1408,8 +1466,16 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
                 /* The only parameter we get when initializing is the session ID. Check for match. */
                 if (!memcmp ((UINT8 *) nfa_hci_cb.cfg.admin_gate.session_id, p_data, NFA_HCI_SESSION_ID_LEN) )
                 {
-                    /* Session has not changed. Set the WHITELIST */
-                    nfa_hciu_send_set_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_WHITELIST_INDEX, 0x02, hosts);
+                    /* Session has not changed, Terminal Host allows all UICC(s) to communicate
+                     * And using Host id RFU values for subsequent UICC(s)
+                     */
+                    for (xx = 0; xx <(nfa_ee_max_ee_cfg - 1); xx++)
+                    {
+                        hosts[xx] = NFA_HCI_HOST_ID_UICC0 + xx;
+                    }
+
+                    /* Set WHITELIST */
+                    nfa_hciu_send_set_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_WHITELIST_INDEX, (UINT8) (nfa_ee_max_ee_cfg - 1), (UINT8 *) hosts);
                 }
                 else
                 {

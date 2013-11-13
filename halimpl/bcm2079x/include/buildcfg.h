@@ -31,7 +31,9 @@ extern "C" {
 
 extern UINT8 *scru_dump_hex (UINT8 *p, char *p_title, UINT32 len, UINT32 trace_layer, UINT32 trace_type);
 void DispNci (UINT8 *p, UINT16 len, BOOLEAN is_recv);
-#define DISP_NCI	(DispNci)
+void ProtoDispAdapterDisplayNciPacket (UINT8* nciPacket, UINT16 nciPacketLen, BOOLEAN is_recv);
+#define DISP_NCI    ProtoDispAdapterDisplayNciPacket
+#define LOGMSG_TAG_NAME "NfcNciHal"
 
 
 #ifdef	__cplusplus

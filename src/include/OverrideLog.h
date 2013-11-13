@@ -32,7 +32,7 @@
 
 
 #include <cutils/log.h> //define Android logging macros
-#include "bt_types.h" //define various BT_TRACE_LEVEL_*
+#include "bt_types.h"
 
 
 #ifdef __cplusplus
@@ -40,7 +40,7 @@ extern "C" {
 #endif
 
 
-extern unsigned char appl_trace_level; //defined in /external/libnfc-nci/
+extern unsigned char appl_trace_level;
 
 
 /*******************************************************************************

@@ -908,6 +908,7 @@ tLLCP_STATUS LLCP_ConnectReq (UINT8                    reg_sap,
     tLLCP_DLCB   *p_dlcb;
     tLLCP_STATUS status;
     tLLCP_APP_CB *p_app_cb;
+    tLLCP_CONNECTION_PARAMS params;
 
     LLCP_TRACE_API2 ("LLCP_ConnectReq () reg_sap=0x%x, DSAP=0x%x", reg_sap, dsap);
 
@@ -916,6 +917,14 @@ tLLCP_STATUS LLCP_ConnectReq (UINT8                    reg_sap,
     {
         LLCP_TRACE_ERROR0 ("LLCP_ConnectReq (): Peer doesn't support connection-oriented link");
         return LLCP_STATUS_FAIL;
+    }
+
+    if (!p_params)
+    {
+        params.miu   = LLCP_DEFAULT_MIU;
+        params.rw    = LLCP_DEFAULT_RW;
+        params.sn[0] = 0;
+        p_params     = &params;
     }
 
     p_app_cb = llcp_util_get_app_cb (reg_sap);
@@ -999,16 +1008,19 @@ tLLCP_STATUS LLCP_ConnectCfm (UINT8                    local_sap,
 {
     tLLCP_STATUS  status;
     tLLCP_DLCB   *p_dlcb;
+    tLLCP_CONNECTION_PARAMS params;
 
     LLCP_TRACE_API2 ("LLCP_ConnectCfm () Local SAP:0x%x, Remote SAP:0x%x)",
                      local_sap, remote_sap);
 
     if (!p_params)
     {
-        LLCP_TRACE_ERROR0 ("LLCP_ConnectCfm (): tLLCP_CONNECTION_PARAMS must be provided");
-        return LLCP_STATUS_FAIL;
+        params.miu   = LLCP_DEFAULT_MIU;
+        params.rw    = LLCP_DEFAULT_RW;
+        params.sn[0] = 0;
+        p_params     = &params;
     }
-    else if (p_params->miu > llcp_cb.lcb.local_link_miu)
+    if (p_params->miu > llcp_cb.lcb.local_link_miu)
     {
         LLCP_TRACE_ERROR0 ("LLCP_ConnectCfm (): Data link MIU shall not be bigger than local link MIU");
         return LLCP_STATUS_FAIL;

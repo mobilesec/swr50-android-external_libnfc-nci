@@ -120,6 +120,7 @@ static char *rw_t3t_state_str (UINT8 state_id);
 
 
 /* Local static functions */
+static void rw_t3t_update_ndef_flag (UINT8 *p_flag);
 static tNFC_STATUS rw_t3t_unselect (UINT8 peer_nfcid2[]);
 static BT_HDR *rw_t3t_get_cmd_buf (void);
 static tNFC_STATUS rw_t3t_send_to_lower (BT_HDR *p_msg);
@@ -236,6 +237,7 @@ void rw_t3t_process_error (tNFC_STATUS status)
             if (evt == RW_T3T_NDEF_DETECT_EVT)
             {
                 evt_data.ndef.flags = RW_NDEF_FL_UNKNOWN;
+                rw_t3t_update_ndef_flag (&evt_data.ndef.flags);
             }
 
             (*(rw_cb.p_cback)) (evt, &evt_data);
@@ -1310,7 +1312,7 @@ void rw_t3t_act_handle_ndef_detect_rsp (tRW_T3T_CB *p_cb, BT_HDR *p_msg_rsp)
     RW_TRACE_DEBUG1 ("RW_T3tDetectNDEF response: %i", evt_data.status);
 
     p_cb->rw_state = RW_T3T_STATE_IDLE;
-
+    rw_t3t_update_ndef_flag (&evt_data.flags);
     /* Notify app of NDEF detection result */
     (*(rw_cb.p_cback)) (RW_T3T_NDEF_DETECT_EVT, (tRW_DATA *) &evt_data);
 
@@ -1409,13 +1411,20 @@ void rw_t3t_act_handle_update_rsp (tRW_T3T_CB *p_cb, BT_HDR *p_msg_rsp)
 ** Returns          Nothing
 **
 *****************************************************************************/
-void rw_t3t_act_handle_raw_senddata_rsp (tRW_T3T_CB *p_cb, BT_HDR *p_msg_rsp)
+void rw_t3t_act_handle_raw_senddata_rsp (tRW_T3T_CB *p_cb, tNFC_DATA_CEVT *p_data)
 {
     tRW_READ_DATA evt_data;
+    BT_HDR        *p_pkt = p_data->p_data;
+
+#if (BT_TRACE_VERBOSE == TRUE)
+        RW_TRACE_DEBUG2 ("RW T3T Raw Frame: Len [0x%X] Status [%s]", p_pkt->len, NFC_GetStatusName (p_data->status));
+#else
+        RW_TRACE_DEBUG2 ("RW T3T Raw Frame: Len [0x%X] Status [0x%X]", p_pkt->len, p_data->status);
+#endif
 
     /* Copy incoming data into buffer */
-    evt_data.status = NFC_STATUS_OK;
-    evt_data.p_data = p_msg_rsp;
+    evt_data.status = p_data->status;
+    evt_data.p_data = p_pkt;
 
     p_cb->rw_state = RW_T3T_STATE_IDLE;
 
@@ -1720,6 +1729,7 @@ static void rw_t3t_handle_ndef_detect_poll_rsp (tRW_T3T_CB *p_cb, UINT8 nci_stat
     p_cb->rw_state = RW_T3T_STATE_IDLE;
     evt_data.ndef.status = nci_status;
     evt_data.ndef.flags  = RW_NDEF_FL_UNKNOWN;
+    rw_t3t_update_ndef_flag (&evt_data.ndef.flags);
     (*(rw_cb.p_cback)) (RW_T3T_NDEF_DETECT_EVT, &evt_data);
 }
 
@@ -2168,9 +2178,10 @@ void rw_t3t_act_handle_sro_rsp (tRW_T3T_CB *p_cb, BT_HDR *p_msg_rsp)
 ** Returns          none
 **
 *******************************************************************************/
-void rw_t3t_data_cback (UINT8 conn_id, BT_HDR *p_msg)
+void rw_t3t_data_cback (UINT8 conn_id, tNFC_DATA_CEVT *p_data)
 {
-    tRW_T3T_CB *p_cb = &rw_cb.tcb.t3t;
+    tRW_T3T_CB *p_cb  = &rw_cb.tcb.t3t;
+    BT_HDR     *p_msg = p_data->p_data;
     BOOLEAN free_msg = FALSE;           /* if TRUE, free msg buffer before returning */
     UINT8 *p, sod;
 
@@ -2189,7 +2200,7 @@ void rw_t3t_data_cback (UINT8 conn_id, BT_HDR *p_msg)
         **  This must be raw frame response
         **  send raw frame to app with SoD
         */
-        rw_t3t_act_handle_raw_senddata_rsp (p_cb, p_msg);
+        rw_t3t_act_handle_raw_senddata_rsp (p_cb, p_data);
     }
     /* Sanity check: verify msg len is big enough to contain t3t header */
     else if (p_msg->len < T3T_MSG_RSP_COMMON_HDR_LEN)
@@ -2245,7 +2256,7 @@ void rw_t3t_data_cback (UINT8 conn_id, BT_HDR *p_msg)
                 break;
 
             case RW_T3T_CMD_SEND_RAW_FRAME:
-                rw_t3t_act_handle_raw_senddata_rsp (p_cb, p_msg);
+                rw_t3t_act_handle_raw_senddata_rsp (p_cb, p_data);
                 break;
 
             case RW_T3T_CMD_GET_SYSTEM_CODES:
@@ -2301,9 +2312,10 @@ void rw_t3t_conn_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_data)
         break;
 
     case NFC_DATA_CEVT:     /* check for status in tNFC_CONN */
-        if (p_data->data.status == NFC_STATUS_OK)
+        if (  (p_data->data.status == NFC_STATUS_OK)
+            ||(p_data->data.status == NFC_STATUS_CONTINUE)  )
         {
-            rw_t3t_data_cback (conn_id, p_data->data.p_data);
+            rw_t3t_data_cback (conn_id, &(p_data->data));
             break;
         }
         /* Data event with error status...fall through to NFC_ERROR_CEVT case */
@@ -2401,6 +2413,30 @@ static tNFC_STATUS rw_t3t_unselect (UINT8 peer_nfcid2[])
     return NFC_STATUS_OK;
 }
 
+/*******************************************************************************
+**
+** Function         rw_t3t_update_ndef_flag
+**
+** Description      set additional NDEF Flags for felica lite tag
+**
+** Returns          updated NDEF Flag value
+**
+*******************************************************************************/
+static void rw_t3t_update_ndef_flag (UINT8 *p_flag)
+{
+    tRW_T3T_CB *p_cb = &rw_cb.tcb.t3t;
+    UINT8 xx;
+
+    for (xx = 0; xx < p_cb->num_system_codes; xx++)
+    {
+        if (p_cb->system_codes[xx] == T3T_SYSTEM_CODE_FELICA_LITE)
+        {
+            *p_flag &= ~RW_NDEF_FL_UNKNOWN;
+            *p_flag |= (RW_NDEF_FL_SUPPORTED | RW_NDEF_FL_FORMATABLE);
+            break;
+        }
+    }
+}
 
 #if (BT_TRACE_VERBOSE == TRUE)
 /*******************************************************************************

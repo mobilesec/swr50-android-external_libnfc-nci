@@ -73,34 +73,30 @@ extern "C" {
 
 typedef UINT8 tNFC_HAL_WAIT_RSP;
 
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
+
 typedef UINT16 tNFC_HAL_HCI_EVT;
 
-
-#define NFC_HAL_HCI_DH_TARGET_HANDLE            0xF2
-#define NFC_HAL_HCI_UICC0_TARGET_HANDLE         0xF3
-#define NFC_HAL_HCI_UICC1_TARGET_HANDLE         0xF4
-
-#define NFC_HAL_HCI_SESSION_ID_LEN              0x08
-#define NFC_HAL_HCI_NETWK_INFO_SIZE             184
-#define NFC_HAL_HCI_DH_NETWK_INFO_SIZE          111
-#define NFC_HAL_HCI_MIN_NETWK_INFO_SIZE         12
-#define NFC_HAL_HCI_MIN_DH_NETWK_INFO_SIZE      11
 #define NFC_HAL_HCI_PIPE_INFO_SIZE              5
 
 #define NFC_HAL_HCI_ANY_SET_PARAMETER           0x01
 #define NFC_HAL_HCI_ANY_GET_PARAMETER           0x02
 #define NFC_HAL_HCI_ADM_NOTIFY_ALL_PIPE_CLEARED 0x15
 
+#define NFC_HAL_HCI_SESSION_IDENTITY_INDEX      0x01
 #define NFC_HAL_HCI_WHITELIST_INDEX             0x03
 
 #define NFC_HAL_HCI_ADMIN_PIPE                  0x01
 #define NFC_HAL_HCI_HOST_ID_UICC0               0x02        /* Host ID for UICC 0 */
 #define NFC_HAL_HCI_HOST_ID_UICC1               0x03        /* Host ID for UICC 1 */
+#define NFC_HAL_HCI_HOST_ID_UICC2               0x04        /* Host ID for UICC 2 */
 #define NFC_HAL_HCI_COMMAND_TYPE                0x00
 #define NFC_HAL_HCI_RESPONSE_TYPE               0x02
 
 /* NFC HAL HCI responses */
 #define NFC_HAL_HCI_ANY_OK                      0x00
+
+#endif
 
 /* Flag defintions for tNFC_HAL_NVM */
 #define NFC_HAL_NVM_FLAGS_NO_NVM                0x01    /* No NVM available                     */
@@ -245,6 +241,7 @@ typedef struct
 
 typedef void (tNFC_HAL_BTVSC_CPLT_CBACK) (tNFC_HAL_BTVSC_CPLT *p1);
 
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
 
 /* data type for NFC_HAL_HCI_RSP_NV_READ_EVT */
 typedef struct
@@ -272,6 +269,7 @@ typedef union
     tNFC_HAL_HCI_RSP_NV_WRITE_EVT   nv_write;
 } tNFC_HAL_HCI_EVENT_DATA;
 
+#endif
 /*****************************************************************************
 ** Control block for NFC HAL
 *****************************************************************************/
@@ -389,6 +387,8 @@ typedef struct
     tHAL_NFC_STATUS_CBACK   *p_prop_cback;          /* callback to notify complete of proprietary update */
 } tNFC_HAL_DEV_CB;
 
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
+
 /* data members for NFC_HAL-HCI */
 typedef struct
 {
@@ -398,10 +398,14 @@ typedef struct
     UINT8                   hci_netwk_config_block;   /* Rsp awaiting for hci network configuration block */
     BOOLEAN                 b_wait_hcp_conn_create_rsp; /* Waiting for hcp connection create response */
     BOOLEAN                 clear_all_pipes_to_uicc1; /* UICC1 was restarted for patch download */
+    BOOLEAN                 update_session_id;        /* Next response from NFCC is to Get Session id cmd */
     BOOLEAN                 hci_fw_workaround;        /* HAL HCI Workaround need */
     BOOLEAN                 hci_fw_validate_netwk_cmd;/* Flag to indicate if hci network ntf to validate */
     UINT8                   hcp_conn_id;              /* NCI Connection id for HCP */
+    UINT8                   dh_session_id[1];         /* Byte 0 of DH Session ID */
 } tNFC_HAL_HCI_CB;
+
+#endif
 
 typedef struct
 {
@@ -419,8 +423,10 @@ typedef struct
     tNFC_HAL_PRM_CB         prm;
     tNFC_HAL_PRM_I2C_FIX_CB prm_i2c;
 
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
     /* data members for NFC_HAL-HCI */
     tNFC_HAL_HCI_CB         hci_cb;
+#endif
 
     UINT8                   pre_discover_done;  /* TRUE, when the prediscover config is complete */
 
@@ -479,6 +485,7 @@ void nfc_hal_prm_spd_reset_ntf (UINT8 reset_reason, UINT8 reset_type);
 void nfc_hal_prm_nci_command_complete_cback (tNFC_HAL_NCI_EVT event, UINT16 data_len, UINT8 *p_data);
 void nfc_hal_prm_process_timeout (void *p_tle);
 
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
 /* nfc_hal_hci.c */
 void nfc_hal_hci_enable (void);
 void nfc_hal_hci_evt_hdlr (tNFC_HAL_HCI_EVENT_DATA *p_evt_data);
@@ -487,6 +494,12 @@ void nfc_hal_hci_handle_hcp_pkt_from_hc (UINT8 *p_data);
 NFC_HDR* nfc_hal_hci_postproc_hcp (void);
 BOOLEAN nfc_hal_hci_handle_hcp_pkt_to_hc (UINT8 *p_data);
 void nfc_hal_hci_timeout_cback (void *p_tle);
+void nfc_hal_hci_handle_build_info (UINT8 chipverlen, UINT8 *p_chipverstr);
+#else
+#define nfc_hal_hci_enable()    NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_IDLE);
+#define nfc_hal_hci_handle_build_info(p,a)
+#define nfc_hal_hci_evt_hdlr(p);
+#endif
 
 
 /* Define default NCI protocol trace function (if protocol tracing is enabled) */

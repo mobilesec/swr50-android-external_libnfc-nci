@@ -31,6 +31,15 @@
 /*****************************************************************************
 **  Constants and data types
 *****************************************************************************/
+enum
+{
+    NFA_RW_PRES_CHK_DEFAULT,    /* The default behavior             */
+    NFA_RW_PRES_CHK_I_BLOCK,    /* Empty I Block                    */
+    NFA_RW_PRES_CHK_RESET,      /* Deactivate to Sleep; Re-activate */
+    NFA_RW_PRES_CHK_RB_CH0,     /* ReadBinary on Channel 0          */
+    NFA_RW_PRES_CHK_RB_CH3      /* ReadBinary on Channel 3          */
+};
+typedef UINT8 tNFA_RW_PRES_CHK_OPTION;
 
 /*****************************************************************************
 **  NFA T3T Constants and definitions
@@ -139,12 +148,14 @@ NFC_API extern tNFA_STATUS NFA_RwWriteNDef (UINT8 *p_data, UINT32 len);
 **                  The NFA_RW_PRESENCE_CHECK_EVT w/ status is used to
 **                  indicate presence or non-presence.
 **
+**                  option is used only with ISO-DEP protocol
+**
 ** Returns
 **                  NFA_STATUS_OK if successfully initiated
 **                  NFA_STATUS_FAILED otherwise
 **
 *****************************************************************************/
-NFC_API extern tNFA_STATUS NFA_RwPresenceCheck (void);
+NFC_API extern tNFA_STATUS NFA_RwPresenceCheck (tNFA_RW_PRES_CHK_OPTION option);
 
 /*****************************************************************************
 **

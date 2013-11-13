@@ -401,7 +401,7 @@ void gki_system_tick_start_stop_cback(BOOLEAN start)
 {
     tGKI_OS         *p_os = &gki_cb.os;
     volatile int    *p_run_cond = &p_os->no_timer_suspend;
-    volatile static int wake_lock_count;
+    static volatile int wake_lock_count;
     if ( FALSE == start )
     {
         /* this can lead to a race condition. however as we only read this variable in the timer loop
@@ -908,7 +908,7 @@ INT8 *GKI_map_taskname (UINT8 task_id)
     }
     else
     {
-        return "BAD";
+        return (INT8*) "BAD";
     }
 }
 

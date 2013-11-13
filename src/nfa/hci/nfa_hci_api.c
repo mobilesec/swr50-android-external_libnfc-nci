@@ -197,19 +197,19 @@ tNFA_STATUS NFA_HciDeregister (char *p_app_name)
 **
 ** Function         NFA_HciAllocGate
 **
-** Description      This function will allocate an available generic gate for
-**                  the app to provide an entry point for a particular service
-**                  to other host or to establish communication with other host.
-**                  When the generic gate is allocated (or if an error occurs),
-**                  the app will be notified with NFA_HCI_ALLOCATE_GATE_EVT with
-**                  the gate id. The allocated Gate information will be stored in
-**                  non volatile memory.
+** Description      This function will allocate the gate if any specified or an
+**                  available generic gate for the app to provide an entry point
+**                  for a particular service to other host or to establish
+**                  communication with other host. When the gate is
+**                  allocated (or if an error occurs), the app will be notified
+**                  with NFA_HCI_ALLOCATE_GATE_EVT with the gate id. The allocated
+**                  Gate information will be stored in non volatile memory.
 **
 ** Returns          NFA_STATUS_OK if this API started
 **                  NFA_STATUS_FAILED if no generic gate is available
 **
 *******************************************************************************/
-tNFA_STATUS NFA_HciAllocGate (tNFA_HANDLE hci_handle)
+tNFA_STATUS NFA_HciAllocGate (tNFA_HANDLE hci_handle, UINT8 gate)
 {
     tNFA_HCI_API_ALLOC_GATE *p_msg;
 
@@ -219,14 +219,22 @@ tNFA_STATUS NFA_HciAllocGate (tNFA_HANDLE hci_handle)
         return (NFA_STATUS_FAILED);
     }
 
-    NFA_TRACE_API1 ("NFA_HciAllocGate (): hci_handle:0x%04x", hci_handle);
+    if (  (gate)
+        &&((gate < NFA_HCI_FIRST_HOST_SPECIFIC_GENERIC_GATE) || (gate > NFA_HCI_LAST_PROP_GATE) || (gate == NFA_HCI_CONNECTIVITY_GATE))  )
+    {
+        NFA_TRACE_API1 ("NFA_HciAllocGate (): Cannot allocate gate:0x%02x", gate);
+        return (NFA_STATUS_FAILED);
+    }
 
-    /* Request HCI to allocate a gate to the application */
+    NFA_TRACE_API2 ("NFA_HciAllocGate (): hci_handle:0x%04x, Gate:0x%02x", hci_handle, gate);
+
+    /* Request HCI to allocate gate to the application */
     if (  (nfa_hci_cb.hci_state != NFA_HCI_STATE_DISABLED)
         &&((p_msg = (tNFA_HCI_API_ALLOC_GATE *) GKI_getbuf (sizeof (tNFA_HCI_API_ALLOC_GATE))) != NULL) )
     {
         p_msg->hdr.event  = NFA_HCI_API_ALLOC_GATE_EVT;
         p_msg->hci_handle = hci_handle;
+        p_msg->gate       = gate;
 
         nfa_sys_sendmsg (p_msg);
         return (NFA_STATUS_OK);
@@ -257,7 +265,7 @@ tNFA_STATUS NFA_HciDeallocGate (tNFA_HANDLE hci_handle, UINT8 gate)
         return (NFA_STATUS_FAILED);
     }
 
-    if ((gate < NFA_HCI_FIRST_HOST_SPECIFIC_GENERIC_GATE) || (gate > NFA_HCI_LAST_HOST_SPECIFIC_GENERIC_GATE) || (gate == NFA_HCI_CONNECTIVITY_GATE))
+    if ((gate < NFA_HCI_FIRST_HOST_SPECIFIC_GENERIC_GATE) || (gate > NFA_HCI_LAST_PROP_GATE) || (gate == NFA_HCI_CONNECTIVITY_GATE))
     {
         NFA_TRACE_API1 ("NFA_HciDeallocGate (): Cannot deallocate the gate:0x%02x", gate);
         return (NFA_STATUS_FAILED);
@@ -356,14 +364,14 @@ tNFA_STATUS NFA_HciCreatePipe (tNFA_HANDLE  hci_handle,
         return (NFA_STATUS_FAILED);
     }
 
-    if ((source_gate_id < NFA_HCI_FIRST_HOST_SPECIFIC_GENERIC_GATE) || (source_gate_id > NFA_HCI_LAST_HOST_SPECIFIC_GENERIC_GATE))
+    if ((source_gate_id < NFA_HCI_FIRST_HOST_SPECIFIC_GENERIC_GATE) || (source_gate_id > NFA_HCI_LAST_PROP_GATE))
     {
         NFA_TRACE_API1 ("NFA_HciCreatePipe (): Invalid local Gate:0x%02x", source_gate_id);
         return (NFA_STATUS_FAILED);
     }
 
     if (  ((dest_gate < NFA_HCI_FIRST_HOST_SPECIFIC_GENERIC_GATE) && (dest_gate != NFA_HCI_LOOP_BACK_GATE) && (dest_gate != NFA_HCI_IDENTITY_MANAGEMENT_GATE))
-        ||(dest_gate > NFA_HCI_LAST_HOST_SPECIFIC_GENERIC_GATE))
+        ||(dest_gate > NFA_HCI_LAST_PROP_GATE))
     {
         NFA_TRACE_API1 ("NFA_HciCreatePipe (): Invalid Destination Gate:0x%02x", dest_gate);
         return (NFA_STATUS_FAILED);

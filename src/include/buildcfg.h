@@ -83,8 +83,9 @@ extern void DispNci (UINT8 *p, UINT16 len, BOOLEAN is_recv);
 
 extern void downloadFirmwarePatchFile (UINT32 brcm_hw_id);
 
-#define DISP_NCI	(DispNciDump)
-extern void DispNciDump(UINT8 *p, UINT16 len, BOOLEAN is_recv);
+void ProtoDispAdapterDisplayNciPacket (UINT8* nciPacket, UINT16 nciPacketLen, BOOLEAN is_recv);
+#define DISP_NCI ProtoDispAdapterDisplayNciPacket
+#define LOGMSG_TAG_NAME "BrcmNfcNfa"
 
 #ifndef _TIMEB
 #define _TIMEB

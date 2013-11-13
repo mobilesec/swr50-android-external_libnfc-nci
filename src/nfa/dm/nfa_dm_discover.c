@@ -79,6 +79,10 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
         NFA_TRACE_DEBUG1 ("nfa_dm_get_rf_discover_config () listen disabled, rm listen from 0x%x", dm_disc_mask);
         dm_disc_mask &= NFA_DM_DISC_MASK_POLL;
     }
+    if (nfa_dm_is_p2p_paused ())
+    {
+        dm_disc_mask &= ~NFA_DM_DISC_MASK_NFC_DEP;
+    }
 
     /* Check polling A */
     if (dm_disc_mask & ( NFA_DM_DISC_MASK_PA_T1T
@@ -371,7 +375,8 @@ static tNFA_STATUS nfa_dm_set_rf_listen_mode_config (tNFA_DM_DISC_TECH_PROTO_MAS
     /* NFCC can support NFC-DEP and T3T listening based on NFCID routing regardless of NFC-F tech routing */
     UINT8_TO_STREAM (p, NFC_PMID_LF_PROTOCOL);
     UINT8_TO_STREAM (p, NCI_PARAM_LEN_LF_PROTOCOL);
-    if (tech_proto_mask & NFA_DM_DISC_MASK_LF_NFC_DEP)
+    if ((tech_proto_mask & NFA_DM_DISC_MASK_LF_NFC_DEP) &&
+        !nfa_dm_is_p2p_paused() )
     {
         UINT8_TO_STREAM (p, NCI_LISTEN_PROTOCOL_NFC_DEP);
     }
@@ -761,7 +766,14 @@ static void nfa_dm_disc_discovery_cback (tNFC_DISCOVER_EVT event, tNFC_DISCOVER 
         break;
     case NFC_DEACTIVATE_DEVT:
         if (p_data->deactivate.is_ntf)
+        {
             dm_disc_event = NFA_DM_RF_DEACTIVATE_NTF;
+            if ((p_data->deactivate.type == NFC_DEACTIVATE_TYPE_IDLE) || (p_data->deactivate.type == NFC_DEACTIVATE_TYPE_DISCOVERY))
+            {
+                NFC_SetReassemblyFlag (TRUE);
+                nfa_dm_cb.flags &= ~NFA_DM_FLAGS_RAW_FRAME;
+            }
+        }
         else
             dm_disc_event = NFA_DM_RF_DEACTIVATE_RSP;
         break;
@@ -1052,14 +1064,7 @@ void nfa_dm_start_rf_discover (void)
         }
 
         /* Let P2P set GEN bytes for LLCP to NFCC */
-        if (dm_disc_mask & ( NFA_DM_DISC_MASK_PA_NFC_DEP
-                            |NFA_DM_DISC_MASK_PF_NFC_DEP
-                            |NFA_DM_DISC_MASK_LA_NFC_DEP
-                            |NFA_DM_DISC_MASK_LF_NFC_DEP
-                            |NFA_DM_DISC_MASK_PAA_NFC_DEP
-                            |NFA_DM_DISC_MASK_PFA_NFC_DEP
-                            |NFA_DM_DISC_MASK_LAA_NFC_DEP
-                            |NFA_DM_DISC_MASK_LFA_NFC_DEP ))
+        if (dm_disc_mask & NFA_DM_DISC_MASK_NFC_DEP)
         {
             nfa_p2p_set_config (dm_disc_mask);
         }
@@ -1530,6 +1535,21 @@ tNFC_STATUS nfa_dm_disc_sleep_wakeup (void)
     }
 
     return (status);
+}
+
+/*******************************************************************************
+**
+** Function         nfa_dm_is_raw_frame_session
+**
+** Description      If NFA_SendRawFrame is called since RF activation,
+**                  this function returns TRUE.
+**
+** Returns          TRUE if NFA_SendRawFrame is called
+**
+*******************************************************************************/
+BOOLEAN nfa_dm_is_raw_frame_session (void)
+{
+    return ((nfa_dm_cb.flags & NFA_DM_FLAGS_RAW_FRAME) ? TRUE : FALSE);
 }
 
 /*******************************************************************************

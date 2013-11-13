@@ -136,8 +136,8 @@ typedef struct
 {
     BT_HDR              hdr;
     tNFA_HANDLE         hci_handle;
+    UINT8               gate;
 } tNFA_HCI_API_ALLOC_GATE;
-
 
 /* data type for NFA_HCI_API_DEALLOC_GATE_EVT */
 typedef struct
@@ -470,6 +470,7 @@ extern tNFA_HCI_DYN_PIPE  *nfa_hciu_find_pipe_by_owner (tNFA_HANDLE app_handle);
 extern tNFA_HCI_DYN_PIPE  *nfa_hciu_find_active_pipe_by_owner (tNFA_HANDLE app_handle);
 extern tNFA_HCI_DYN_PIPE  *nfa_hciu_find_pipe_on_gate (UINT8 gate_id);
 extern tNFA_HANDLE         nfa_hciu_get_gate_owner (UINT8 gate_id);
+extern BOOLEAN             nfa_hciu_check_pipe_between_gates (UINT8 local_gate, UINT8 dest_host, UINT8 dest_gate);
 extern BOOLEAN             nfa_hciu_is_active_host (UINT8 host_id);
 extern BOOLEAN             nfa_hciu_is_host_reseting (UINT8 host_id);
 extern BOOLEAN             nfa_hciu_is_no_host_resetting (void);

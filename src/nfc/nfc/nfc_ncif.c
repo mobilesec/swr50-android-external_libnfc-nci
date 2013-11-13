@@ -102,10 +102,6 @@ void nfc_ncif_cmd_timeout (void)
     {
         nfc_enabled (NFC_STATUS_FAILED, NULL);
     }
-
-    /* terminate the process so we'll try again */
-    NFC_TRACE_ERROR0 ("NFC controller stopped responding, aborting the NFC process");
-    abort();
 }
 
 /*******************************************************************************
@@ -181,7 +177,7 @@ UINT8 nfc_ncif_send_data (tNFC_CONN_CB *p_cb, BT_HDR *p_data)
     p_data = (BT_HDR *)GKI_getfirst (&p_cb->tx_q);
 
     /* post data fragment to NCIT task as credits are available */
-    while (p_data && (p_data->len > 0) && (p_cb->num_buff > 0))
+    while (p_data && (p_data->len >= 0) && (p_cb->num_buff > 0))
     {
         if (p_data->len <= buffer_size)
         {
@@ -210,9 +206,12 @@ UINT8 nfc_ncif_send_data (tNFC_CONN_CB *p_cb, BT_HDR *p_data)
                 return (NCI_STATUS_BUFFER_FULL);
             p->len    = ulen;
             p->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE + 1;
+            if (p->len)
+            {
             pp        = (UINT8 *)(p + 1) + p->offset;
             ps        = (UINT8 *)(p_data + 1) + p_data->offset;
             memcpy (pp, ps, ulen);
+            }
             /* adjust the BT_HDR on the old fragment */
             p_data->len     -= ulen;
             p_data->offset  += ulen;
@@ -1287,7 +1286,7 @@ void nfc_ncif_proc_reset_rsp (UINT8 *p, BOOLEAN is_ntf)
     {
         if ((*p) != NCI_VERSION)
         {
-            NFC_TRACE_DEBUG2 ("NCI version mismatch!!:0x%02x != 0x%02x ", NCI_VERSION, *p);
+            NFC_TRACE_ERROR2 ("NCI version mismatch!!:0x%02x != 0x%02x ", NCI_VERSION, *p);
             if ((*p) < NCI_VERSION_0_F)
             {
                 NFC_TRACE_ERROR0 ("NFCC version is too old");
@@ -1411,16 +1410,33 @@ void nfc_data_event (tNFC_CONN_CB * p_cb)
         {
             if (p_evt->layer_specific & NFC_RAS_FRAGMENTED)
             {
-                break;
+                /* Not the last fragment */
+                if (!(p_evt->layer_specific & NFC_RAS_TOO_BIG))
+                {
+                    /* buffer can hold more */
+                    if (  (p_cb->conn_id != NFC_RF_CONN_ID)
+                        ||(nfc_cb.reassembly)  )
+                    {
+                        /* If not rf connection or If rf connection and reassembly requested,
+                         * try to Reassemble next packet */
+                        break;
+                    }
+                }
             }
+
             p_evt = (BT_HDR *) GKI_dequeue (&p_cb->rx_q);
             /* report data event */
             p_evt->offset   += NCI_MSG_HDR_SIZE;
             p_evt->len      -= NCI_MSG_HDR_SIZE;
+
             if (p_evt->layer_specific)
-                data_cevt.status = NFC_STATUS_BAD_LENGTH;
+                data_cevt.status = NFC_STATUS_CONTINUE;
             else
+            {
+                nfc_cb.reassembly = TRUE;
                 data_cevt.status = NFC_STATUS_OK;
+            }
+
             data_cevt.p_data = p_evt;
             /* adjust payload, if needed */
             if (p_cb->conn_id == NFC_RF_CONN_ID)
@@ -1461,7 +1477,6 @@ void nfc_ncif_proc_data (BT_HDR *p_msg)
     UINT16  size;
     BT_HDR  *p_max = NULL;
     UINT16  len;
-    UINT16  error_mask = 0;
 
     pp   = (UINT8 *) (p_msg+1) + p_msg->offset;
     NFC_TRACE_DEBUG3 ("nfc_ncif_proc_data 0x%02x%02x%02x", pp[0], pp[1], pp[2]);
@@ -1470,85 +1485,91 @@ void nfc_ncif_proc_data (BT_HDR *p_msg)
     if (p_cb && (p_msg->len >= NCI_DATA_HDR_SIZE))
     {
         NFC_TRACE_DEBUG1 ("nfc_ncif_proc_data len:%d", len);
-        if (len > 0)
+
+        p_msg->layer_specific       = 0;
+        if (pbf)
+            p_msg->layer_specific   = NFC_RAS_FRAGMENTED;
+        p_last = (BT_HDR *)GKI_getlast (&p_cb->rx_q);
+        if (p_last && (p_last->layer_specific & NFC_RAS_FRAGMENTED))
         {
-            p_msg->layer_specific       = 0;
-            if (pbf)
-                p_msg->layer_specific   = NFC_RAS_FRAGMENTED;
-            p_last = (BT_HDR *)GKI_getlast (&p_cb->rx_q);
-            if (p_last && (p_last->layer_specific & NFC_RAS_FRAGMENTED))
+            /* last data buffer is not last fragment, append this new packet to the last */
+            size = GKI_get_buf_size(p_last);
+            if (size < (BT_HDR_SIZE + p_last->len + p_last->offset + len))
             {
-                /* last data buffer is not last fragment, append this new packet to the last */
-                size = GKI_get_buf_size(p_last);
-                if (size < (BT_HDR_SIZE + p_last->len + p_last->offset + len))
+                /* the current size of p_last is not big enough to hold the new fragment, p_msg */
+                if (size != GKI_MAX_BUF_SIZE)
                 {
-                    /* the current size of p_last is not big enough to hold the new fragment, p_msg */
-                    if (size != GKI_MAX_BUF_SIZE)
+                    /* try the biggest GKI pool */
+                    p_max = (BT_HDR *)GKI_getpoolbuf (GKI_MAX_BUF_SIZE_POOL_ID);
+                    if (p_max)
                     {
-                        /* try the biggest GKI pool */
-                        p_max = (BT_HDR *)GKI_getpoolbuf (GKI_MAX_BUF_SIZE_POOL_ID);
-                        if (p_max)
-                        {
-                            /* copy the content of last buffer to the new buffer */
-                            memcpy(p_max, p_last, BT_HDR_SIZE);
-                            pd  = (UINT8 *)(p_max + 1) + p_max->offset;
-                            ps  = (UINT8 *)(p_last + 1) + p_last->offset;
-                            memcpy(pd, ps, p_last->len);
+                        /* copy the content of last buffer to the new buffer */
+                        memcpy(p_max, p_last, BT_HDR_SIZE);
+                        pd  = (UINT8 *)(p_max + 1) + p_max->offset;
+                        ps  = (UINT8 *)(p_last + 1) + p_last->offset;
+                        memcpy(pd, ps, p_last->len);
 
-                            /* place the new buffer in the queue instead */
-                            GKI_remove_from_queue (&p_cb->rx_q, p_last);
-                            GKI_freebuf (p_last);
-                            GKI_enqueue (&p_cb->rx_q, p_max);
-                            p_last  = p_max;
-                        }
-                    }
-                    if (p_max == NULL)
-                    {
-                        p_last->layer_specific  |= NFC_RAS_TOO_BIG;
-                        NFC_TRACE_ERROR1 ("nci_reassemble_msg buffer overrun(%d)!!", len);
+                        /* place the new buffer in the queue instead */
+                        GKI_remove_from_queue (&p_cb->rx_q, p_last);
+                        GKI_freebuf (p_last);
+                        GKI_enqueue (&p_cb->rx_q, p_max);
+                        p_last  = p_max;
                     }
                 }
-
-                ps   = (UINT8 *)(p_msg + 1) + p_msg->offset + NCI_MSG_HDR_SIZE;
-                len  = p_msg->len - NCI_MSG_HDR_SIZE;
-                if ((p_last->layer_specific & NFC_RAS_TOO_BIG) == 0)
+                if (p_max == NULL)
                 {
-                    pd   = (UINT8 *)(p_last + 1) + p_last->offset + p_last->len;
-                    memcpy(pd, ps, len);
-                    p_last->len  += len;
-                    /* do not need to update pbf and len in NCI header.
-                     * They are stripped off at NFC_DATA_CEVT and len may exceed 255 */
-                    NFC_TRACE_DEBUG1 ("nfc_ncif_proc_data len:%d", p_last->len);
+                    /* Biggest GKI Pool not available (or)
+                     * Biggest available GKI Pool is not big enough to hold the new fragment, p_msg */
+                    p_last->layer_specific  |= NFC_RAS_TOO_BIG;
                 }
+            }
 
-                error_mask              = (p_last->layer_specific & NFC_RAS_TOO_BIG);
-                p_last->layer_specific  = (p_msg->layer_specific | error_mask);
+            ps   = (UINT8 *)(p_msg + 1) + p_msg->offset + NCI_MSG_HDR_SIZE;
+            len  = p_msg->len - NCI_MSG_HDR_SIZE;
+
+            if (!(p_last->layer_specific & NFC_RAS_TOO_BIG))
+            {
+                pd   = (UINT8 *)(p_last + 1) + p_last->offset + p_last->len;
+                memcpy(pd, ps, len);
+                p_last->len  += len;
+                /* do not need to update pbf and len in NCI header.
+                 * They are stripped off at NFC_DATA_CEVT and len may exceed 255 */
+                NFC_TRACE_DEBUG1 ("nfc_ncif_proc_data len:%d", p_last->len);
+                p_last->layer_specific  = p_msg->layer_specific;
                 GKI_freebuf (p_msg);
 #ifdef DISP_NCI
-                if ((p_last->layer_specific & NFC_RAS_FRAGMENTED) == 0)
+                if (!(p_last->layer_specific & NFC_RAS_FRAGMENTED))
                 {
                     /* this packet was reassembled. display the complete packet */
                     DISP_NCI ((UINT8 *)(p_last + 1) + p_last->offset, p_last->len, TRUE);
                 }
 #endif
+                nfc_data_event (p_cb);
             }
             else
             {
-                /* if this is the first fragment on RF link */
-                if (  (p_msg->layer_specific & NFC_RAS_FRAGMENTED)
-                    &&(p_cb->conn_id == NFC_RF_CONN_ID)
-                    &&(p_cb->p_cback)  )
-                {
-                    /* Indicate upper layer that local device started receiving data */
-                    (*p_cb->p_cback) (p_cb->conn_id, NFC_DATA_START_CEVT, NULL);
-                }
-                /* enqueue the new buffer to the rx queue */
+                /* Not enough memory to add new buffer
+                 * Send data already in queue first with status Continue */
+                nfc_data_event (p_cb);
+                /* now enqueue the new buffer to the rx queue */
                 GKI_enqueue (&p_cb->rx_q, p_msg);
             }
-            nfc_data_event (p_cb);
-            return;
         }
-        /* else an empty data packet*/
+        else
+        {
+            /* if this is the first fragment on RF link */
+            if (  (p_msg->layer_specific & NFC_RAS_FRAGMENTED)
+                &&(p_cb->conn_id == NFC_RF_CONN_ID)
+                &&(p_cb->p_cback)  )
+            {
+                /* Indicate upper layer that local device started receiving data */
+                (*p_cb->p_cback) (p_cb->conn_id, NFC_DATA_START_CEVT, NULL);
+            }
+            /* enqueue the new buffer to the rx queue */
+            GKI_enqueue (&p_cb->rx_q, p_msg);
+            nfc_data_event (p_cb);
+        }
+        return;
     }
     GKI_freebuf (p_msg);
 }

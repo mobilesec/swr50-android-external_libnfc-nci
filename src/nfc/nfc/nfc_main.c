@@ -750,6 +750,7 @@ void NFC_Init (tHAL_NFC_ENTRY *p_hal_entry_tbl)
     nfc_cb.num_disc_maps    = NFC_NUM_INTERFACE_MAP;
     nfc_cb.trace_level      = NFC_INITIAL_TRACE_LEVEL;
     nfc_cb.nci_ctrl_size    = NCI_CTRL_INIT_SIZE;
+    nfc_cb.reassembly       = TRUE;
 
     rw_init ();
     ce_init ();
@@ -1058,6 +1059,28 @@ void NFC_SetStaticRfCback (tNFC_CONN_CBACK    *p_cback)
 
 /*******************************************************************************
 **
+** Function         NFC_SetReassemblyFlag
+**
+** Description      This function is called to set if nfc will reassemble
+**                  nci packet as much as its buffer can hold or it should not
+**                  reassemble but forward the fragmented nci packet to layer above.
+**                  If nci data pkt is fragmented, nfc may send multiple
+**                  NFC_DATA_CEVT with status NFC_STATUS_CONTINUE before sending
+**                  NFC_DATA_CEVT with status NFC_STATUS_OK based on reassembly
+**                  configuration and reassembly buffer size
+**
+** Parameters       reassembly - flag to indicate if nfc may reassemble or not
+**
+** Returns          Nothing
+**
+*******************************************************************************/
+void NFC_SetReassemblyFlag (BOOLEAN    reassembly)
+{
+    nfc_cb.reassembly = reassembly;
+}
+
+/*******************************************************************************
+**
 ** Function         NFC_SendData
 **
 ** Description      This function is called to send the given data packet
@@ -1322,5 +1345,96 @@ UINT8 NFC_SetTraceLevel (UINT8 new_level)
     return (nfc_cb.trace_level);
 }
 
+#if (BT_TRACE_VERBOSE == TRUE)
+/*******************************************************************************
+**
+** Function         NFC_GetStatusName
+**
+** Description      This function returns the status name.
+**
+** NOTE             conditionally compiled to save memory.
+**
+** Returns          pointer to the name
+**
+*******************************************************************************/
+char *NFC_GetStatusName (tNFC_STATUS status)
+{
+    switch (status)
+    {
+    case NFC_STATUS_OK:
+        return "OK";
+    case NFC_STATUS_REJECTED:
+        return "REJECTED";
+    case NFC_STATUS_MSG_CORRUPTED:
+        return "CORRUPTED";
+    case NFC_STATUS_BUFFER_FULL:
+        return "BUFFER_FULL";
+    case NFC_STATUS_FAILED:
+        return "FAILED";
+    case NFC_STATUS_NOT_INITIALIZED:
+        return "NOT_INITIALIZED";
+    case NFC_STATUS_SYNTAX_ERROR:
+        return "SYNTAX_ERROR";
+    case NFC_STATUS_SEMANTIC_ERROR:
+        return "SEMANTIC_ERROR";
+    case NFC_STATUS_UNKNOWN_GID:
+        return "UNKNOWN_GID";
+    case NFC_STATUS_UNKNOWN_OID:
+        return "UNKNOWN_OID";
+    case NFC_STATUS_INVALID_PARAM:
+        return "INVALID_PARAM";
+    case NFC_STATUS_MSG_SIZE_TOO_BIG:
+        return "MSG_SIZE_TOO_BIG";
+    case NFC_STATUS_ALREADY_STARTED:
+        return "ALREADY_STARTED";
+    case NFC_STATUS_ACTIVATION_FAILED:
+        return "ACTIVATION_FAILED";
+    case NFC_STATUS_TEAR_DOWN:
+        return "TEAR_DOWN";
+    case NFC_STATUS_RF_TRANSMISSION_ERR:
+        return "RF_TRANSMISSION_ERR";
+    case NFC_STATUS_RF_PROTOCOL_ERR:
+        return "RF_PROTOCOL_ERR";
+    case NFC_STATUS_TIMEOUT:
+        return "TIMEOUT";
+    case NFC_STATUS_EE_INTF_ACTIVE_FAIL:
+        return "EE_INTF_ACTIVE_FAIL";
+    case NFC_STATUS_EE_TRANSMISSION_ERR:
+        return "EE_TRANSMISSION_ERR";
+    case NFC_STATUS_EE_PROTOCOL_ERR:
+        return "EE_PROTOCOL_ERR";
+    case NFC_STATUS_EE_TIMEOUT:
+        return "EE_TIMEOUT";
+    case NFC_STATUS_CMD_STARTED:
+        return "CMD_STARTED";
+    case NFC_STATUS_HW_TIMEOUT:
+        return "HW_TIMEOUT";
+    case NFC_STATUS_CONTINUE:
+        return "CONTINUE";
+    case NFC_STATUS_REFUSED:
+        return "REFUSED";
+    case NFC_STATUS_BAD_RESP:
+        return "BAD_RESP";
+    case NFC_STATUS_CMD_NOT_CMPLTD:
+        return "CMD_NOT_CMPLTD";
+    case NFC_STATUS_NO_BUFFERS:
+        return "NO_BUFFERS";
+    case NFC_STATUS_WRONG_PROTOCOL:
+        return "WRONG_PROTOCOL";
+    case NFC_STATUS_BUSY:
+        return "BUSY";
+    case NFC_STATUS_LINK_LOSS:
+        return "LINK_LOSS";
+    case NFC_STATUS_BAD_LENGTH:
+        return "BAD_LENGTH";
+    case NFC_STATUS_BAD_HANDLE:
+        return "BAD_HANDLE";
+    case NFC_STATUS_CONGESTED:
+        return "CONGESTED";
+    default:
+        return"UNKNOWN";
+    }
+}
+#endif
 
 #endif /* NFC_INCLUDED == TRUE */

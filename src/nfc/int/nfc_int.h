@@ -176,6 +176,7 @@ typedef struct
     TIMER_LIST_ENT      deactivate_timer;           /* Timer to wait for deactivation */
 
     tNFC_STATE          nfc_state;
+    BOOLEAN             reassembly;         /* Reassemble fragmented data pkt */
     UINT8               trace_level;
     UINT8               last_hdr[NFC_SAVED_HDR_SIZE];/* part of last NCI command header */
     UINT8               last_cmd[NFC_SAVED_CMD_SIZE];/* part of last NCI command payload */

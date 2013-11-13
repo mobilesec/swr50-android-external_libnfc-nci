@@ -417,6 +417,8 @@ UINT8 nci_snd_deactivate_cmd (UINT8 de_act_type )
     BT_HDR *p;
     UINT8 *pp;
 
+    nfc_cb.reassembly = TRUE;
+
     if ((p = NCI_GET_CMD_BUF (NCI_DISCOVER_PARAM_SIZE_DEACT)) == NULL)
         return (NCI_STATUS_FAILED);
 

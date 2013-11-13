@@ -496,6 +496,7 @@ void nfa_ee_api_add_aid(tNFA_EE_MSG *p_data)
         /* mark AID changed */
         p_cb->ecb_flags                       |= NFA_EE_ECB_FLAGS_AID;
         nfa_ee_cb.ee_cfged                    |= nfa_ee_ecb_to_mask(p_cb);
+        nfa_ee_start_timer();
     }
     NFA_TRACE_DEBUG2 ("status:%d ee_cfged:0x%02x ",evt_data.status, nfa_ee_cb.ee_cfged);
     /* report the status of this operation */
@@ -551,6 +552,7 @@ void nfa_ee_api_remove_aid(tNFA_EE_MSG *p_data)
         /* else the last entry, just reduce the aid_entries by 1 */
         p_cb->aid_entries--;
         nfa_ee_cb.ee_cfged      |= nfa_ee_ecb_to_mask(p_cb);
+        nfa_ee_start_timer();
         /* report NFA_EE_REMOVE_AID_EVT to the callback associated the NFCEE */
         p_cback = p_cb->p_ee_cback;
     }
@@ -1395,6 +1397,7 @@ void nfa_ee_nci_disc_req_ntf(tNFA_EE_MSG *p_data)
     tNFC_EE_DISCOVER_REQ_REVT   *p_cbk = p_data->disc_req.p_data;
     tNFA_HANDLE         ee_handle;
     tNFA_EE_ECB         *p_cb = NULL;
+    UINT8               report_ntf = 0;
     UINT8 xx;
 
     NFA_TRACE_DEBUG2 ("nfa_ee_nci_disc_req_ntf () num_info: %d cur_ee:%d", p_cbk->num_info, nfa_ee_cb.cur_ee );
@@ -1418,6 +1421,10 @@ void nfa_ee_nci_disc_req_ntf(tNFA_EE_MSG *p_data)
                 NFA_TRACE_ERROR1 ("Cannot allocate cb for NFCEE: 0x%x", p_cbk->info[xx].nfcee_id);
                 continue;
             }
+        }
+        else
+        {
+            report_ntf  |= nfa_ee_ecb_to_mask (p_cb);
         }
 
         p_cb->ecb_flags |= NFA_EE_ECB_FLAGS_DISC_REQ;
@@ -1460,13 +1467,13 @@ void nfa_ee_nci_disc_req_ntf(tNFA_EE_MSG *p_data)
             else if (p_cbk->info[xx].tech_n_mode == NFC_DISCOVERY_TYPE_LISTEN_B_PRIME)
             {
                 p_cb->lbp_protocol = 0;
-        }
+            }
         }
     }
 
 
     /* Report NFA_EE_DISCOVER_REQ_EVT for all active NFCEE */
-    if ((p_cb->ecb_flags & NFA_EE_ECB_FLAGS_ORDER) == 0)
+    if (report_ntf)
         nfa_ee_report_discover_req_evt();
 
 }

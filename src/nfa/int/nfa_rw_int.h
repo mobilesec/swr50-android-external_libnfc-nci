@@ -56,6 +56,7 @@ enum
     NFA_RW_ACTIVATE_NTF_EVT,
     NFA_RW_DEACTIVATE_NTF_EVT,
     NFA_RW_PRESENCE_CHECK_TICK_EVT,
+    NFA_RW_PRESENCE_CHECK_TIMEOUT_EVT,
     NFA_RW_MAX_EVT
 };
 
@@ -227,6 +228,9 @@ typedef union
     tNFA_RW_OP_PARAMS_T3T_READ          t3t_read;
     tNFA_RW_OP_PARAMS_T3T_WRITE         t3t_write;
 
+    /* params for NFA_RW_OP_PRESENCE_CHECK */
+    tNFA_RW_PRES_CHK_OPTION             option;
+
     /* params for ISO 15693 */
     tNFA_RW_OP_PARAMS_I93_CMD           i93_cmd;
 
@@ -273,6 +277,7 @@ typedef UINT8 tNFA_RW_NDEF_ST;
 #define NFA_RW_FL_ACTIVATION_NTF_PENDING        0x08    /* Busy retrieving additional tag information                               */
 #define NFA_RW_FL_API_BUSY                      0x10    /* Tag operation is in progress                                             */
 #define NFA_RW_FL_ACTIVATED                     0x20    /* Tag is been activated                                                    */
+#define NFA_RW_FL_NDEF_OK                       0x40    /* NDEF DETECTed OK                                                         */
 
 /* NFA RW control block */
 typedef struct
@@ -284,6 +289,7 @@ typedef struct
 
     /* Tag info */
     tNFC_PROTOCOL   protocol;
+    tNFC_INTF_TYPE  intf_type;
     UINT8           pa_sel_res;
     tNFC_RF_TECH_N_MODE  activated_tech_mode;    /* activated technology and mode */
 
@@ -335,6 +341,7 @@ extern BOOLEAN nfa_rw_handle_op_req (tNFA_RW_MSG *p_data);
 extern BOOLEAN nfa_rw_activate_ntf (tNFA_RW_MSG *p_data);
 extern BOOLEAN nfa_rw_deactivate_ntf (tNFA_RW_MSG *p_data);
 extern BOOLEAN nfa_rw_presence_check_tick (tNFA_RW_MSG *p_data);
+extern BOOLEAN nfa_rw_presence_check_timeout (tNFA_RW_MSG *p_data);
 extern void    nfa_rw_handle_sleep_wakeup_rsp (tNFC_STATUS status);
 extern void    nfa_rw_handle_presence_check_rsp (tNFC_STATUS status);
 extern void    nfa_rw_command_complete (void);

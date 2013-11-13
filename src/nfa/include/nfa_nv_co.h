@@ -58,6 +58,8 @@ typedef UINT8 tNFA_NV_CO_STATUS;
 #define  HC_F3_NV_BLOCK         0x02
 #define  HC_F4_NV_BLOCK         0x03
 #define  HC_DH_NV_BLOCK         0x04
+#define  HC_F5_NV_BLOCK         0x05
+
 
 /*****************************************************************************
 **  Function Declarations

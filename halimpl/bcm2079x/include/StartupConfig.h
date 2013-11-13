@@ -65,20 +65,6 @@ public:
     ** Description:     Append new config data to internal buffer.
     **                  newContent: buffer containing new content; newContent[0] is
     **                          payload length; newContent[1..end] is payload.
-    **
-    ** Returns:         True if ok.
-    **
-    *******************************************************************************/
-    bool append (const UINT8* newContent);
-
-
-    /*******************************************************************************
-    **
-    ** Function:        append
-    **
-    ** Description:     Append new config data to internal buffer.
-    **                  newContent: buffer containing new content; newContent[0] is
-    **                          payload length; newContent[1..end] is payload.
     **                  newContentLen: total length of newContent.
     **
     ** Returns:         True if ok.

@@ -380,7 +380,7 @@ void nfc_hal_prm_spd_check_version (void)
 
         /*********************************************************************
         * Version check of patchfile against NVM
-        ********************************************************************
+        *********************************************************************/
         /* Download the patchfile if no patches in NVM */
         if ((nfc_hal_cb.nvm_cb.project_id == 0) || !(nfc_hal_cb.nvm_cb.flags & NFC_HAL_NVM_FLAGS_PATCH_PRESENT))
         {
@@ -402,7 +402,7 @@ void nfc_hal_prm_spd_check_version (void)
         /* Skip download if version of patchfile is equal to version in NVM */
         /*                  and patches of the power modes are the same as the good patches in NVM */
         else if (  (nfc_hal_cb.nvm_cb.ver_major == patchfile_ver_major)
-                 &&(nfc_hal_cb.nvm_cb.ver_minor == patchfile_ver_minor)
+            &&(nfc_hal_cb.nvm_cb.ver_minor == patchfile_ver_minor)
                  &&((nvm_patch_present_mask | patchfile_patch_present_mask) == nvm_patch_present_mask)  ) /* if the NVM patch include all the patched in file */
         {
             HAL_TRACE_DEBUG2 ("Patch download skipped. NVM patch (version %i.%i) is the same than the patchfile ",
@@ -598,15 +598,9 @@ void nfc_hal_prm_nci_command_complete_cback (tNFC_HAL_NCI_EVT event, UINT16 data
         if (nfc_hal_cb.prm.flags & NFC_HAL_PRM_FLAGS_SIGNATURE_SENT)
         {
             /* Wait for authentication complete (SECURE_PATCH_DOWNLOAD NTF), including time to commit to NVM (for BCM43341B0) */
-            int auth_delay = NFC_HAL_PRM_SPD_TOUT;
-            if (!(nfc_hal_cb.prm.flags & NFC_HAL_PRM_FLAGS_BCM20791B3))
-            {
-                /* XXX maco only wait 30 seconds for B4+ revisions to avoid watchdog timeouts */
-                auth_delay = NFC_HAL_PRM_COMMIT_DELAY;
-            }
             nfc_hal_cb.prm.state = NFC_HAL_PRM_ST_SPD_AUTHENTICATING;
             nfc_hal_main_start_quick_timer (&nfc_hal_cb.prm.timer, 0x00,
-                                            (auth_delay * QUICK_TIMER_TICKS_PER_SEC) / 1000);
+                                            (NFC_HAL_PRM_COMMIT_DELAY * QUICK_TIMER_TICKS_PER_SEC) / 1000);
             return;
         }
         /* Download next segment */

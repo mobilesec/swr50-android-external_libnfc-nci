@@ -1073,6 +1073,25 @@ NFC_API extern void NFC_SetStaticRfCback(tNFC_CONN_CBACK    *p_cback);
 
 /*******************************************************************************
 **
+** Function         NFC_SetReassemblyFlag
+**
+** Description      This function is called to set if nfc will reassemble
+**                  nci packet as much as its buffer can hold or it should not
+**                  reassemble but forward the fragmented nci packet to layer above.
+**                  If nci data pkt is fragmented, nfc may send multiple
+**                  NFC_DATA_CEVT with status NFC_STATUS_CONTINUE before sending
+**                  NFC_DATA_CEVT with status NFC_STATUS_OK based on reassembly
+**                  configuration and reassembly buffer size
+**
+** Parameters       reassembly - flag to indicate if nfc may reassemble or not
+**
+** Returns          Nothing
+**
+*******************************************************************************/
+NFC_API extern void NFC_SetReassemblyFlag (BOOLEAN    reassembly);
+
+/*******************************************************************************
+**
 ** Function         NFC_SendData
 **
 ** Description      This function is called to send the given data packet
@@ -1250,6 +1269,21 @@ NFC_API extern tNFC_STATUS NFC_TestLoopback(BT_HDR *p_data);
 **
 *******************************************************************************/
 NFC_API extern UINT8 NFC_SetTraceLevel (UINT8 new_level);
+
+#if (BT_TRACE_VERBOSE == TRUE)
+/*******************************************************************************
+**
+** Function         NFC_GetStatusName
+**
+** Description      This function returns the status name.
+**
+** NOTE             conditionally compiled to save memory.
+**
+** Returns          pointer to the name
+**
+*******************************************************************************/
+NFC_API extern char * NFC_GetStatusName (tNFC_STATUS status);
+#endif
 
 #ifdef __cplusplus
 }

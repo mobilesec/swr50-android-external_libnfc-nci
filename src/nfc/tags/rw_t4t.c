@@ -202,7 +202,7 @@ static BOOLEAN rw_t4t_read_file (UINT16 offset, UINT16 length, BOOLEAN is_contin
     p_c_apdu->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE;
     p = (UINT8 *) (p_c_apdu + 1) + p_c_apdu->offset;
 
-    UINT8_TO_BE_STREAM (p, T4T_CMD_CLASS);
+    UINT8_TO_BE_STREAM (p, (T4T_CMD_CLASS | rw_cb.tcb.t4t.channel));
     UINT8_TO_BE_STREAM (p, T4T_CMD_INS_READ_BINARY);
     UINT16_TO_BE_STREAM (p, offset);
     UINT8_TO_BE_STREAM (p, length); /* Le */
@@ -1189,7 +1189,8 @@ static void rw_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
     }
 
 #if (BT_TRACE_PROTOCOL == TRUE)
-    DispRWT4Tags (p_r_apdu, TRUE);
+    if (p_t4t->state != RW_T4T_STATE_IDLE)
+        DispRWT4Tags (p_r_apdu, TRUE);
 #endif
 
 #if (BT_TRACE_VERBOSE == TRUE)
@@ -1204,9 +1205,14 @@ static void rw_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
     case RW_T4T_STATE_IDLE:
         /* Unexpected R-APDU, it should be raw frame response */
         /* forward to upper layer without parsing */
+#if (BT_TRACE_VERBOSE == TRUE)
+        RW_TRACE_DEBUG2 ("RW T4T Raw Frame: Len [0x%X] Status [%s]", p_r_apdu->len, NFC_GetStatusName (p_data->data.status));
+#else
+        RW_TRACE_DEBUG2 ("RW T4T Raw Frame: Len [0x%X] Status [0x%X]", p_r_apdu->len, p_data->data.status);
+#endif
         if (rw_cb.p_cback)
         {
-            rw_data.raw_frame.status = NFC_STATUS_OK;
+            rw_data.raw_frame.status = p_data->data.status;
             rw_data.raw_frame.p_data = p_r_apdu;
             (*(rw_cb.p_cback)) (RW_T4T_RAW_FRAME_EVT, &rw_data);
             p_r_apdu = NULL;
@@ -1459,6 +1465,7 @@ tNFC_STATUS RW_T4tUpdateNDef (UINT16 length, UINT8 *p_data)
 **
 **      The RW_T4T_PRESENCE_CHECK_EVT w/ status is used to indicate presence
 **      or non-presence.
+**      option is RW_T4T_CHK_EMPTY_I_BLOCK, use empty I block for presence check.
 **
 ** Returns
 **      NFC_STATUS_OK, if raw data frame sent
@@ -1466,12 +1473,14 @@ tNFC_STATUS RW_T4tUpdateNDef (UINT16 length, UINT8 *p_data)
 **      NFC_STATUS_FAILED: other error
 **
 *****************************************************************************/
-tNFC_STATUS RW_T4tPresenceCheck (void)
+tNFC_STATUS RW_T4tPresenceCheck (UINT8 option)
 {
     tNFC_STATUS retval = NFC_STATUS_OK;
     tRW_DATA    evt_data;
+    BOOLEAN     status;
+    BT_HDR      *p_data;
 
-    RW_TRACE_API0 ("RW_T4tPresenceCheck ()");
+    RW_TRACE_API1 ("RW_T4tPresenceCheck () %d", option);
 
     /* If RW_SelectTagType was not called (no conn_callback) return failure */
     if (!rw_cb.p_cback)
@@ -1492,7 +1501,29 @@ tNFC_STATUS RW_T4tPresenceCheck (void)
     }
     else
     {
-        if (rw_t4t_read_file (0, 1, FALSE))
+        status = FALSE;
+        if (option == RW_T4T_CHK_EMPTY_I_BLOCK)
+        {
+            /* use empty I block for presence check */
+            if ((p_data = (BT_HDR *) GKI_getbuf (NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE)) != NULL)
+            {
+                p_data->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE;
+                p_data->len    = 0;
+                if (NFC_SendData (NFC_RF_CONN_ID, (BT_HDR*) p_data) == NFC_STATUS_OK)
+                    status = TRUE;
+            }
+        }
+        else
+        {
+            /* use read binary on the given channel */
+            rw_cb.tcb.t4t.channel = 0;
+            if (option <= RW_T4T_CHK_READ_BINARY_CH3)
+                rw_cb.tcb.t4t.channel = option;
+            status = rw_t4t_read_file (0, 1, FALSE);
+            rw_cb.tcb.t4t.channel = 0;
+        }
+
+        if (status == TRUE)
         {
             rw_cb.tcb.t4t.state = RW_T4T_STATE_PRESENCE_CHECK;
         }

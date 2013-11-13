@@ -128,7 +128,7 @@ typedef struct
     tNFA_EE_INTERFACE   ee_interface;   /* NFCEE interface associated with this connection  */
 } tNFA_EE_CONNECT;
 
-#define NFA_EE_TRGR_SELECT              NFC_EE_TRIG_7816_SELECT  /* ISO 7816-4 SELECT command */
+#define NFA_EE_TRGR_SELECT              NFC_EE_TRIG_SELECT       /* ISO 7816-4 SELECT command */
 #define NFA_EE_TRGR_RF_PROTOCOL         NFC_EE_TRIG_RF_PROTOCOL  /* RF Protocol changed       */
 #define NFA_EE_TRGR_RF_TECHNOLOGY       NFC_EE_TRIG_RF_TECHNOLOGY/* RF Technology changed     */
 #define NFA_EE_TRGR_APP_INIT            NFC_EE_TRIG_APP_INIT     /* Application initiation    */
@@ -171,7 +171,7 @@ typedef struct
 {
     UINT8                   status;                         /* NFA_STATUS_OK if successful   */
     UINT8                   num_ee;                         /* number of MFCEE information   */
-    tNFA_EE_DISCOVER_INFO   ee_disc_info[NFA_DM_MAX_UICC];  /* MFCEE DISCOVER Request info   */
+    tNFA_EE_DISCOVER_INFO   ee_disc_info[NFA_EE_MAX_EE_SUPPORTED - 1]; /* NFCEE DISCOVER Request info   */
 } tNFA_EE_DISCOVER_REQ;
 
 /* Data for NFA_EE_DATA_EVT */

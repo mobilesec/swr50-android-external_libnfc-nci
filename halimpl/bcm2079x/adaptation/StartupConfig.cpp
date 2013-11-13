@@ -85,35 +85,6 @@ const UINT8* StartupConfig::getInternalBuffer ()
 ** Description:     Append new config data to internal buffer.
 **                  newContent: buffer containing new content; newContent[0] is
 **                          payload length; newContent[1..end] is payload.
-**
-** Returns:         True if ok.
-**
-*******************************************************************************/
-bool StartupConfig::append (const UINT8* newContent)
-{
-    static const char fn [] = "StartupConfig::append";
-    if ((newContent[0]+mBuffer.size()) > mMaxLength)
-    {
-        ALOGE ("%s: exceed max length", fn);
-        return false;
-    }
-    ALOGD ("%s: try append %u bytes", fn, (uint8_string::size_type) (newContent[0]));
-    //append new payload into private buffer
-    mBuffer.append (newContent+1, (uint8_string::size_type) (newContent[0]));
-    //increase size counter of payload in private buffer
-    mBuffer[0] = mBuffer[0] + newContent[0];
-    ALOGD ("%s: new size %u bytes", fn, mBuffer[0]);
-    return true;
-};
-
-
-/*******************************************************************************
-**
-** Function:        append
-**
-** Description:     Append new config data to internal buffer.
-**                  newContent: buffer containing new content; newContent[0] is
-**                          payload length; newContent[1..end] is payload.
 **                  newContentLen: total length of newContent.
 **
 ** Returns:         True if ok.
@@ -122,12 +93,19 @@ bool StartupConfig::append (const UINT8* newContent)
 bool StartupConfig::append (const UINT8* newContent, UINT8 newContentLen)
 {
     static const char fn [] = "StartupConfig::append";
-    if ((newContent[0]+1) != newContentLen)
+    if ((newContentLen+mBuffer.size()) > mMaxLength)
     {
-        ALOGE ("%s: invalid length at newContent[0]", fn);
+        ALOGE ("%s: exceed max length", fn);
         return false;
     }
-    return append (newContent);
+
+    ALOGD ("%s: try append %u bytes", fn, (uint8_string::size_type) (newContentLen));
+    //append new payload into private buffer
+    mBuffer.append (newContent+1, (uint8_string::size_type) (newContentLen-1));
+    //increase size counter of payload in private buffer
+    mBuffer[0] = mBuffer[0] + newContentLen-1;
+    ALOGD ("%s: new size %u bytes", fn, mBuffer[0]);
+    return true;
 };
 
 
@@ -171,7 +149,7 @@ bool StartupConfig::disableSecureElement (UINT8 bitmask)
     {
         UINT8 tlv [] = {0x04, 0xC2, 0x02, 0x61, 0x00};
         tlv [4] = tlv [4] | bitmask;
-        found0xC2 = append (tlv);
+        found0xC2 = append (tlv, 5);
     }
     return found0xC2;
 }

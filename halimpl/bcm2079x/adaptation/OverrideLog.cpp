@@ -25,6 +25,7 @@
 #include "OverrideLog.h"
 #include <cutils/properties.h>
 #include "config.h"
+#include "android_logmsg.h"
 #define LOG_TAG "NfcNciHal"
 
 
@@ -69,5 +70,11 @@ unsigned char InitializeGlobalAppLogLevel ()
     if (appl_trace_level == 0xFF)
         appl_trace_level = BT_TRACE_LEVEL_DEBUG;
     ALOGD ("%s: level=%u", __FUNCTION__, appl_trace_level);
+
+    if (appl_trace_level < BT_TRACE_LEVEL_DEBUG)
+    {
+        //display protocol traces in raw format
+        ProtoDispAdapterUseRawOutput (TRUE);
+    }
     return appl_trace_level;
 }

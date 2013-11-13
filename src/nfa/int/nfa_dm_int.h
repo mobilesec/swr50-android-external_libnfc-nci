@@ -312,6 +312,9 @@ typedef UINT8 tNFA_DM_RF_DISC_EVT;
 #define NFA_DM_DISC_MASK_L_LEGACY               0x10000000
 #define NFA_DM_DISC_MASK_LISTEN                 0xFFFF0000
 
+#define NFA_DM_DISC_MASK_NFC_DEP                0x0C481848
+
+
 typedef UINT32  tNFA_DM_DISC_TECH_PROTO_MASK;
 
 
@@ -416,6 +419,7 @@ typedef struct
 #define NFA_DM_FLAGS_NFCC_IS_RESTORING          0x00000100  /* NFCC is restoring after back to full power mode                      */
 #define NFA_DM_FLAGS_SETTING_PWR_MODE           0x00000200  /* NFCC power mode is updating                                          */
 #define NFA_DM_FLAGS_DM_DISABLING_NFC           0x00000400  /* NFA DM is disabling NFC                                              */
+#define NFA_DM_FLAGS_RAW_FRAME                  0x00000800  /* NFA_SendRawFrame() is called since RF activation                     */
 #define NFA_DM_FLAGS_LISTEN_DISABLED            0x00001000  /* NFA_DisableListening() is called and engaged                         */
 #define NFA_DM_FLAGS_P2P_PAUSED                 0x00002000  /* NFA_PauseP2p() is called and engaged                         */
 /* stored parameters */
@@ -460,6 +464,12 @@ typedef struct
     UINT8 atr_res_gen_bytes_len;
 } tNFA_DM_PARAMS;
 
+/*
+**  NFA_NDEF CHO callback
+**  It returns TRUE if NDEF is handled by connection handover module.
+*/
+typedef BOOLEAN (tNFA_NDEF_CHO_CBACK) (UINT32 ndef_len, UINT8 *p_ndef_data);
+
 /* DM control block */
 typedef struct
 {
@@ -473,6 +483,8 @@ typedef struct
 
     tNFA_CONN_CBACK            *p_excl_conn_cback;  /* exclusive RF mode callback           */
     tNFA_NDEF_CBACK            *p_excl_ndef_cback;  /* ndef callback for exclusive RF mdoe  */
+
+    tNFA_NDEF_CHO_CBACK        *p_ndef_cho_cback;   /* NDEF callback for static connection handover */
 
     tNFA_HANDLE                 poll_disc_handle;   /* discovery handle for polling         */
 
@@ -501,6 +513,8 @@ typedef struct
 } tNFA_DM_CB;
 
 /* Internal function prototypes */
+void nfa_dm_ndef_register_cho (tNFA_NDEF_CHO_CBACK *p_cback);
+void nfa_dm_ndef_deregister_cho (void);
 void nfa_dm_ndef_handle_message (tNFA_STATUS status, UINT8 *p_msg_buf, UINT32 len);
 void nfa_dm_ndef_dereg_all (void);
 void nfa_dm_act_conn_cback_notify (UINT8 event, tNFA_CONN_EVT_DATA *p_data);
@@ -613,6 +627,7 @@ BOOLEAN nfa_dm_is_protocol_supported (tNFA_NFC_PROTOCOL protocol, UINT8 sel_res)
 BOOLEAN nfa_dm_is_active (void);
 tNFC_STATUS nfa_dm_disc_sleep_wakeup (void);
 tNFC_STATUS nfa_dm_disc_start_kovio_presence_check (void);
+BOOLEAN nfa_dm_is_raw_frame_session (void);
 BOOLEAN nfa_dm_is_p2p_paused (void);
 
 

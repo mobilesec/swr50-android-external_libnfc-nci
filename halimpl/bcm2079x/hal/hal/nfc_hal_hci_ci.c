@@ -26,6 +26,8 @@
 #include "gki.h"
 #include "nfc_hal_api.h"
 #include "nfc_hal_int.h"
+
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
 #include "nfc_hal_nv_ci.h"
 #include "nfc_hal_nv_co.h"
 
@@ -88,3 +90,4 @@ void nfc_hal_nv_ci_write (tNFC_HAL_NV_CO_STATUS status)
     }
 }
 
+#endif

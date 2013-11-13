@@ -1168,6 +1168,8 @@ BOOLEAN nfa_dm_act_send_raw_frame (tNFA_DM_MSG *p_data)
     if (  (nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_POLL_ACTIVE)
         ||(nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_LISTEN_ACTIVE)  )
     {
+        nfa_dm_cb.flags |= NFA_DM_FLAGS_RAW_FRAME;
+        NFC_SetReassemblyFlag (FALSE);
         /* If not in exclusive mode, and not activated for LISTEN, then forward raw data to NFA_RW to send */
         if (  !(nfa_dm_cb.flags & NFA_DM_FLAGS_EXCL_RF_ACTIVE)
             &&!(nfa_dm_cb.disc_cb.disc_state == NFA_DM_RFST_LISTEN_ACTIVE)
@@ -1183,6 +1185,10 @@ BOOLEAN nfa_dm_act_send_raw_frame (tNFA_DM_MSG *p_data)
         else
         {
             status = NFC_SendData (NFC_RF_CONN_ID, (BT_HDR*) p_data);
+            if (status != NFC_STATUS_OK)
+            {
+                NFC_SetReassemblyFlag (TRUE);
+            }
             /* Already freed or NCI layer will free buffer */
             return FALSE;
         }
@@ -1190,6 +1196,7 @@ BOOLEAN nfa_dm_act_send_raw_frame (tNFA_DM_MSG *p_data)
 
     if (status == NFC_STATUS_FAILED)
     {
+        NFC_SetReassemblyFlag (TRUE);
         /* free the buffer */
         return TRUE;
     }
@@ -1440,6 +1447,7 @@ static void nfa_dm_act_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN
 
         if (p_msg)
         {
+            evt_data.data.status = p_data->data.status;
             evt_data.data.p_data = (UINT8 *) (p_msg + 1) + p_msg->offset;
             evt_data.data.len    = p_msg->len;
 

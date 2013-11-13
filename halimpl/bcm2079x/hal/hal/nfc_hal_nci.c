@@ -316,7 +316,8 @@ static BOOLEAN nfc_hal_nci_receive_bt_msg (tNFC_HAL_NCIT_CB *p_cb, UINT8 byte)
             p_cb->rcv_len = byte;
 
             /* Verify that buffer is big enough to fit message */
-            if ((sizeof (NFC_HDR) + HCIE_PREAMBLE_SIZE + byte) > GKI_get_buf_size (p_cb->p_rcv_msg))
+            if ((p_cb->p_rcv_msg) &&
+                ((sizeof (NFC_HDR) + HCIE_PREAMBLE_SIZE + byte) > GKI_get_buf_size (p_cb->p_rcv_msg))  )
             {
                 /* Message cannot fit into buffer */
                 GKI_freebuf (p_cb->p_rcv_msg);
@@ -523,10 +524,13 @@ BOOLEAN nfc_hal_nci_receive_msg (UINT8 byte)
 *******************************************************************************/
 BOOLEAN nfc_hal_nci_preproc_rx_nci_msg (NFC_HDR *p_msg)
 {
-    UINT8 *p, *pp, cid;
+    UINT8 *p, *pp;
     UINT8 mt, pbf, gid, op_code;
     UINT8 payload_len;
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
+    UINT8  cid;
     UINT16 data_len;
+#endif
 
     HAL_TRACE_DEBUG0 ("nfc_hal_nci_preproc_rx_nci_msg()");
 
@@ -545,6 +549,7 @@ BOOLEAN nfc_hal_nci_preproc_rx_nci_msg (NFC_HDR *p_msg)
         NCI_MSG_PRS_HDR1 (p, op_code);
         payload_len = *p++;
 
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
         if (mt == NCI_MT_DATA)
         {
             if (nfc_hal_cb.hci_cb.hcp_conn_id)
@@ -568,7 +573,9 @@ BOOLEAN nfc_hal_nci_preproc_rx_nci_msg (NFC_HDR *p_msg)
                 }
             }
         }
-        else if (gid == NCI_GID_RF_MANAGE)
+        else
+#endif
+        if (gid == NCI_GID_RF_MANAGE)
         {
             if (mt == NCI_MT_NTF)
             {
@@ -587,6 +594,7 @@ BOOLEAN nfc_hal_nci_preproc_rx_nci_msg (NFC_HDR *p_msg)
                 }
             }
         }
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
         else if (gid == NCI_GID_CORE)
         {
             if (mt == NCI_MT_RSP)
@@ -604,6 +612,7 @@ BOOLEAN nfc_hal_nci_preproc_rx_nci_msg (NFC_HDR *p_msg)
                 }
             }
         }
+#endif
     }
 
     if (nfc_hal_cb.dev_cb.power_mode == NFC_HAL_POWER_MODE_FULL)
@@ -649,6 +658,7 @@ void nfc_hal_nci_add_nfc_pkt_type (NFC_HDR *p_msg)
     }
 }
 
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
 /*******************************************************************************
 **
 ** Function         nci_brcm_check_cmd_create_hcp_connection
@@ -698,6 +708,8 @@ static void nci_brcm_check_cmd_create_hcp_connection (NFC_HDR *p_msg)
     }
 }
 
+#endif
+
 /*******************************************************************************
 **
 ** Function         nfc_hal_nci_send_cmd
@@ -718,9 +730,11 @@ void nfc_hal_nci_send_cmd (NFC_HDR *p_buf)
     UINT8   nci_ctrl_size = nfc_hal_cb.ncit_cb.nci_ctrl_size;
     UINT8   delta = 0;
 
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
     if (  (nfc_hal_cb.hci_cb.hcp_conn_id == 0)
         &&(nfc_hal_cb.nvm_cb.nvm_type != NCI_SPD_NVM_TYPE_NONE)  )
         nci_brcm_check_cmd_create_hcp_connection ((NFC_HDR*) p_buf);
+#endif
 
     /* check low power mode state */
     continue_to_process = nfc_hal_dm_power_mode_execute (NFC_HAL_LP_TX_DATA_EVT);

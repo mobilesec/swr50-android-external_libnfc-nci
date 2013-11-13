@@ -223,6 +223,7 @@ typedef UINT8 tRW_T2T_LOCK_STATUS;
 #define RW_T2T_STATE_SET_TAG_RO                         0x08    /* Setting Tag as Read only tag                             */
 #define RW_T2T_STATE_CHECK_PRESENCE                     0x09    /* Check if Tag is still present                            */
 #define RW_T2T_STATE_FORMAT_TAG                         0x0A    /* Format the tag                                           */
+#define RW_T2T_STATE_HALT                               0x0B    /* Tag is in HALT State */
 
 /* rw_t2t_read/rw_t2t_write takes care of sector change if the block to read/write is in a different sector
  * Next Substate should be assigned to control variable 'substate' before calling these function for State Machine to
@@ -310,6 +311,7 @@ typedef struct
     BOOLEAN             b_read_hdr;                         /* Tag header read from tag                                     */
     BOOLEAN             b_read_data;                        /* Tag data block read from tag                                 */
     BOOLEAN             b_hard_lock;                        /* Hard lock the tag as part of config tag to Read only         */
+    BOOLEAN             check_tag_halt;                     /* Resent command after NACK rsp to find tag is in HALT State   */
 #if (defined (RW_NDEF_INCLUDED) && (RW_NDEF_INCLUDED == TRUE))
     BOOLEAN             skip_dyn_locks;                     /* Skip reading dynamic lock bytes from the tag                 */
     UINT8               found_tlv;                          /* The Tlv found while searching a particular TLV               */
@@ -453,6 +455,7 @@ typedef struct
 #define RW_T4T_NDEF_STATUS_NDEF_READ_ONLY   0x02    /* NDEF file is read-only   */
 
     UINT8               ndef_status;        /* bitmap for NDEF status           */
+    UINT8               channel;            /* channel id: used for read-binary */
 
     UINT16              max_read_size;      /* max reading size per a command   */
     UINT16              max_update_size;    /* max updating size per a command  */

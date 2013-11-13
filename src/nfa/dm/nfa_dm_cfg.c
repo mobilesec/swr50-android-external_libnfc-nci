@@ -97,8 +97,10 @@ UINT8 nfa_dm_num_dm_interface_mapping = 0;
 const tNFA_DM_CFG nfa_dm_cfg =
 {
     NFA_DM_AUTO_DETECT_NDEF,                /* Automatic NDEF detection (when not in exclusive RF mode) */
-    NFA_DM_AUTO_READ_NDEF                   /* Automatic NDEF read (when not in exclusive RF mode)      */
-
+    NFA_DM_AUTO_READ_NDEF,                  /* Automatic NDEF read (when not in exclusive RF mode)      */
+    NFA_DM_AUTO_PRESENCE_CHECK,             /* Automatic presence check                                 */
+    NFA_DM_PRESENCE_CHECK_OPTION,           /* Use sleep/wake(last interface) for ISODEP presence check */
+    NFA_DM_MAX_PRESENCE_CHECK_TIMEOUT       /* Maximum time to wait for presence check response         */
 };
 
 tNFA_DM_CFG *p_nfa_dm_cfg = (tNFA_DM_CFG *) &nfa_dm_cfg;

@@ -247,11 +247,11 @@ tNFA_HCI_DYN_GATE *nfa_hciu_alloc_gate (UINT8 gate_id, tNFA_HANDLE app_handle)
 
 
     /* First, check if the application handle is valid */
-    if ((gate_id != NFA_HCI_CONNECTIVITY_GATE)
-                    &&
-        (  ((app_handle & NFA_HANDLE_GROUP_MASK) != NFA_HANDLE_GROUP_HCI)
-         ||(app_inx >= NFA_HCI_MAX_APP_CB)
-         ||(nfa_hci_cb.p_app_cback[app_inx] == NULL)  ))
+    if (  (gate_id != NFA_HCI_CONNECTIVITY_GATE)
+        &&(gate_id < NFA_HCI_FIRST_PROP_GATE)
+        &&((  (app_handle & NFA_HANDLE_GROUP_MASK) != NFA_HANDLE_GROUP_HCI)
+            ||(app_inx >= NFA_HCI_MAX_APP_CB)
+            ||(nfa_hci_cb.p_app_cback[app_inx] == NULL))  )
     {
         return (NULL);
     }
@@ -265,20 +265,16 @@ tNFA_HCI_DYN_GATE *nfa_hciu_alloc_gate (UINT8 gate_id, tNFA_HANDLE app_handle)
     {
         /* If gate_id is 0, we need to assign a free one */
         /* Loop through all possible gate IDs checking if they are already used */
-        for (gate_id = NFA_HCI_FIRST_HOST_SPECIFIC_GENERIC_GATE; gate_id < NFA_HCI_LAST_PROP_GATE; gate_id++)
+        for (gate_id = NFA_HCI_FIRST_HOST_SPECIFIC_GENERIC_GATE; gate_id <= NFA_HCI_LAST_PROP_GATE; gate_id++)
         {
             /* Skip connectivity gate */
             if (gate_id == NFA_HCI_CONNECTIVITY_GATE) gate_id++;
 
             /* Check if the gate is already allocated */
-            for (xx = 0, pg = nfa_hci_cb.cfg.dyn_gates; xx < NFA_HCI_MAX_GATE_CB; xx++, pg++)
-                if (pg->gate_id == gate_id)
-                    break;
-            /* If the gate is not allocated, use the gate */
-            if (xx == NFA_HCI_MAX_GATE_CB)
+            if (nfa_hciu_find_gate_by_gid (gate_id) == NULL)
                 break;
         }
-        if (gate_id == NFA_HCI_LAST_PROP_GATE)
+        if (gate_id > NFA_HCI_LAST_PROP_GATE)
         {
             NFA_TRACE_ERROR2 ("nfa_hci_alloc_gate - no free Gate ID: %u  App Handle: 0x%04x", gate_id, app_handle);
             return (NULL);
@@ -629,6 +625,42 @@ tNFA_HCI_DYN_PIPE *nfa_hciu_find_active_pipe_by_owner (tNFA_HANDLE app_handle)
 
     /* If here, not found */
     return (NULL);
+}
+
+/*******************************************************************************
+**
+** Function         nfa_hciu_check_pipe_between_gates
+**
+** Description      Check if there is a pipe between specified Terminal host
+**                  gate and and the specified UICC gate
+**
+** Returns          TRUE, if there exists a pipe between the two specified gated
+**                  FALSE, otherwise
+**
+*******************************************************************************/
+BOOLEAN nfa_hciu_check_pipe_between_gates (UINT8 local_gate, UINT8 dest_host, UINT8 dest_gate)
+{
+    tNFA_HCI_DYN_PIPE   *pp;
+    int                 xx;
+
+    NFA_TRACE_DEBUG3 ("nfa_hciu_check_pipe_between_gates () Local gate: 0x%02X, Host[0x%02X] gate: 0x%02X", local_gate, dest_host, dest_gate);
+
+    /* Loop through all pipes looking for the owner */
+    for (xx = 0, pp = nfa_hci_cb.cfg.dyn_pipes; xx < NFA_HCI_MAX_PIPE_CB; xx++, pp++)
+    {
+        if (  (pp->pipe_id != 0)
+            &&(pp->pipe_id >= NFA_HCI_FIRST_DYNAMIC_PIPE)
+            &&(pp->pipe_id <= NFA_HCI_LAST_DYNAMIC_PIPE)
+            &&(pp->local_gate == local_gate)
+            &&(pp->dest_host  == dest_host)
+            &&(pp->dest_gate  == dest_gate)  )
+        {
+            return (TRUE);
+        }
+    }
+
+    /* If here, not found */
+    return (FALSE);
 }
 
 /*******************************************************************************

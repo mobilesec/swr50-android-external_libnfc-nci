@@ -20,10 +20,9 @@
 #include "gki.h"
 extern "C"
 {
-    #include "nfc_hal_nv_co.h"
+    #include "nfc_hal_target.h"
+    #include "nfc_hal_nv_ci.h"
 }
-#include "nfc_hal_nv_ci.h"
-#include "nfc_hal_int.h"
 #include "config.h"
 #include "CrcChecksum.h"
 #include <sys/types.h>

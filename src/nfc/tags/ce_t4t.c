@@ -629,10 +629,8 @@ static void ce_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
     /* Don't check class if registered AID has been selected */
     if (  (cla != T4T_CMD_CLASS)
         &&((ce_cb.mem.t4t.status & CE_T4T_STATUS_REG_AID_SELECTED) == 0)
-        &&((ce_cb.mem.t4t.status & CE_T4T_STATUS_WILDCARD_AID_SELECTED) == 0)
-       )
+        &&((ce_cb.mem.t4t.status & CE_T4T_STATUS_WILDCARD_AID_SELECTED) == 0)  )
     {
-        CE_TRACE_ERROR1 ("CET4T: Unsupported Class byte (0x%02X)", cla);
         GKI_freebuf (p_c_apdu);
         ce_t4t_send_status (T4T_RSP_CLASS_NOT_SUPPORTED);
         return;
@@ -661,7 +659,7 @@ static void ce_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
         /* forward raw frame to upper layer */
         if (ce_cb.mem.t4t.selected_aid_idx < CE_T4T_MAX_REG_AID)
         {
-            ce_data.raw_frame.status = NFC_STATUS_OK;
+            ce_data.raw_frame.status = p_data->data.status;
             ce_data.raw_frame.p_data = p_c_apdu;
             ce_data.raw_frame.aid_handle = ce_cb.mem.t4t.selected_aid_idx;
             p_c_apdu = NULL;
@@ -679,7 +677,7 @@ static void ce_t4t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
         CE_TRACE_DEBUG0 ("CET4T: Forward raw frame to wildcard AID handler");
 
         /* forward raw frame to upper layer */
-        ce_data.raw_frame.status = NFC_STATUS_OK;
+        ce_data.raw_frame.status = p_data->data.status;
         ce_data.raw_frame.p_data = p_c_apdu;
         ce_data.raw_frame.aid_handle = CE_T4T_WILDCARD_AID_HANDLE;
         p_c_apdu = NULL;

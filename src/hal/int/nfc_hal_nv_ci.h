@@ -25,6 +25,8 @@
 #ifndef NFC_HAL_NV_CI_H
 #define NFC_HAL_NV_CI_H
 
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
+
 #include "nfc_hal_nv_co.h"
 
 
@@ -84,6 +86,8 @@ void nfc_hal_nv_ci_read (UINT16                  num_bytes_read,
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* NFC_HAL_HCI_INCLUDED */
 
 #endif /* NFC_HAL_NV_CI_H */
 

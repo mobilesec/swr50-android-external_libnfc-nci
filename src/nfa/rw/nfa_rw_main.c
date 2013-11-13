@@ -50,6 +50,7 @@ const tNFA_RW_ACTION nfa_rw_action_tbl[] =
     nfa_rw_activate_ntf,            /* NFA_RW_ACTIVATE_NTF_EVT          */
     nfa_rw_deactivate_ntf,          /* NFA_RW_DEACTIVATE_NTF_EVT        */
     nfa_rw_presence_check_tick,     /* NFA_RW_PRESENCE_CHECK_TICK_EVT   */
+    nfa_rw_presence_check_timeout   /* NFA_RW_PRESENCE_CHECK_TIMEOUT_EVT*/
 };
 
 
@@ -228,6 +229,9 @@ static char *nfa_rw_evt_2_str (UINT16 event)
 
     case NFA_RW_PRESENCE_CHECK_TICK_EVT:
         return "NFA_RW_PRESENCE_CHECK_TICK_EVT";
+
+    case NFA_RW_PRESENCE_CHECK_TIMEOUT_EVT:
+        return "NFA_RW_PRESENCE_CHECK_TIMEOUT_EVT";
 
     default:
         return "Unknown";

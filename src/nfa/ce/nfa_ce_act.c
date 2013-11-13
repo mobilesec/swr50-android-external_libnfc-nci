@@ -86,12 +86,14 @@ void nfa_ce_handle_t3t_evt (tCE_EVENT event, tCE_DATA *p_ce_data)
     case CE_T3T_RAW_FRAME_EVT:
         if (p_cb->idx_cur_active == NFA_CE_LISTEN_INFO_IDX_NDEF)
         {
+            conn_evt.data.status = p_ce_data->raw_frame.status;
             conn_evt.data.p_data = (UINT8 *) (p_ce_data->raw_frame.p_data + 1) + p_ce_data->raw_frame.p_data->offset;
             conn_evt.data.len    = p_ce_data->raw_frame.p_data->len;
             (*p_cb->p_active_conn_cback) (NFA_DATA_EVT, &conn_evt);
         }
         else
         {
+            conn_evt.ce_data.status = p_ce_data->raw_frame.status;
             conn_evt.ce_data.handle = (NFA_HANDLE_GROUP_CE | ((tNFA_HANDLE)p_cb->idx_cur_active));
             conn_evt.ce_data.p_data = (UINT8 *) (p_ce_data->raw_frame.p_data + 1) + p_ce_data->raw_frame.p_data->offset;
             conn_evt.ce_data.len    = p_ce_data->raw_frame.p_data->len;
@@ -212,7 +214,8 @@ void nfa_ce_handle_t4t_aid_evt (tCE_EVENT event, tCE_DATA *p_ce_data)
             }
 
             /* Notify app of AID data */
-            conn_evt.ce_data.handle =   NFA_HANDLE_GROUP_CE | ((tNFA_HANDLE)p_cb->idx_cur_active);
+            conn_evt.ce_data.status = p_ce_data->raw_frame.status;
+            conn_evt.ce_data.handle = NFA_HANDLE_GROUP_CE | ((tNFA_HANDLE)p_cb->idx_cur_active);
             conn_evt.ce_data.p_data = (UINT8 *) (p_ce_data->raw_frame.p_data + 1) + p_ce_data->raw_frame.p_data->offset;
             conn_evt.ce_data.len    = p_ce_data->raw_frame.p_data->len;
             (*p_cb->p_active_conn_cback) (NFA_CE_DATA_EVT, &conn_evt);
@@ -1400,4 +1403,3 @@ BOOLEAN nfa_ce_api_cfg_isodep_tech (tNFA_CE_MSG *p_ce_msg)
         nfa_ce_cb.isodep_disc_mask |= NFA_DM_DISC_MASK_LB_ISO_DEP;
     return TRUE;
 }
-

@@ -24,6 +24,7 @@ extern "C"
     #include "nfc_int.h"
 }
 #include "config.h"
+#include "android_logmsg.h"
 
 #define LOG_TAG "NfcAdaptation"
 
@@ -111,6 +112,15 @@ void NfcAdaptation::Initialize ()
     ALOGE("%s: ver=%s nfa=%s", func, nfca_version_string, nfa_version_string);
     unsigned long num;
 
+    if ( GetNumValue ( NAME_USE_RAW_NCI_TRACE, &num, sizeof ( num ) ) )
+    {
+        if (num == 1)
+        {
+            // display protocol traces in raw format
+            ProtoDispAdapterUseRawOutput (TRUE);
+            ALOGD("%s: logging protocol in raw format", func);
+        }
+    }
     if ( !GetStrValue ( NAME_NFA_STORAGE, bcm_nfc_location, sizeof ( bcm_nfc_location ) ) )
     {
         memset (bcm_nfc_location, 0, sizeof(bcm_nfc_location));
@@ -523,14 +533,18 @@ UINT8 NfcAdaptation::HalGetMaxNfcee()
 {
     const char* func = "NfcAdaptation::HalPowerCycle";
     UINT8 maxNfcee = 0;
+    ALOGD ("%s", func);
     if (mHalDeviceContext)
     {
         // TODO maco call into HAL when we figure out binary compatibility.
         return nfa_ee_max_ee_cfg;
+
+        //mHalDeviceContext->get_max_ee (mHalDeviceContext, &maxNfcee);
     }
 
     return maxNfcee;
 }
+
 
 /*******************************************************************************
 **

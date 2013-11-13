@@ -24,7 +24,6 @@
 
 #define LOG_TAG "NfcNciHal"
 
-const char alternative_config_path[] = "";
 const char transport_config_path[] = "/etc/";
 
 #define config_name             "libnfc-brcm.conf"
@@ -380,16 +379,6 @@ CNfcConfig& CNfcConfig::GetInstance()
     if (theInstance.size() == 0 && theInstance.mValidFile)
     {
         string strPath;
-        if (alternative_config_path[0] != '\0')
-        {
-            strPath.assign(alternative_config_path);
-            strPath += config_name;
-            theInstance.readConfig(strPath.c_str(), true);
-            if (!theInstance.empty())
-            {
-                return theInstance;
-        }
-        }
         strPath.assign(transport_config_path);
         strPath += config_name;
         theInstance.readConfig(strPath.c_str(), true);
@@ -739,9 +728,6 @@ void readOptionalConfig(const char* extra)
 {
     string strPath;
     strPath.assign(transport_config_path);
-    if (alternative_config_path[0] != '\0')
-        strPath.assign(alternative_config_path);
-
     strPath += extra_config_base;
     strPath += extra;
     strPath += extra_config_ext;

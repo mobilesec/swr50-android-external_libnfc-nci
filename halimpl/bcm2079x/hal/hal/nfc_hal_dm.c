@@ -73,18 +73,6 @@ const UINT8 nfc_hal_dm_get_patch_version_cmd [NCI_MSG_HDR_SIZE] =
 };
 #define NCI_PATCH_INFO_VERSION_LEN  16  /* Length of patch version string in PATCH_INFO */
 
-/* Version string for BCM20791B3 */
-const UINT8 NFC_HAL_DM_BCM20791B3_STR[]   = "20791B3";
-#define NFC_HAL_DM_BCM20791B3_STR_LEN     (sizeof (NFC_HAL_DM_BCM20791B3_STR)-1)
-
-/* Version string for BCM20791B4 */
-const UINT8 NFC_HAL_DM_BCM20791B4_STR[]   = "20791B4";
-#define NFC_HAL_DM_BCM20791B4_STR_LEN     (sizeof (NFC_HAL_DM_BCM20791B4_STR)-1)
-
-/* Version string for BCM43341B0 */
-const UINT8 NFC_HAL_DM_BCM43341B0_STR[]   = "43341B0";
-#define NFC_HAL_DM_BCM43341B0_STR_LEN     (sizeof (NFC_HAL_DM_BCM43341B0_STR)-1)
-
 /*****************************************************************************
 ** Extern function prototypes
 *****************************************************************************/
@@ -576,25 +564,7 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
 
             STREAM_TO_ARRAY (chipverstr, p, chipverlen);
 
-            if ((chipverlen == NFC_HAL_DM_BCM20791B3_STR_LEN) && (memcmp (NFC_HAL_DM_BCM20791B3_STR, chipverstr, NFC_HAL_DM_BCM20791B3_STR_LEN) == 0))
-            {
-                /* BCM2079B3 FW - eSE restarted for patch download */
-                nfc_hal_cb.hci_cb.hci_fw_workaround         = TRUE;
-                nfc_hal_cb.hci_cb.hci_fw_validate_netwk_cmd = TRUE;
-            }
-            else if (  ((chipverlen == NFC_HAL_DM_BCM20791B4_STR_LEN) && (memcmp (NFC_HAL_DM_BCM20791B4_STR, chipverstr, NFC_HAL_DM_BCM20791B4_STR_LEN) == 0))
-                     ||((chipverlen == NFC_HAL_DM_BCM43341B0_STR_LEN) && (memcmp (NFC_HAL_DM_BCM43341B0_STR, chipverstr, NFC_HAL_DM_BCM43341B0_STR_LEN) == 0))  )
-            {
-                /* BCM43341B0/BCM2079B4 FW - eSE restarted for patch download */
-                nfc_hal_cb.hci_cb.hci_fw_workaround         = TRUE;
-                nfc_hal_cb.hci_cb.hci_fw_validate_netwk_cmd = FALSE;
-            }
-            else
-            {
-                /* BCM2079B5 FW - eSE not be restarted for patch download from UICC */
-                nfc_hal_cb.hci_cb.hci_fw_workaround         = FALSE;
-                nfc_hal_cb.hci_cb.hci_fw_validate_netwk_cmd = FALSE;
-            }
+            nfc_hal_hci_handle_build_info (chipverlen, chipverstr);
 
             /* if NFCC needs to set Xtal frequency before getting patch version */
             if (nfc_hal_dm_get_xtal_index (nfc_hal_cb.dev_cb.brcm_hw_id, &xtal_freq) < NFC_HAL_XTAL_INDEX_MAX)
@@ -988,7 +958,6 @@ void nfc_hal_dm_shutting_down_nfcc (void)
     }
 
     nfc_hal_cb.ncit_cb.nci_wait_rsp = NFC_HAL_WAIT_RSP_NONE;
-    nfc_hal_cb.hci_cb.hcp_conn_id = 0;
 
     nfc_hal_cb.dev_cb.power_mode  = NFC_HAL_POWER_MODE_FULL;
     nfc_hal_cb.dev_cb.snooze_mode = NFC_HAL_LP_SNOOZE_MODE_NONE;
@@ -997,7 +966,10 @@ void nfc_hal_dm_shutting_down_nfcc (void)
     nfc_hal_main_stop_quick_timer (&nfc_hal_cb.ncit_cb.nci_wait_rsp_timer);
     nfc_hal_main_stop_quick_timer (&nfc_hal_cb.dev_cb.lp_timer);
     nfc_hal_main_stop_quick_timer (&nfc_hal_cb.prm.timer);
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
+    nfc_hal_cb.hci_cb.hcp_conn_id = 0;
     nfc_hal_main_stop_quick_timer (&nfc_hal_cb.hci_cb.hci_timer);
+#endif
     nfc_hal_main_stop_quick_timer (&nfc_hal_cb.timer);
 }
 
@@ -1019,7 +991,9 @@ void nfc_hal_dm_init (void)
 
     nfc_hal_cb.ncit_cb.nci_wait_rsp_timer.p_cback = nfc_hal_nci_cmd_timeout_cback;
 
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
     nfc_hal_cb.hci_cb.hci_timer.p_cback = nfc_hal_hci_timeout_cback;
+#endif
 
     nfc_hal_cb.pre_discover_done        = FALSE;
 

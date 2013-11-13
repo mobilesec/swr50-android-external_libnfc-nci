@@ -33,6 +33,7 @@
 
 #define NFA_HCI_FIRST_HOST_SPECIFIC_GENERIC_GATE    0x10
 #define NFA_HCI_LAST_HOST_SPECIFIC_GENERIC_GATE     0xEF
+#define NFA_HCI_FIRST_PROP_GATE                     0xF0
 #define NFA_HCI_LAST_PROP_GATE                      0xFF
 
 /* Generic Gates */

@@ -660,10 +660,11 @@ void ce_t3t_handle_non_nfc_forum_cmd (tCE_CB *p_mem_cb, UINT8 cmd_id, BT_HDR *p_
 ** Returns          none
 **
 *******************************************************************************/
-void ce_t3t_data_cback (UINT8 conn_id, BT_HDR *p_msg)
+void ce_t3t_data_cback (UINT8 conn_id, tNFC_DATA_CEVT *p_data)
 {
     tCE_CB *p_ce_cb = &ce_cb;
     tCE_T3T_MEM *p_cb = &p_ce_cb->mem.t3t;
+    BT_HDR *p_msg = p_data->p_data;
     tCE_DATA     ce_data;
     UINT8 cmd_id, bl0, entry_len, i;
     UINT8 *p_nfcid2 = NULL;
@@ -682,7 +683,7 @@ void ce_t3t_data_cback (UINT8 conn_id, BT_HDR *p_msg)
     /* If activate system code is not NDEF, or if no local NDEF contents was set, then pass data up to the app */
     if ((p_cb->system_code != T3T_SYSTEM_CODE_NDEF) || (!p_cb->ndef_info.initialized))
     {
-        ce_data.raw_frame.status = NFC_STATUS_OK;
+        ce_data.raw_frame.status = p_data->status;
         ce_data.raw_frame.p_data = p_msg;
         p_ce_cb->p_cback (CE_T3T_RAW_FRAME_EVT, &ce_data);
         return;
@@ -859,7 +860,7 @@ void ce_t3t_conn_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_data)
     case NFC_DATA_CEVT:
         if (p_data->data.status == NFC_STATUS_OK)
         {
-            ce_t3t_data_cback (conn_id, p_data->data.p_data);
+            ce_t3t_data_cback (conn_id, &p_data->data);
         }
         break;
 

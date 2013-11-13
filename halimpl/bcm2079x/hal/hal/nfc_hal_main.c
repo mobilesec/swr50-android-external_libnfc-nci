@@ -502,9 +502,12 @@ static void nfc_hal_send_credit_ntf_for_cid (UINT8 cid)
 *******************************************************************************/
 static void nfc_hal_main_send_message (NFC_HDR *p_msg)
 {
-    UINT8   *ps, *pp, cid, pbf;
-    UINT16  len = p_msg->len;
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
+    UINT8   cid, pbf;
     UINT16  data_len;
+#endif
+    UINT8   *ps, *pp;
+    UINT16  len = p_msg->len;
 #ifdef DISP_NCI
     UINT8   delta;
 #endif
@@ -530,6 +533,8 @@ static void nfc_hal_main_send_message (NFC_HDR *p_msg)
         delta = p_msg->len - len;
         DISP_NCI (ps + delta, (UINT16) (p_msg->len - delta), FALSE);
 #endif
+
+#if (defined(NFC_HAL_HCI_INCLUDED) && (NFC_HAL_HCI_INCLUDED == TRUE))
         if (nfc_hal_cb.hci_cb.hcp_conn_id)
         {
             NCI_DATA_PRS_HDR(pp, pbf, cid, data_len);
@@ -545,6 +550,8 @@ static void nfc_hal_main_send_message (NFC_HDR *p_msg)
             }
 
         }
+#endif
+
         /* check low power mode state */
         if (nfc_hal_dm_power_mode_execute (NFC_HAL_LP_TX_DATA_EVT))
         {

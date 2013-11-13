@@ -121,6 +121,11 @@
 #define NFC_HAL_I93_FLAG_DATA_RATE              NFC_HAL_I93_FLAG_DATA_RATE_HIGH
 #endif
 
+/* NFC HAL HCI */
+#ifndef NFC_HAL_HCI_INCLUDED
+#define NFC_HAL_HCI_INCLUDED                    TRUE
+#endif
+
 /* Quick Timer */
 #ifndef QUICK_TIMER_TICKS_PER_SEC
 #define QUICK_TIMER_TICKS_PER_SEC               100       /* 10ms timer */

@@ -147,8 +147,6 @@ typedef UINT8 tNFA_PROTOCOL_MASK;
 #define NFA_DM_NFCC_TIMEOUT_EVT         6   /* NFCC is not responding           */
 #define NFA_DM_NFCC_TRANSPORT_ERR_EVT   7   /* NCI Tranport error               */
 
-#define NFA_DM_MAX_UICC                 2   /* Max number of UICC               */
-
 #define NFA_T1T_HR_LEN              T1T_HR_LEN      /* T1T HR length            */
 #define NFA_MAX_UID_LEN             TAG_MAX_UID_LEN /* Max UID length of T1/T2  */
 #define NFA_T1T_UID_LEN             T1T_UID_LEN     /* T1T UID length           */
@@ -347,6 +345,7 @@ typedef struct
 /* Structure for NFA_DATA_EVT data */
 typedef struct
 {
+    tNFA_STATUS         status;         /* Status of Data received          */
     UINT8               *p_data;        /* Data buffer                      */
     UINT16              len;            /* Length of data                   */
 } tNFA_RX_DATA;
@@ -437,6 +436,7 @@ typedef struct
 /* Structure for NFA_CE_DATA_EVT data */
 typedef struct
 {
+    tNFA_STATUS         status;         /* NFA_STATUS_OK if complete packet     */
     tNFA_HANDLE         handle;         /* handle from NFA_CE_REGISTERED_EVT    */
     UINT8               *p_data;        /* Data buffer                          */
     UINT16              len;            /* Length of data                       */
@@ -500,11 +500,19 @@ typedef struct
     UINT8   pfa;    /* Frequency for NFC Technology F active mode   */
 } tNFA_DM_DISC_FREQ_CFG;
 
+/* definitions for tNFA_DM_CFG.presence_check_option */
+#define NFA_DM_PCO_ISO_SLEEP_WAKE       0x01 /* if NDEF is not supported by the tag, use sleep/wake(last interface) */
+#define NFA_DM_PCO_EMPTY_I_BLOCK        0x02 /* NFA_SendRawFrame() has been used, use empty I block for presence check
+                                              * if this bit is not set, use read-binary on channel 3 for presence check */
+
 /* compile-time configuration structure */
 typedef struct
 {
     BOOLEAN auto_detect_ndef;           /* Automatic NDEF detection (when not in exclusive RF mode) */
     BOOLEAN auto_read_ndef;             /* Automatic NDEF read (when not in exclusive RF mode)      */
+    BOOLEAN auto_presence_check;        /* Automatic presence check                                 */
+    UINT8   presence_check_option;      /* Use sleep/wake(last interface) for ISODEP presence check */
+    UINT16  presence_check_timeout;     /* Maximum time to wait for presence check response         */
 } tNFA_DM_CFG;
 
 /* compile-time configuration structure for HCI */

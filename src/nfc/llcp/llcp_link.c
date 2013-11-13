@@ -447,6 +447,12 @@ void llcp_link_deactivate (UINT8 reason)
     else /*  for link timeout and interface error */
     {
         /* if got RF link loss receiving no LLC PDU from peer */
+        if (  (reason == LLCP_LINK_RF_LINK_LOSS_ERR)
+            &&(!(llcp_cb.lcb.flags & LLCP_LINK_FLAGS_RX_ANY_LLC_PDU)))
+        {
+            reason = LLCP_LINK_RF_LINK_LOSS_NO_RX_LLC;
+        }
+
         NFC_FlushData (NFC_RF_CONN_ID);
     }
 

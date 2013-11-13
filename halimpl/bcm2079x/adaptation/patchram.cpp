@@ -49,6 +49,7 @@ extern UINT8 *p_nfc_hal_dm_start_up_cfg; //defined in the HAL
 static UINT8 nfa_dm_start_up_vsc_cfg[CONFIG_MAX_LEN];
 extern UINT8 *p_nfc_hal_dm_start_up_vsc_cfg; //defined in the HAL
 extern UINT8 *p_nfc_hal_dm_lptd_cfg; //defined in the HAL
+static UINT8 sDontSendLptd[] = { 0 };
 extern UINT8 *p_nfc_hal_pre_discover_cfg; //defined in the HAL
 
 extern tSNOOZE_MODE_CONFIG gSnoozeModeCfg;
@@ -307,16 +308,14 @@ void prmCallback(UINT8 event)
 ** Returns:         None
 **
 *******************************************************************************/
-static void getNfaValues()
+static void getNfaValues (UINT32 chipid)
 {
     unsigned long num = 0;
     int actualLen = 0;
 
-    p_nfc_hal_cfg->nfc_hal_prm_nvm_required = TRUE; //don't download firmware if controller cannot detect EERPOM
     sStartupConfig.initialize ();
     sLptdConfig.initialize ();
     sPreDiscoveryConfig.initialize();
-
 
     actualLen = GetStrValue (NAME_NFA_DM_START_UP_CFG, (char*)sConfig, sizeof(sConfig));
     if (actualLen)
@@ -347,6 +346,11 @@ static void getNfaValues()
         sLptdConfig.append (sConfig, actualLen);
         p_nfc_hal_dm_lptd_cfg = const_cast<UINT8*> (sLptdConfig.getInternalBuffer ());
     }
+    else
+    {
+        // Default to not sending any LPTD setting.
+        p_nfc_hal_dm_lptd_cfg = sDontSendLptd;
+    }
 
     mayDisableSecureElement (sStartupConfig);
     p_nfc_hal_dm_start_up_cfg = const_cast<UINT8*> (sStartupConfig.getInternalBuffer ());
@@ -357,6 +361,28 @@ static void getNfaValues()
         sPreDiscoveryConfig.append (sConfig, actualLen);
         mayDisableSecureElement (sPreDiscoveryConfig);
         p_nfc_hal_pre_discover_cfg = const_cast<UINT8*> (sPreDiscoveryConfig.getInternalBuffer ());
+    }
+
+    //configure how many secure elements are available for each type of chip
+    if (p_nfc_hal_cfg->nfc_hal_hci_uicc_support > 0)
+    {
+        if (GetNumValue(NAME_NFA_MAX_EE_SUPPORTED, &num, sizeof(num)))
+            nfc_hal_cb.max_ee = num;
+        else if ((chipid & BRCM_NFC_GEN_MASK) == BRCM_NFC_20791_GEN)
+        {
+            nfc_hal_cb.max_ee = BRCM_NFC_20791_GEN_MAX_EE;
+            p_nfc_hal_cfg->nfc_hal_hci_uicc_support = HAL_NFC_HCI_UICC0_HOST | HAL_NFC_HCI_UICC1_HOST;
+        }
+        else if ((chipid & BRCM_NFC_GEN_MASK) == BRCM_NFC_43341_GEN)
+        {
+            nfc_hal_cb.max_ee = BRCM_NFC_43341_GEN_MAX_EE;
+            p_nfc_hal_cfg->nfc_hal_hci_uicc_support = HAL_NFC_HCI_UICC0_HOST | HAL_NFC_HCI_UICC1_HOST;
+        }
+        else if ((chipid & BRCM_NFC_GEN_MASK) == BRCM_NFC_20795_GEN)
+        {
+            nfc_hal_cb.max_ee = BRCM_NFC_20795_GEN_MAX_EE;
+            p_nfc_hal_cfg->nfc_hal_hci_uicc_support = HAL_NFC_HCI_UICC0_HOST | HAL_NFC_HCI_UICC1_HOST | HAL_NFC_HCI_UICC2_HOST;
+        }
     }
 }
 
@@ -380,8 +406,7 @@ static void StartPatchDownload(UINT32 chipid)
 
     readOptionalConfig(chipID);     // Read optional chip specific settings
     readOptionalConfig("fime");     // Read optional FIME specific settings
-    getNfaValues();                 // Get NFA configuration values into variables
-
+    getNfaValues(chipid);                 // Get NFA configuration values into variables
 
     findPatchramFile(FW_PATCH, sPatchFn, sizeof(sPatchFn));
     findPatchramFile(FW_PRE_PATCH, sPrePatchFn, sizeof(sPatchFn));
@@ -488,16 +513,24 @@ void nfc_hal_post_reset_init (UINT32 brcm_hw_id, UINT8 nvm_type)
 {
     ALOGD("%s: brcm_hw_id=0x%lx, nvm_type=%d", __FUNCTION__, brcm_hw_id, nvm_type);
     tHAL_NFC_STATUS stat = HAL_NFC_STATUS_FAILED;
-    UINT8 max_credits = 1;
+    UINT8 max_credits = 1, allow_no_nvm=0;
+
+    p_nfc_hal_cfg->nfc_hal_prm_nvm_required = TRUE; //don't download firmware if controller cannot detect EERPOM
 
     if (nvm_type == NCI_SPD_NVM_TYPE_NONE)
     {
+        GetNumValue(NAME_ALLOW_NO_NVM, &allow_no_nvm, sizeof(allow_no_nvm));
+        if (allow_no_nvm == 0)
+        {
         ALOGD("%s: No NVM detected, FAIL the init stage to force a retry", __FUNCTION__);
         USERIAL_PowerupDevice (0);
         stat = HAL_NfcReInit ();
+            return;
+        }
+
+        p_nfc_hal_cfg->nfc_hal_prm_nvm_required = FALSE; //allow download firmware if controller cannot detect EERPOM
     }
-    else
-    {
+
         /* Start downloading the patch files */
         StartPatchDownload(brcm_hw_id);
 
@@ -507,7 +540,6 @@ void nfc_hal_post_reset_init (UINT32 brcm_hw_id, UINT8 nvm_type)
             HAL_NfcSetMaxRfDataCredits(max_credits);
         }
     }
-}
 
 
 /*******************************************************************************
@@ -535,4 +567,42 @@ void mayDisableSecureElement (StartupConfig& config)
         ALOGD ("%s: disable 0x%02X", __FUNCTION__, (UINT8) bitmask);
         config.disableSecureElement ((UINT8) (bitmask & 0xC0));
     }
+}
+
+
+/*******************************************************************************
+**
+** Function:    configureCrystalFrequency
+**
+** Description: Configure controller's crystal frequency by reading values from
+**              .conf file.  If .conf file does not define any value, then use
+**              default values defined in struct nfc_post_reset_cb.
+**
+** Returns:     none
+**
+*******************************************************************************/
+void configureCrystalFrequency ()
+{
+    unsigned long num = 0;
+    UINT32 hwId = 0;
+    UINT16 xtalFreq = 0;
+    UINT8 xtalIndex = 0;
+
+    GetNumValue (NAME_XTAL_HARDWARE_ID, &num, sizeof(num));
+    hwId = num;
+
+    GetNumValue (NAME_XTAL_FREQUENCY, &num, sizeof(num));
+    xtalFreq = (UINT16) num;
+
+    GetNumValue (NAME_XTAL_FREQ_INDEX, &num, sizeof(num));
+    xtalIndex = (UINT8) num;
+
+    if ((hwId == 0) && (xtalFreq == 0) && (xtalIndex == 0))
+        return;
+
+    ALOGD ("%s: hwId=0x%lX; freq=%u; index=%u", __FUNCTION__, hwId, xtalFreq, xtalIndex);
+    nfc_post_reset_cb.dev_init_config.xtal_cfg[0].brcm_hw_id = (hwId & BRCM_NFC_GEN_MASK);
+    nfc_post_reset_cb.dev_init_config.xtal_cfg[0].xtal_freq  = xtalFreq;
+    nfc_post_reset_cb.dev_init_config.xtal_cfg[0].xtal_index = xtalIndex;
+    nfc_post_reset_cb.dev_init_config.num_xtal_cfg = 1;
 }

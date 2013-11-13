@@ -24,7 +24,6 @@
 
 #define LOG_TAG "NfcAdaptation"
 
-const char alternative_config_path[] = "";
 const char transport_config_path[] = "/etc/";
 
 #define config_name             "libnfc-brcm.conf"
@@ -193,8 +192,19 @@ bool CNfcConfig::readConfig(const char* name, bool bResetContent)
             moveToList();
     }
 
-    while (!feof(fd) && fread(&c, 1, 1, fd) == 1)
+    for (;;)
     {
+        if (feof(fd) || fread(&c, 1, 1, fd) != 1)
+        {
+            if (state == BEGIN_LINE)
+                break;
+
+            // got to the EOF but not in BEGIN_LINE state so the file
+            // probably does not end with a newline, so the parser has
+            // not processed current line, simulate a newline in the file
+            c = '\n';
+        }
+
         switch (state & 0xff)
         {
         case BEGIN_LINE:
@@ -329,6 +339,9 @@ bool CNfcConfig::readConfig(const char* name, bool bResetContent)
         default:
             break;
         }
+
+        if (feof(fd))
+            break;
     }
 
     fclose(fd);
@@ -380,16 +393,6 @@ CNfcConfig& CNfcConfig::GetInstance()
     if (theInstance.size() == 0 && theInstance.mValidFile)
     {
         string strPath;
-        if (alternative_config_path[0] != '\0')
-        {
-            strPath.assign(alternative_config_path);
-            strPath += config_name;
-            theInstance.readConfig(strPath.c_str(), true);
-            if (!theInstance.empty())
-            {
-                return theInstance;
-        }
-        }
         strPath.assign(transport_config_path);
         strPath += config_name;
         theInstance.readConfig(strPath.c_str(), true);
@@ -739,9 +742,6 @@ void readOptionalConfig(const char* extra)
 {
     string strPath;
     strPath.assign(transport_config_path);
-    if (alternative_config_path[0] != '\0')
-        strPath.assign(alternative_config_path);
-
     strPath += extra_config_base;
     strPath += extra;
     strPath += extra_config_ext;

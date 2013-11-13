@@ -138,6 +138,13 @@ typedef UINT8 tRW_EVENT;
 
 typedef UINT8 tRW_NDEF_FLAG;
 
+/* options for RW_T4tPresenceCheck  */
+#define RW_T4T_CHK_READ_BINARY_CH0      0
+#define RW_T4T_CHK_READ_BINARY_CH1      1
+#define RW_T4T_CHK_READ_BINARY_CH2      2
+#define RW_T4T_CHK_READ_BINARY_CH3      3
+#define RW_T4T_CHK_EMPTY_I_BLOCK        4
+
 typedef struct
 {
     tNFC_STATUS     status;
@@ -892,6 +899,7 @@ NFC_API extern tNFC_STATUS RW_T4tUpdateNDef (UINT16 length, UINT8 *p_data);
 **
 **      The RW_T4T_PRESENCE_CHECK_EVT w/ status is used to indicate presence
 **      or non-presence.
+**      option is RW_T4T_CHK_EMPTY_I_BLOCK, use empty I block for presence check.
 **
 ** Returns
 **      NFC_STATUS_OK, if raw data frame sent
@@ -899,7 +907,7 @@ NFC_API extern tNFC_STATUS RW_T4tUpdateNDef (UINT16 length, UINT8 *p_data);
 **      NFC_STATUS_FAILED: other error
 **
 *****************************************************************************/
-NFC_API extern tNFC_STATUS RW_T4tPresenceCheck (void);
+NFC_API extern tNFC_STATUS RW_T4tPresenceCheck (UINT8 option);
 
 /*****************************************************************************
 **

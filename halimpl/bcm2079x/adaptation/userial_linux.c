@@ -48,6 +48,7 @@
 #endif
 extern UINT8 appl_trace_level;
 
+
 /* Mapping of USERIAL_PORT_x to linux */
 extern UINT32 ScrProtocolTraceFlag;
 static tUPIO_STATE current_nfc_wake_state = UPIO_OFF;
@@ -423,10 +424,16 @@ static inline int create_signal_fds(struct pollfd* set)
 *******************************************************************************/
 static inline void close_signal_fds()
 {
-    close(signal_fds[0]);
+    int stat = 0;
+
+    stat = close(signal_fds[0]);
+    if (stat == -1)
+        ALOGE ("%s, fail close index 0; errno=%d", __FUNCTION__, errno);
     signal_fds[0] = 0;
 
-    close(signal_fds[1]);
+    stat = close(signal_fds[1]);
+    if (stat == -1)
+        ALOGE ("%s, fail close index 1; errno=%d", __FUNCTION__, errno);
     signal_fds[1] = 0;
 }
 
@@ -540,13 +547,28 @@ UDRV_API void    USERIAL_Init(void * p_cfg)
 {
     ALOGI(__FUNCTION__);
 
+    //if userial_close_thread() is waiting to run; let it go first;
+    //let it finish; then continue this function
+    while (TRUE)
+    {
+        pthread_mutex_lock(&close_thread_mutex);
+        if (is_close_thread_is_waiting)
+        {
+            pthread_mutex_unlock(&close_thread_mutex);
+            ALOGI("USERIAL_Open(): wait for close-thread");
+            sleep (1);
+        }
+        else
+            break;
+    }
+
     memset(&linux_cb, 0, sizeof(linux_cb));
     linux_cb.sock = -1;
     linux_cb.ser_cb = NULL;
     linux_cb.sock_power_control = -1;
     linux_cb.client_device_address = 0;
     GKI_init_q(&Userial_in_q);
-    return;
+    pthread_mutex_unlock(&close_thread_mutex);
 }
 
 /*******************************************************************************
@@ -652,6 +674,8 @@ int my_read(int fd, uchar *pbuf, int len)
             break;
         }
     } while (count > 0);
+
+
  #if VALIDATE_PACKET
 /*
  * vallidate the packet structure
@@ -1000,7 +1024,7 @@ UDRV_API void USERIAL_Open(tUSERIAL_PORT port, tUSERIAL_OPEN_CFG *p_cfg, tUSERIA
             GKI_send_event(NFC_HAL_TASK, NFC_HAL_TASK_EVT_TERMINATE);
             goto done_open;
         }
-        ALOGD( "sock = %d\n", linux_cb.sock);
+        ALOGD( "%s sock = %d\n", __FUNCTION__, linux_cb.sock);
         if (GetStrValue ( NAME_POWER_CONTROL_DRIVER, power_control_dev, sizeof ( power_control_dev ) ) &&
             power_control_dev[0] != '\0')
         {
@@ -1450,13 +1474,13 @@ void userial_close_thread(UINT32 params)
         GKI_delay(gPostPowerOffDelay);
     }
     result = close(linux_cb.sock);
-    if (result<0)
-        ALOGD("%s: close return %d", __FUNCTION__, result);
+    if (result == -1)
+        ALOGE("%s: fail close linux_cb.sock; errno=%d", __FUNCTION__, errno);
 
     if (linux_cb.sock_power_control > 0 && linux_cb.sock_power_control != linux_cb.sock)
     result = close(linux_cb.sock_power_control);
-    if (result<0)
-        ALOGD("%s: close return %d", __FUNCTION__, result);
+    if (result == -1)
+        ALOGE("%s: fail close linux_cb.sock_power_control; errno=%d", __FUNCTION__, errno);
 
     linux_cb.sock_power_control = -1;
     linux_cb.sock = -1;
@@ -1650,7 +1674,7 @@ UDRV_API void USERIAL_PowerupDevice(tUSERIAL_PORT port)
                 resetSuccess = 1;
                 linux_cb.client_device_address = bcmi2cnfc_client_addr;
                 /* Delay long enough for address change */
-                delay = 200;
+                delay = 100;
             }
         } else {
             resetSuccess = 1;
@@ -1693,9 +1717,12 @@ static int change_client_addr(int addr)
     /* If it fails, it is likely a B3 we are talking to */
     if (ret != size) {
         ALOGD( "change_client_addr() change addr to 0x%x by setting BSP address to 0x%x\n", addr, ALIAS_CLIENT_ADDRESS);
-        /* MACO changed to support B3 with old kernel driver */
-        ret = ioctl(linux_cb.sock, BCMNFC_CHANGE_ADDR, addr);
-        return ret;
+        /* legacy kernel */
+        ioctl(linux_cb.sock, BCMNFC_CHANGE_ADDR, addr);
+        /* We'll tweak address to make it look like 0x1FA address */
+        ret = ioctl(linux_cb.sock, BCMNFC_SET_CLIENT_ADDR, ALIAS_CLIENT_ADDRESS);
+        size++;
+        ret = write(linux_cb.sock, addr_data, size);
     }
 
     if (ret == size) {
