@@ -223,6 +223,8 @@ void delete_stack_non_volatile_store (BOOLEAN forceDelete)
     remove (filename);
     sprintf (filename, "%s%u", filename2, HC_F2_NV_BLOCK);
     remove (filename);
+    sprintf (filename, "%s%u", filename2, HC_F5_NV_BLOCK);
+    remove (filename);
 }
 
 /*******************************************************************************
@@ -263,7 +265,11 @@ void verify_stack_non_volatile_store ()
             {
                 sprintf (filename, "%s%u", filename2, HC_F2_NV_BLOCK);
                 if (crcChecksumVerifyIntegrity (filename))
-                    isValid = TRUE;
+                {
+                    sprintf (filename, "%s%u", filename2, HC_F5_NV_BLOCK);
+                    if (crcChecksumVerifyIntegrity (filename))
+                        isValid = TRUE;
+                }
             }
         }
     }
