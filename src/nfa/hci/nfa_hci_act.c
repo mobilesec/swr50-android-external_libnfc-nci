@@ -1371,7 +1371,6 @@ void nfa_hci_handle_admin_gate_cmd (UINT8 *p_data)
 *******************************************************************************/
 void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
 {
-    UINT8               hosts[NFA_EE_MAX_EE_SUPPORTED - 1];
     UINT8               source_host;
     UINT8               source_gate = nfa_hci_cb.local_gate_in_use;
     UINT8               dest_host   = nfa_hci_cb.remote_host_in_use;
@@ -1383,7 +1382,6 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
     UINT8               host_count  = 0;
     UINT8               host_id     = 0;
     UINT32              os_tick;
-    UINT8               xx;
 
 #if (BT_TRACE_VERBOSE == TRUE)
     NFA_TRACE_DEBUG4 ("nfa_hci_handle_admin_gate_rsp - LastCmdSent: %s  App: 0x%04x  Gate: 0x%02x  Pipe: 0x%02x",
@@ -1417,14 +1415,8 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
         case NFA_HCI_ANY_SET_PARAMETER:
             if (nfa_hci_cb.param_in_use == NFA_HCI_SESSION_IDENTITY_INDEX)
             {
-                /* Terminal Host allows all UICC(s) to communicate, using Host id RFU values for subsequent UICC(s) */
-                for (xx = 0; xx <(nfa_ee_max_ee_cfg - 1); xx++)
-                {
-                    hosts[xx] = NFA_HCI_HOST_ID_UICC0 + xx;
-                }
-
                 /* Set WHITELIST */
-                nfa_hciu_send_set_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_WHITELIST_INDEX, (UINT8) (nfa_ee_max_ee_cfg - 1), (UINT8 *) hosts);
+                nfa_hciu_send_set_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_WHITELIST_INDEX, p_nfa_hci_cfg->num_whitelist_host, p_nfa_hci_cfg->p_whitelist);
             }
             else if (nfa_hci_cb.param_in_use == NFA_HCI_WHITELIST_INDEX)
             {
@@ -1466,16 +1458,8 @@ void nfa_hci_handle_admin_gate_rsp (UINT8 *p_data, UINT8 data_len)
                 /* The only parameter we get when initializing is the session ID. Check for match. */
                 if (!memcmp ((UINT8 *) nfa_hci_cb.cfg.admin_gate.session_id, p_data, NFA_HCI_SESSION_ID_LEN) )
                 {
-                    /* Session has not changed, Terminal Host allows all UICC(s) to communicate
-                     * And using Host id RFU values for subsequent UICC(s)
-                     */
-                    for (xx = 0; xx <(nfa_ee_max_ee_cfg - 1); xx++)
-                    {
-                        hosts[xx] = NFA_HCI_HOST_ID_UICC0 + xx;
-                    }
-
-                    /* Set WHITELIST */
-                    nfa_hciu_send_set_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_WHITELIST_INDEX, (UINT8) (nfa_ee_max_ee_cfg - 1), (UINT8 *) hosts);
+                    /* Session has not changed, Set WHITELIST */
+                    nfa_hciu_send_set_param_cmd (NFA_HCI_ADMIN_PIPE, NFA_HCI_WHITELIST_INDEX, p_nfa_hci_cfg->num_whitelist_host, p_nfa_hci_cfg->p_whitelist);
                 }
                 else
                 {
