@@ -85,6 +85,35 @@ static void nfa_ee_report_discover_req_evt(void);
 static void nfa_ee_build_discover_req_evt (tNFA_EE_DISCOVER_REQ *p_evt_data);
 /*******************************************************************************
 **
+** Function         nfa_ee_trace_aid
+**
+** Description      trace AID
+**
+** Returns          void
+**
+*******************************************************************************/
+static void nfa_ee_trace_aid (char *p_str, UINT8 id,  UINT8 aid_len, UINT8 *p)
+{
+    int     len = aid_len;
+    int     xx, yy = 0;
+    char    buff[100];
+
+    buff[0] = 0;
+    if (aid_len > NFA_MAX_AID_LEN)
+    {
+        NFA_TRACE_ERROR2 ("aid_len: %d exceeds max(%d)", aid_len, NFA_MAX_AID_LEN);
+        len = NFA_MAX_AID_LEN;
+    }
+    for (xx = 0; xx < len; xx++)
+    {
+        yy += sprintf (&buff[yy], "%02x ", *p);
+        p++;
+    }
+    NFA_TRACE_DEBUG4 ("%s id:0x%x len=%d aid:%s", p_str, id, aid_len, buff);
+
+}
+/*******************************************************************************
+**
 ** Function         nfa_ee_conn_cback
 **
 ** Description      process connection callback event from stack
@@ -446,8 +475,7 @@ void nfa_ee_api_add_aid(tNFA_EE_MSG *p_data)
     tNFA_EE_CBACK_DATA  evt_data = {0};
     int offset = 0, entry = 0;
 
-    NFA_TRACE_DEBUG3 ("nfa_ee_api_add_aid nfcee_id:0x%x %02x%02x",
-        p_cb->nfcee_id, p_add->p_aid[0], p_add->p_aid[1]);
+    nfa_ee_trace_aid ("nfa_ee_api_add_aid", p_cb->nfcee_id, p_add->aid_len, p_add->p_aid);
     p_chk_cb = nfa_ee_find_aid_offset(p_add->aid_len, p_add->p_aid, &offset, &entry);
     if (p_chk_cb)
     {
@@ -473,9 +501,10 @@ void nfa_ee_api_add_aid(tNFA_EE_MSG *p_data)
 
         if ((len_needed + len) > NFA_EE_MAX_AID_CFG_LEN)
         {
+            NFA_TRACE_ERROR3 ("Exceed capacity: (len_needed:%d + len:%d) > NFA_EE_MAX_AID_CFG_LEN:%d", len_needed, len, NFA_EE_MAX_AID_CFG_LEN);
             evt_data.status = NFA_STATUS_BUFFER_FULL;
         }
-        else
+        else if (p_cb->aid_entries < NFA_EE_MAX_AID_ENTRIES)
         {
             /* add AID */
             p_cb->aid_pwr_cfg[p_cb->aid_entries]    = p_add->power_state;
@@ -488,6 +517,11 @@ void nfa_ee_api_add_aid(tNFA_EE_MSG *p_data)
             p      += p_add->aid_len;
 
             p_cb->aid_len[p_cb->aid_entries++]     = (UINT8)(p - p_start);
+        }
+        else
+        {
+            NFA_TRACE_ERROR1 ("Exceed NFA_EE_MAX_AID_ENTRIES:%d", NFA_EE_MAX_AID_ENTRIES);
+            evt_data.status = NFA_STATUS_BUFFER_FULL;
         }
     }
 
@@ -522,7 +556,7 @@ void nfa_ee_api_remove_aid(tNFA_EE_MSG *p_data)
     int rest_len;
     tNFA_EE_CBACK *p_cback = NULL;
 
-    NFA_TRACE_DEBUG0 ("nfa_ee_api_remove_aid");
+    nfa_ee_trace_aid ("nfa_ee_api_remove_aid", 0, p_data->rm_aid.aid_len, p_data->rm_aid.p_aid);
     p_cb = nfa_ee_find_aid_offset(p_data->rm_aid.aid_len, p_data->rm_aid.p_aid, &offset, &entry);
     if (p_cb && p_cb->aid_entries)
     {
@@ -1576,7 +1610,8 @@ void nfa_ee_get_tech_route (UINT8 power_state, UINT8 *p_handles)
 *******************************************************************************/
 tNFA_STATUS nfa_ee_route_add_one_ecb(tNFA_EE_ECB *p_cb, int max_len, BOOLEAN more, UINT8 *ps, int *p_cur_offset)
 {
-    UINT8   *p, tlv_size, *pa;
+    UINT8   *p, *pa;
+    UINT16  tlv_size;
     UINT8   num_tlv, len;
     int     xx;
     int     start_offset;
@@ -1679,6 +1714,7 @@ tNFA_STATUS nfa_ee_route_add_one_ecb(tNFA_EE_ECB *p_cb, int max_len, BOOLEAN mor
     {
         /* exceeds routing table size - report ERROR */
         status  = NFA_STATUS_BUFFER_FULL;
+        NFA_TRACE_DEBUG2 ("nfa_ee_route_add_one_ecb: BUFFER_FULL tlv_size(%d) > max_tlv(%d)", tlv_size, max_tlv);
     }
 
     else if (more == FALSE)
@@ -1694,7 +1730,8 @@ tNFA_STATUS nfa_ee_route_add_one_ecb(tNFA_EE_ECB *p_cb, int max_len, BOOLEAN mor
             {
                 nfa_ee_cb.ee_cfg_sts       &= ~NFA_EE_STS_PREV_ROUTING;
             }
-            NFC_SetRouting(more, p_cb->nfcee_id, num_tlv, tlv_size, ps + 1);
+            NFA_TRACE_DEBUG2 ("nfa_ee_route_add_one_ecb: set routing num_tlv:%d tlv_size:%d", num_tlv, tlv_size);
+            NFC_SetRouting(more, p_cb->nfcee_id, num_tlv, (UINT8)tlv_size, ps + 1);
         }
         else if (nfa_ee_cb.ee_cfg_sts & NFA_EE_STS_PREV_ROUTING)
         {
@@ -1712,6 +1749,7 @@ tNFA_STATUS nfa_ee_route_add_one_ecb(tNFA_EE_ECB *p_cb, int max_len, BOOLEAN mor
         /* update the total num_tlv current offset */
         *ps              = num_tlv;
         *p_cur_offset   += entry_size;
+        NFA_TRACE_DEBUG2 ("nfa_ee_route_add_one_ecb: updated num_tlv:%d cur_offset:%d", *ps, *p_cur_offset);
     }
 
     return status;

@@ -665,7 +665,7 @@
 
 /* Maximum number of AID entries per target_handle  */
 #ifndef NFA_EE_MAX_AID_ENTRIES
-#define NFA_EE_MAX_AID_ENTRIES      (10)
+#define NFA_EE_MAX_AID_ENTRIES      (32)
 #endif
 
 /* Maximum number of callback functions can be registered through NFA_EeRegister() */
