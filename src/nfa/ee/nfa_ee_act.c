@@ -112,6 +112,126 @@ static void nfa_ee_trace_aid (char *p_str, UINT8 id,  UINT8 aid_len, UINT8 *p)
     NFA_TRACE_DEBUG4 ("%s id:0x%x len=%d aid:%s", p_str, id, aid_len, buff);
 
 }
+
+/*******************************************************************************
+**
+** Function         nfa_ee_update_route_size
+**
+** Description      Update the size required for technology and protocol routing
+**                  of the given NFCEE ID.
+**
+** Returns          void
+**
+*******************************************************************************/
+static void nfa_ee_update_route_size(tNFA_EE_ECB *p_cb)
+{
+    int     xx;
+    UINT8   power_cfg = 0;
+
+    p_cb->size_mask = 0;
+    /* add the Technology based routing */
+    for (xx = 0; xx < NFA_EE_NUM_TECH; xx++)
+    {
+        power_cfg = 0;
+        if (p_cb->tech_switch_on & nfa_ee_tech_mask_list[xx])
+            power_cfg |= NCI_ROUTE_PWR_STATE_ON;
+        if (p_cb->tech_switch_off & nfa_ee_tech_mask_list[xx])
+            power_cfg |= NCI_ROUTE_PWR_STATE_SWITCH_OFF;
+        if (p_cb->tech_battery_off & nfa_ee_tech_mask_list[xx])
+            power_cfg |= NCI_ROUTE_PWR_STATE_BATT_OFF;
+        if (power_cfg)
+        {
+            /* 5 = 1 (tag) + 1 (len) + 1(nfcee_id) + 1(power cfg) + 1 (techonogy) */
+            p_cb->size_mask += 5;
+        }
+    }
+
+    /* add the Protocol based routing */
+    for (xx = 0; xx < NFA_EE_NUM_PROTO; xx++)
+    {
+        power_cfg = 0;
+        if (p_cb->proto_switch_on & nfa_ee_proto_mask_list[xx])
+            power_cfg |= NCI_ROUTE_PWR_STATE_ON;
+        if (p_cb->proto_switch_off & nfa_ee_proto_mask_list[xx])
+            power_cfg |= NCI_ROUTE_PWR_STATE_SWITCH_OFF;
+        if (p_cb->proto_battery_off & nfa_ee_proto_mask_list[xx])
+            power_cfg |= NCI_ROUTE_PWR_STATE_BATT_OFF;
+        if (power_cfg)
+        {
+            /* 5 = 1 (tag) + 1 (len) + 1(nfcee_id) + 1(power cfg) + 1 (protocol) */
+            p_cb->size_mask += 5;
+        }
+    }
+}
+
+/*******************************************************************************
+**
+** Function         nfa_ee_update_route_aid_size
+**
+** Description      Update the size required for AID routing
+**                  of the given NFCEE ID.
+**
+** Returns          void
+**
+*******************************************************************************/
+static void nfa_ee_update_route_aid_size(tNFA_EE_ECB *p_cb)
+{
+    UINT8   *pa, len;
+    int     start_offset;
+    int     xx;
+
+    p_cb->size_aid  = 0;
+    if (p_cb->aid_entries)
+    {
+        start_offset = 0;
+        for (xx = 0; xx < p_cb->aid_entries; xx++)
+        {
+            /* add one AID entry */
+            if (p_cb->aid_rt_info[xx] & NFA_EE_AE_ROUTE)
+            {
+                pa      = &p_cb->aid_cfg[start_offset];
+                pa ++; /* EMV tag */
+                len     = *pa++; /* aid_len */
+                /* 4 = 1 (tag) + 1 (len) + 1(nfcee_id) + 1(power cfg) */
+                p_cb->size_aid  += 4;
+                p_cb->size_aid  += len;
+            }
+            start_offset += p_cb->aid_len[xx];
+        }
+    }
+}
+
+/*******************************************************************************
+**
+** Function         nfa_ee_total_lmrt_size
+**
+** Description      the total listen mode routing table size
+**
+** Returns          UINT16
+**
+*******************************************************************************/
+static UINT16 nfa_ee_total_lmrt_size(void)
+{
+    int xx;
+    UINT16 lmrt_size = 0;
+    tNFA_EE_ECB          *p_cb;
+
+    p_cb = &nfa_ee_cb.ecb[NFA_EE_CB_4_DH];
+    lmrt_size += p_cb->size_mask;
+    lmrt_size += p_cb->size_aid;
+    p_cb = &nfa_ee_cb.ecb[nfa_ee_cb.cur_ee - 1];
+    for (xx = 0; xx < nfa_ee_cb.cur_ee; xx++, p_cb--)
+    {
+        if (p_cb->ee_status == NFC_NFCEE_STATUS_ACTIVE)
+        {
+            lmrt_size += p_cb->size_mask;
+            lmrt_size += p_cb->size_aid;
+        }
+    }
+    NFA_TRACE_DEBUG1 ("nfa_ee_total_lmrt_size size:%d", lmrt_size);
+    return lmrt_size;
+}
+
 /*******************************************************************************
 **
 ** Function         nfa_ee_conn_cback
@@ -411,17 +531,34 @@ void nfa_ee_api_set_tech_cfg(tNFA_EE_MSG *p_data)
 {
     tNFA_EE_ECB *p_cb = p_data->cfg_hdr.p_cb;
     tNFA_EE_CBACK_DATA  evt_data = {0};
+    tNFA_TECHNOLOGY_MASK    old_tech_switch_on   = p_cb->tech_switch_on;
+    tNFA_TECHNOLOGY_MASK    old_tech_switch_off  = p_cb->tech_switch_off;
+    tNFA_TECHNOLOGY_MASK    old_tech_battery_off = p_cb->tech_battery_off;
+    UINT8                   old_size_mask        = p_cb->size_mask;
 
     p_cb->tech_switch_on   = p_data->set_tech.technologies_switch_on;
     p_cb->tech_switch_off  = p_data->set_tech.technologies_switch_off;
     p_cb->tech_battery_off = p_data->set_tech.technologies_battery_off;
-    p_cb->ecb_flags       |= NFA_EE_ECB_FLAGS_TECH;
-    if (p_cb->tech_switch_on | p_cb->tech_switch_off | p_cb->tech_battery_off)
+    nfa_ee_update_route_size(p_cb);
+    if (nfa_ee_total_lmrt_size() > NFC_GetLmrtSize())
     {
-        /* if any technology in any power mode is configured, mark this entry as configured */
-        nfa_ee_cb.ee_cfged    |= nfa_ee_ecb_to_mask(p_cb);
+        NFA_TRACE_ERROR0 ("nfa_ee_api_set_tech_cfg Exceed LMRT size");
+        evt_data.status        = NFA_STATUS_BUFFER_FULL;
+        p_cb->tech_switch_on   = old_tech_switch_on;
+        p_cb->tech_switch_off  = old_tech_switch_off;
+        p_cb->tech_battery_off = old_tech_battery_off;
+        p_cb->size_mask        = old_size_mask;
     }
-    nfa_ee_start_timer();
+    else
+    {
+        p_cb->ecb_flags       |= NFA_EE_ECB_FLAGS_TECH;
+        if (p_cb->tech_switch_on | p_cb->tech_switch_off | p_cb->tech_battery_off)
+        {
+            /* if any technology in any power mode is configured, mark this entry as configured */
+            nfa_ee_cb.ee_cfged    |= nfa_ee_ecb_to_mask(p_cb);
+        }
+        nfa_ee_start_timer();
+    }
     nfa_ee_report_event (p_cb->p_ee_cback, NFA_EE_SET_TECH_CFG_EVT, &evt_data);
 }
 
@@ -440,17 +577,34 @@ void nfa_ee_api_set_proto_cfg(tNFA_EE_MSG *p_data)
 {
     tNFA_EE_ECB *p_cb = p_data->cfg_hdr.p_cb;
     tNFA_EE_CBACK_DATA  evt_data = {0};
+    tNFA_PROTOCOL_MASK    old_proto_switch_on   = p_cb->proto_switch_on;
+    tNFA_PROTOCOL_MASK    old_proto_switch_off  = p_cb->proto_switch_off;
+    tNFA_PROTOCOL_MASK    old_proto_battery_off = p_cb->proto_battery_off;
+    UINT8                   old_size_mask        = p_cb->size_mask;
 
     p_cb->proto_switch_on       = p_data->set_proto.protocols_switch_on;
     p_cb->proto_switch_off      = p_data->set_proto.protocols_switch_off;
     p_cb->proto_battery_off     = p_data->set_proto.protocols_battery_off;
-    p_cb->ecb_flags            |= NFA_EE_ECB_FLAGS_PROTO;
-    if (p_cb->proto_switch_on | p_cb->proto_switch_off | p_cb->proto_battery_off)
+    nfa_ee_update_route_size(p_cb);
+    if (nfa_ee_total_lmrt_size() > NFC_GetLmrtSize())
     {
-        /* if any protocol in any power mode is configured, mark this entry as configured */
-        nfa_ee_cb.ee_cfged         |= nfa_ee_ecb_to_mask(p_cb);
+        NFA_TRACE_ERROR0 ("nfa_ee_api_set_proto_cfg Exceed LMRT size");
+        evt_data.status         = NFA_STATUS_BUFFER_FULL;
+        p_cb->proto_switch_on   = old_proto_switch_on;
+        p_cb->proto_switch_off  = old_proto_switch_off;
+        p_cb->proto_battery_off = old_proto_battery_off;
+        p_cb->size_mask         = old_size_mask;
     }
-    nfa_ee_start_timer();
+    else
+    {
+        p_cb->ecb_flags            |= NFA_EE_ECB_FLAGS_PROTO;
+        if (p_cb->proto_switch_on | p_cb->proto_switch_off | p_cb->proto_battery_off)
+        {
+            /* if any protocol in any power mode is configured, mark this entry as configured */
+            nfa_ee_cb.ee_cfged         |= nfa_ee_ecb_to_mask(p_cb);
+        }
+        nfa_ee_start_timer();
+    }
     nfa_ee_report_event (p_cb->p_ee_cback, NFA_EE_SET_PROTO_CFG_EVT, &evt_data);
 }
 
@@ -474,6 +628,7 @@ void nfa_ee_api_add_aid(tNFA_EE_MSG *p_data)
     int     len, len_needed;
     tNFA_EE_CBACK_DATA  evt_data = {0};
     int offset = 0, entry = 0;
+    UINT16  new_size;
 
     nfa_ee_trace_aid ("nfa_ee_api_add_aid", p_cb->nfcee_id, p_add->aid_len, p_add->p_aid);
     p_chk_cb = nfa_ee_find_aid_offset(p_add->aid_len, p_add->p_aid, &offset, &entry);
@@ -483,7 +638,17 @@ void nfa_ee_api_add_aid(tNFA_EE_MSG *p_data)
         if (p_chk_cb == p_cb)
         {
             p_cb->aid_rt_info[entry]    |= NFA_EE_AE_ROUTE;
-            p_cb->aid_pwr_cfg[entry]     = p_add->power_state;
+            new_size = nfa_ee_total_lmrt_size();
+            if (new_size > NFC_GetLmrtSize())
+            {
+                NFA_TRACE_ERROR1 ("Exceed LMRT size:%d (add ROUTE)", new_size);
+                evt_data.status             = NFA_STATUS_BUFFER_FULL;
+                p_cb->aid_rt_info[entry]    &= ~NFA_EE_AE_ROUTE;
+            }
+            else
+            {
+                p_cb->aid_pwr_cfg[entry]     = p_add->power_state;
+            }
         }
         else
         {
@@ -506,17 +671,26 @@ void nfa_ee_api_add_aid(tNFA_EE_MSG *p_data)
         }
         else if (p_cb->aid_entries < NFA_EE_MAX_AID_ENTRIES)
         {
-            /* add AID */
-            p_cb->aid_pwr_cfg[p_cb->aid_entries]    = p_add->power_state;
-            p_cb->aid_rt_info[p_cb->aid_entries]    = NFA_EE_AE_ROUTE;
-            p       = p_cb->aid_cfg + len;
-            p_start = p;
-            *p++    = NFA_EE_AID_CFG_TAG_NAME;
-            *p++    = p_add->aid_len;
-            memcpy(p, p_add->p_aid, p_add->aid_len);
-            p      += p_add->aid_len;
+            new_size = nfa_ee_total_lmrt_size() + 4 + p_add->aid_len; /* 4 = 1 (tag) + 1 (len) + 1(nfcee_id) + 1(power cfg) */
+            if (new_size > NFC_GetLmrtSize())
+            {
+                NFA_TRACE_ERROR1 ("Exceed LMRT size:%d", new_size);
+                evt_data.status        = NFA_STATUS_BUFFER_FULL;
+            }
+            else
+            {
+                /* add AID */
+                p_cb->aid_pwr_cfg[p_cb->aid_entries]    = p_add->power_state;
+                p_cb->aid_rt_info[p_cb->aid_entries]    = NFA_EE_AE_ROUTE;
+                p       = p_cb->aid_cfg + len;
+                p_start = p;
+                *p++    = NFA_EE_AID_CFG_TAG_NAME;
+                *p++    = p_add->aid_len;
+                memcpy(p, p_add->p_aid, p_add->aid_len);
+                p      += p_add->aid_len;
 
-            p_cb->aid_len[p_cb->aid_entries++]     = (UINT8)(p - p_start);
+                p_cb->aid_len[p_cb->aid_entries++]     = (UINT8)(p - p_start);
+            }
         }
         else
         {
@@ -530,6 +704,7 @@ void nfa_ee_api_add_aid(tNFA_EE_MSG *p_data)
         /* mark AID changed */
         p_cb->ecb_flags                       |= NFA_EE_ECB_FLAGS_AID;
         nfa_ee_cb.ee_cfged                    |= nfa_ee_ecb_to_mask(p_cb);
+        nfa_ee_update_route_aid_size(p_cb);
         nfa_ee_start_timer();
     }
     NFA_TRACE_DEBUG2 ("status:%d ee_cfged:0x%02x ",evt_data.status, nfa_ee_cb.ee_cfged);
@@ -586,6 +761,7 @@ void nfa_ee_api_remove_aid(tNFA_EE_MSG *p_data)
         /* else the last entry, just reduce the aid_entries by 1 */
         p_cb->aid_entries--;
         nfa_ee_cb.ee_cfged      |= nfa_ee_ecb_to_mask(p_cb);
+        nfa_ee_update_route_aid_size(p_cb);
         nfa_ee_start_timer();
         /* report NFA_EE_REMOVE_AID_EVT to the callback associated the NFCEE */
         p_cback = p_cb->p_ee_cback;
