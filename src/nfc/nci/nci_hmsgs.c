@@ -582,7 +582,7 @@ UINT8 nci_snd_parameter_update_cmd (UINT8 *p_param_tlvs, UINT8 tlv_size)
 ** Returns          status
 **
 *******************************************************************************/
-UINT8 nci_snd_set_routing_cmd (BOOLEAN more, UINT8 target_handle, UINT8 num_tlv, UINT8 tlv_size, UINT8 *p_param_tlvs)
+UINT8 nci_snd_set_routing_cmd (BOOLEAN more, UINT8 num_tlv, UINT8 tlv_size, UINT8 *p_param_tlvs)
 {
     BT_HDR *p;
     UINT8 *pp;

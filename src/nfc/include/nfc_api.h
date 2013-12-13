@@ -1190,7 +1190,6 @@ NFC_API extern tNFC_STATUS NFC_PowerCycleNFCC (void);
 **
 *******************************************************************************/
 NFC_API extern tNFC_STATUS NFC_SetRouting(BOOLEAN     more,
-                                            UINT8       nfcee_id,
                                             UINT8       num_tlv,
                                             UINT8       tlv_size,
                                             UINT8      *p_param_tlvs);

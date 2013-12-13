@@ -1911,7 +1911,7 @@ tNFA_STATUS nfa_ee_route_add_one_ecb(tNFA_EE_ECB *p_cb, int max_len, BOOLEAN mor
                 nfa_ee_cb.ee_cfg_sts       &= ~NFA_EE_STS_PREV_ROUTING;
             }
             NFA_TRACE_DEBUG2 ("nfa_ee_route_add_one_ecb: set routing num_tlv:%d tlv_size:%d", num_tlv, tlv_size);
-            NFC_SetRouting(more, p_cb->nfcee_id, num_tlv, (UINT8)tlv_size, ps + 1);
+            NFC_SetRouting(more, num_tlv, (UINT8)tlv_size, ps + 1);
         }
         else if (nfa_ee_cb.ee_cfg_sts & NFA_EE_STS_PREV_ROUTING)
         {
@@ -1920,7 +1920,7 @@ tNFA_STATUS nfa_ee_route_add_one_ecb(tNFA_EE_ECB *p_cb, int max_len, BOOLEAN mor
                 nfa_ee_cb.ee_cfg_sts       &= ~NFA_EE_STS_PREV_ROUTING;
                 /* indicated routing is configured to NFCC */
                 nfa_ee_cb.ee_cfg_sts       |= NFA_EE_STS_CHANGED_ROUTING;
-                NFC_SetRouting(more, p_cb->nfcee_id, 0, 0, ps + 1);
+                NFC_SetRouting(more, 0, 0, ps + 1);
             }
         }
     }
@@ -2063,6 +2063,7 @@ void nfa_ee_lmrt_to_nfcc(tNFA_EE_MSG *p_data)
     int     max_len, len;
     tNFA_STATUS status = NFA_STATUS_FAILED;
     int     cur_offset;
+    UINT8   max_tlv;
 
     /* update routing table: DH and the activated NFCEEs */
     p = (UINT8 *)GKI_getbuf(NFA_EE_ROUT_BUF_SIZE);
@@ -2094,6 +2095,7 @@ void nfa_ee_lmrt_to_nfcc(tNFA_EE_MSG *p_data)
     /* add the routing for DH first */
     status  = NFA_STATUS_OK;
     max_len = NFC_GetLmrtSize();
+    max_tlv = (UINT8)((max_len > NFA_EE_ROUT_MAX_TLV_SIZE)?NFA_EE_ROUT_MAX_TLV_SIZE:max_len);
     cur_offset  = 0;
     /* use the first byte of the buffer (p) to keep the num_tlv */
     *p          = 0;
@@ -2109,6 +2111,22 @@ void nfa_ee_lmrt_to_nfcc(tNFA_EE_MSG *p_data)
             len = 0;
             if (p_cb->ee_status == NFC_NFCEE_STATUS_ACTIVE)
             {
+                if ((cur_offset + p_cb->size_aid + p_cb->size_mask) > max_tlv)
+                {
+                    /*send the routing command before adding this entry */
+                    NFC_SetRouting(TRUE, *p, cur_offset, p + 1);
+                    /* allocate buffer for the next routing command */
+                    p = (UINT8 *)GKI_getbuf(NFA_EE_ROUT_BUF_SIZE);
+                    if (p == NULL)
+                    {
+                        NFA_TRACE_ERROR0 ("nfa_ee_lmrt_to_nfcc() no buffer to send next routing command.");
+                        nfa_ee_report_event( NULL, NFA_EE_NO_MEM_ERR_EVT, (tNFA_EE_CBACK_DATA *)&status);
+                        return;
+                    }
+                    max_len    -= cur_offset;
+                    cur_offset  = 0;
+                    *p          = 0;
+                }
                 NFA_TRACE_DEBUG2 ("nfcee_id:0x%x, last_active: 0x%x", p_cb->nfcee_id, last_active);
                 if (last_active == p_cb->nfcee_id)
                     more = FALSE;

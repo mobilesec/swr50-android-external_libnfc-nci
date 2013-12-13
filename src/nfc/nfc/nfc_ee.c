@@ -98,12 +98,11 @@ tNFC_STATUS NFC_NfceeModeSet (UINT8              nfcee_id,
 **
 *******************************************************************************/
 tNFC_STATUS NFC_SetRouting (BOOLEAN more,
-                             UINT8  nfcee_id,
                              UINT8  num_tlv,
                              UINT8  tlv_size,
                              UINT8  *p_param_tlvs)
 {
-    return nci_snd_set_routing_cmd (more, nfcee_id, num_tlv, tlv_size, p_param_tlvs);
+    return nci_snd_set_routing_cmd (more, num_tlv, tlv_size, p_param_tlvs);
 }
 
 /*******************************************************************************
