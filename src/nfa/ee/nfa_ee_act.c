@@ -1460,7 +1460,11 @@ void nfa_ee_nci_mode_set_rsp(tNFA_EE_MSG *p_data)
         mode_set.ee_status  = p_cb->ee_status;
 
         nfa_ee_report_event(p_cb->p_ee_cback, NFA_EE_MODE_SET_EVT, (tNFA_EE_CBACK_DATA *)&mode_set);
-        if (p_cb->ee_status == NFC_NFCEE_STATUS_INACTIVE)
+
+        /* WAR for BLTH02787041 - Special for 2079xB4/B5, where we also need to report
+           the discover request event when EE mode is changed from Inactive to Active. */
+        if ((p_cb->ee_status == NFC_NFCEE_STATUS_INACTIVE)
+            || (p_cb->ee_status == NFC_NFCEE_STATUS_ACTIVE))
         {
             /* Report NFA_EE_DISCOVER_REQ_EVT for all active NFCEE */
             nfa_ee_report_discover_req_evt();
