@@ -443,6 +443,22 @@ void nfc_hal_dm_send_get_build_info_cmd (void)
     /* get build information to find out HW */
     nfc_hal_dm_send_nci_cmd (nfc_hal_dm_get_build_info_cmd, NCI_MSG_HDR_SIZE, NULL);
 }
+/*******************************************************************************
+**
+** Function:    nfc_hal_dm_adjust_hw_id
+**
+** Description: The hw_id of certain chips are shifted by 8 bits.
+**              Adjust the hw_id before processing.
+**
+** Returns:     Nothing
+**
+*******************************************************************************/
+static UINT32 nfc_hal_dm_adjust_hw_id (UINT32 hw_id)
+{
+    if ((hw_id & 0xF0000000) == 0)
+        hw_id <<= 4; /* shift hw_id by 4 bits to align w the format of most chips */
+    return hw_id;
+}
 
 /*******************************************************************************
 **
@@ -464,6 +480,7 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
     UINT8   chipverlen;
     UINT8   chipverstr[NCI_SPD_HEADER_CHIPVER_LEN];
     UINT16  xtal_freq;
+    UINT32  hw_id = 0;
 
     HAL_TRACE_DEBUG1 ("nfc_hal_dm_proc_msg_during_init(): init state:%d", nfc_hal_cb.dev_cb.initializing_state);
 
@@ -550,7 +567,9 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
         {
             p += NCI_BUILD_INFO_OFFSET_HWID;
 
-            STREAM_TO_UINT32 (nfc_hal_cb.dev_cb.brcm_hw_id, p);
+            STREAM_TO_UINT32 (hw_id, p);
+            nfc_hal_cb.dev_cb.brcm_hw_id = nfc_hal_dm_adjust_hw_id (hw_id);
+            HAL_TRACE_DEBUG2 ("brcm_hw_id: 0x%x -> 0x%x", hw_id, nfc_hal_cb.dev_cb.brcm_hw_id);
 
             STREAM_TO_UINT8 (chipverlen, p);
             memset (chipverstr, 0, NCI_SPD_HEADER_CHIPVER_LEN);
