@@ -124,9 +124,17 @@ void nfa_ee_init (void)
 *******************************************************************************/
 void nfa_ee_sys_enable (void)
 {
-    /* collect NFCEE information */
-    NFC_NfceeDiscover (TRUE);
-    nfa_sys_start_timer (&nfa_ee_cb.discv_timer, NFA_EE_DISCV_TIMEOUT_EVT, NFA_EE_DISCV_TIMEOUT_VAL);
+    if (nfa_ee_max_ee_cfg)
+    {
+        /* collect NFCEE information */
+        NFC_NfceeDiscover (TRUE);
+        nfa_sys_start_timer (&nfa_ee_cb.discv_timer, NFA_EE_DISCV_TIMEOUT_EVT, NFA_EE_DISCV_TIMEOUT_VAL);
+    }
+    else
+    {
+        nfa_ee_cb.em_state = NFA_EE_EM_STATE_INIT_DONE;
+        nfa_sys_cback_notify_enable_complete (NFA_ID_EE);
+    }
 }
 
 /*******************************************************************************
@@ -210,34 +218,37 @@ void nfa_ee_proc_nfcc_power_mode (UINT8 nfcc_power_mode)
     /* if NFCC power state is change to full power */
     if (nfcc_power_mode == NFA_DM_PWR_MODE_FULL)
     {
-        p_cb = nfa_ee_cb.ecb;
-        for (xx = 0; xx < NFA_EE_MAX_EE_SUPPORTED; xx++, p_cb++)
+        if (nfa_ee_max_ee_cfg)
         {
-            p_cb->ee_old_status = 0;
-            if (xx >= nfa_ee_cb.cur_ee)
-                p_cb->nfcee_id = NFA_EE_INVALID;
-
-            if ((p_cb->nfcee_id != NFA_EE_INVALID) && (p_cb->ee_interface[0] != NFC_NFCEE_INTERFACE_HCI_ACCESS) && (p_cb->ee_status  != NFA_EE_STATUS_REMOVED))
+            p_cb = nfa_ee_cb.ecb;
+            for (xx = 0; xx < NFA_EE_MAX_EE_SUPPORTED; xx++, p_cb++)
             {
-                proc_complete       = FALSE;
-                /* NFA_EE_STATUS_RESTORING bit makes sure the ee_status restore to ee_old_status
-                 * NFA_EE_STATUS_RESTORING bit is cleared in ee_status at NFCEE_DISCOVER NTF.
-                 * NFA_EE_STATUS_RESTORING bit is cleared in ee_old_status at restoring the activate/inactive status after NFCEE_DISCOVER NTF */
-                p_cb->ee_status    |= NFA_EE_STATUS_RESTORING;
-                p_cb->ee_old_status = p_cb->ee_status;
-                /* NFA_EE_FLAGS_RESTORE bit makes sure the routing/nci logical connection is restore to prior to entering low power mode */
-                p_cb->ecb_flags    |= NFA_EE_ECB_FLAGS_RESTORE;
+                p_cb->ee_old_status = 0;
+                if (xx >= nfa_ee_cb.cur_ee)
+                    p_cb->nfcee_id = NFA_EE_INVALID;
+
+                if ((p_cb->nfcee_id != NFA_EE_INVALID) && (p_cb->ee_interface[0] != NFC_NFCEE_INTERFACE_HCI_ACCESS) && (p_cb->ee_status  != NFA_EE_STATUS_REMOVED))
+                {
+                    proc_complete       = FALSE;
+                    /* NFA_EE_STATUS_RESTORING bit makes sure the ee_status restore to ee_old_status
+                     * NFA_EE_STATUS_RESTORING bit is cleared in ee_status at NFCEE_DISCOVER NTF.
+                     * NFA_EE_STATUS_RESTORING bit is cleared in ee_old_status at restoring the activate/inactive status after NFCEE_DISCOVER NTF */
+                    p_cb->ee_status    |= NFA_EE_STATUS_RESTORING;
+                    p_cb->ee_old_status = p_cb->ee_status;
+                    /* NFA_EE_FLAGS_RESTORE bit makes sure the routing/nci logical connection is restore to prior to entering low power mode */
+                    p_cb->ecb_flags    |= NFA_EE_ECB_FLAGS_RESTORE;
+                }
             }
+            nfa_ee_cb.em_state          = NFA_EE_EM_STATE_RESTORING;
+            nfa_ee_cb.num_ee_expecting  = 0;
+            if (nfa_sys_is_register (NFA_ID_HCI))
+            {
+                nfa_ee_cb.ee_flags   |= NFA_EE_FLAG_WAIT_HCI;
+                nfa_ee_cb.ee_flags   |= NFA_EE_FLAG_NOTIFY_HCI;
+            }
+            NFC_NfceeDiscover (TRUE);
+            nfa_sys_start_timer (&nfa_ee_cb.discv_timer, NFA_EE_DISCV_TIMEOUT_EVT, NFA_EE_DISCV_TIMEOUT_VAL);
         }
-        nfa_ee_cb.em_state          = NFA_EE_EM_STATE_RESTORING;
-        nfa_ee_cb.num_ee_expecting  = 0;
-        if (nfa_sys_is_register (NFA_ID_HCI))
-        {
-            nfa_ee_cb.ee_flags   |= NFA_EE_FLAG_WAIT_HCI;
-            nfa_ee_cb.ee_flags   |= NFA_EE_FLAG_NOTIFY_HCI;
-        }
-        NFC_NfceeDiscover (TRUE);
-        nfa_sys_start_timer (&nfa_ee_cb.discv_timer, NFA_EE_DISCV_TIMEOUT_EVT, NFA_EE_DISCV_TIMEOUT_VAL);
     }
     else
     {
