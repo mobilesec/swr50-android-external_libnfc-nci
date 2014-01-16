@@ -77,6 +77,7 @@ const tNFA_EE_SM_ACT nfa_ee_actions[] =
     nfa_ee_nci_conn         ,   /* NFA_EE_NCI_DATA_EVT          */
     nfa_ee_nci_action_ntf   ,   /* NFA_EE_NCI_ACTION_NTF_EVT    */
     nfa_ee_nci_disc_req_ntf ,   /* NFA_EE_NCI_DISC_REQ_NTF_EVT  */
+    nfa_ee_nci_wait_rsp     ,   /* NFA_EE_NCI_WAIT_RSP_EVT      */
     nfa_ee_rout_timeout     ,   /* NFA_EE_ROUT_TIMEOUT_EVT      */
     nfa_ee_discv_timeout    ,   /* NFA_EE_DISCV_TIMEOUT_EVT     */
     nfa_ee_lmrt_to_nfcc         /* NFA_EE_CFG_TO_NFCC_EVT       */
@@ -322,7 +323,7 @@ void nfa_ee_proc_hci_info_cback (void)
 void nfa_ee_proc_evt (tNFC_RESPONSE_EVT event, void *p_data)
 {
     tNFA_EE_INT_EVT         int_event=0;
-    tNFA_EE_NCI_RESPONSE    cbk;
+    tNFA_EE_NCI_WAIT_RSP    cbk;
     BT_HDR                  *p_hdr;
 
     switch (event)
@@ -347,6 +348,10 @@ void nfa_ee_proc_evt (tNFC_RESPONSE_EVT event, void *p_data)
         int_event   = NFA_EE_NCI_DISC_REQ_NTF_EVT;
         break;
 
+    case NFC_SET_ROUTING_REVT:
+        int_event   = NFA_EE_NCI_WAIT_RSP_EVT;
+        cbk.opcode  = NCI_MSG_RF_SET_ROUTING;
+        break;
     }
 
     NFA_TRACE_DEBUG2 ("nfa_ee_proc_evt: event=0x%02x int_event:0x%x", event, int_event);
@@ -630,6 +635,8 @@ static char *nfa_ee_sm_evt_2_str (UINT16 event)
         return "NCI_ACTION";
     case NFA_EE_NCI_DISC_REQ_NTF_EVT:
         return "NCI_DISC_REQ";
+    case NFA_EE_NCI_WAIT_RSP_EVT:
+        return "NCI_WAIT_RSP";
     case NFA_EE_ROUT_TIMEOUT_EVT:
         return "ROUT_TIMEOUT";
     case NFA_EE_DISCV_TIMEOUT_EVT:

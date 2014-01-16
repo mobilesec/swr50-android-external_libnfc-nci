@@ -807,6 +807,15 @@ void nfa_ee_api_lmrt_size(tNFA_EE_MSG *p_data)
 *******************************************************************************/
 void nfa_ee_api_update_now(tNFA_EE_MSG *p_data)
 {
+    tNFA_EE_CBACK_DATA  evt_data;
+
+    if (nfa_ee_cb.ee_wait_evt & NFA_EE_WAIT_UPDATE_ALL)
+    {
+        NFA_TRACE_ERROR2 ("nfa_ee_api_update_now still waiting for update complete ee_wait_evt:0x%x wait_rsp:%d", nfa_ee_cb.ee_wait_evt, nfa_ee_cb.wait_rsp);
+        evt_data.status       = NFA_STATUS_SEMANTIC_ERROR;
+        nfa_ee_report_event (NULL, NFA_EE_UPDATED_EVT, &evt_data);
+        return;
+    }
     nfa_sys_stop_timer(&nfa_ee_cb.timer);
     nfa_ee_cb.ee_cfged  |= NFA_EE_CFGED_UPDATE_NOW;
     nfa_ee_rout_timeout(p_data);
@@ -1496,6 +1505,56 @@ void nfa_ee_nci_mode_set_rsp(tNFA_EE_MSG *p_data)
 
 /*******************************************************************************
 **
+** Function         nfa_ee_report_update_evt
+**
+** Description      Check if need to report NFA_EE_UPDATED_EVT
+**
+** Returns          void
+**
+*******************************************************************************/
+void nfa_ee_report_update_evt (void)
+{
+    tNFA_EE_CBACK_DATA  evt_data;
+
+    NFA_TRACE_DEBUG2 ("nfa_ee_report_update_evt ee_wait_evt:0x%x wait_rsp:%d", nfa_ee_cb.ee_wait_evt, nfa_ee_cb.wait_rsp);
+    if (nfa_ee_cb.wait_rsp == 0)
+    {
+        nfa_ee_cb.ee_wait_evt &= ~NFA_EE_WAIT_UPDATE_RSP;
+
+        if (nfa_ee_cb.ee_wait_evt & NFA_EE_WAIT_UPDATE)
+        {
+            nfa_ee_cb.ee_wait_evt &= ~NFA_EE_WAIT_UPDATE;
+            /* finished updating NFCC; report NFA_EE_UPDATED_EVT now */
+            evt_data.status       = NFA_STATUS_OK;
+            nfa_ee_report_event (NULL, NFA_EE_UPDATED_EVT, &evt_data);
+        }
+    }
+}
+
+/*******************************************************************************
+**
+** Function         nfa_ee_nci_wait_rsp
+**
+** Description      Process the result for NCI response
+**
+** Returns          void
+**
+*******************************************************************************/
+void nfa_ee_nci_wait_rsp(tNFA_EE_MSG *p_data)
+{
+    tNFA_EE_NCI_WAIT_RSP *p_rsp = &p_data->wait_rsp;
+
+    NFA_TRACE_DEBUG2 ("nfa_ee_nci_wait_rsp() ee_wait_evt:0x%x wait_rsp:%d", nfa_ee_cb.ee_wait_evt, nfa_ee_cb.wait_rsp);
+    if (nfa_ee_cb.wait_rsp)
+    {
+        if (p_rsp->opcode == NCI_MSG_RF_SET_ROUTING)
+            nfa_ee_cb.wait_rsp--;
+    }
+    nfa_ee_report_update_evt ();
+}
+
+/*******************************************************************************
+**
 ** Function         nfa_ee_nci_conn
 **
 ** Description      process the connection callback events
@@ -1818,7 +1877,10 @@ void nfa_ee_check_set_routing(UINT16 new_size, int *p_max_len, UINT8 *p, int *p_
 
     if (new_size + *p_cur_offset > max_tlv)
     {
-        NFC_SetRouting(TRUE, *p, *p_cur_offset, p + 1);
+        if (NFC_SetRouting(TRUE, *p, *p_cur_offset, p + 1) == NFA_STATUS_OK)
+        {
+            nfa_ee_cb.wait_rsp++;
+        }
         /* after the routing command is sent, re-use the same buffer to send the next routing command.
          * reset the related parameters */
         if (*p_max_len > *p_cur_offset)
@@ -1985,7 +2047,10 @@ tNFA_STATUS nfa_ee_route_add_one_ecb(tNFA_EE_ECB *p_cb, int *p_max_len, BOOLEAN 
                 nfa_ee_cb.ee_cfg_sts       &= ~NFA_EE_STS_PREV_ROUTING;
             }
             NFA_TRACE_DEBUG2 ("nfa_ee_route_add_one_ecb: set routing num_tlv:%d tlv_size:%d", num_tlv, tlv_size);
-            NFC_SetRouting(more, num_tlv, (UINT8)(*p_cur_offset), ps + 1);
+            if (NFC_SetRouting(more, num_tlv, (UINT8)(*p_cur_offset), ps + 1) == NFA_STATUS_OK)
+            {
+                nfa_ee_cb.wait_rsp++;
+            }
         }
         else if (nfa_ee_cb.ee_cfg_sts & NFA_EE_STS_PREV_ROUTING)
         {
@@ -1994,7 +2059,10 @@ tNFA_STATUS nfa_ee_route_add_one_ecb(tNFA_EE_ECB *p_cb, int *p_max_len, BOOLEAN 
                 nfa_ee_cb.ee_cfg_sts       &= ~NFA_EE_STS_PREV_ROUTING;
                 /* indicated routing is configured to NFCC */
                 nfa_ee_cb.ee_cfg_sts       |= NFA_EE_STS_CHANGED_ROUTING;
-                NFC_SetRouting(more, 0, 0, ps + 1);
+                if (NFC_SetRouting(more, 0, 0, ps + 1) == NFA_STATUS_OK)
+                {
+                    nfa_ee_cb.wait_rsp++;
+                }
             }
         }
     }
@@ -2084,11 +2152,24 @@ static BOOLEAN nfa_ee_need_recfg(void)
 *******************************************************************************/
 void nfa_ee_rout_timeout(tNFA_EE_MSG *p_data)
 {
+    UINT8               ee_cfged = nfa_ee_cb.ee_cfged;
+
     NFA_TRACE_DEBUG0("nfa_ee_rout_timeout()");
     if (nfa_ee_need_recfg())
     {
         /* discovery is not started */
         nfa_ee_update_rout();
+    }
+    if (nfa_ee_cb.wait_rsp)
+        nfa_ee_cb.ee_wait_evt   |= NFA_EE_WAIT_UPDATE_RSP;
+    if (ee_cfged & NFA_EE_CFGED_UPDATE_NOW)
+    {
+        /* need to report NFA_EE_UPDATED_EVT when done updating NFCC */
+        nfa_ee_cb.ee_wait_evt   |= NFA_EE_WAIT_UPDATE;
+        if (!nfa_ee_cb.wait_rsp)
+        {
+            nfa_ee_report_update_evt();
+        }
     }
 }
 
@@ -2235,7 +2316,7 @@ void nfa_ee_update_rout(void)
             nfa_ee_cb.ee_cfged  |= mask;
         }
     }
-    NFA_TRACE_DEBUG2 ("ee_cfg_sts:0x%02x ee_cfged:0x%02x", nfa_ee_cb.ee_cfg_sts, nfa_ee_cb.ee_cfged);
+    NFA_TRACE_DEBUG2 ("nfa_ee_update_rout ee_cfg_sts:0x%02x ee_cfged:0x%02x", nfa_ee_cb.ee_cfg_sts, nfa_ee_cb.ee_cfged);
 }
 
 

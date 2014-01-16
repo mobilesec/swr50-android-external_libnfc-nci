@@ -47,6 +47,7 @@ enum
     NFA_EE_REMAINING_SIZE_EVT,  /* The remaining size of the Listen Mode Routing Table   */
     NFA_EE_SET_TECH_CFG_EVT,    /* The status for setting the routing based on RF tech.  */
     NFA_EE_SET_PROTO_CFG_EVT,   /* The status for setting the routing based on protocols */
+    NFA_EE_UPDATED_EVT,         /* The status for NFA_EeUpdateNow                        */
     NFA_EE_CONNECT_EVT,         /* Result of NFA_EeConnect                               */
     NFA_EE_DATA_EVT,            /* Received data from NFCEE.                             */
     NFA_EE_DISCONNECT_EVT,      /* NFCEE connection closed.                              */
@@ -410,9 +411,14 @@ NFC_API extern tNFA_STATUS NFA_EeGetLmrtRemainingSize (void);
 ** Function         NFA_EeUpdateNow
 **
 ** Description      This function is called to send the current listen mode
-**                  routing table and VS configuration to the NFCC
+**                  routing table and VS configuration to the NFCC (without waiting
+**                  for NFA_EE_ROUT_TIMEOUT_VAL).
+**
+**                  The status of this operation is
+**                  reported with the NFA_EE_UPDATED_EVT.
 **
 ** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_SEMANTIC_ERROR is update is currently in progress
 **                  NFA_STATUS_FAILED otherwise
 **
 *******************************************************************************/

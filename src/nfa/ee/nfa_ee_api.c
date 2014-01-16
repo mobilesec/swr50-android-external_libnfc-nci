@@ -525,7 +525,11 @@ tNFA_STATUS NFA_EeGetLmrtRemainingSize (void)
 **                  routing table and VS configuration to the NFCC (without waiting
 **                  for NFA_EE_ROUT_TIMEOUT_VAL).
 **
+**                  The status of this operation is
+**                  reported with the NFA_EE_UPDATED_EVT.
+**
 ** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_SEMANTIC_ERROR is update is currently in progress
 **                  NFA_STATUS_FAILED otherwise
 **
 *******************************************************************************/
@@ -535,7 +539,12 @@ tNFA_STATUS NFA_EeUpdateNow(void)
     tNFA_STATUS status = NFA_STATUS_FAILED;
 
     NFA_TRACE_API0 ("NFA_EeUpdateNow()");
-    if ((p_msg = (BT_HDR *) GKI_getbuf (BT_HDR_SIZE)) != NULL)
+    if (nfa_ee_cb.ee_wait_evt & NFA_EE_WAIT_UPDATE_ALL)
+    {
+        NFA_TRACE_ERROR0 ("update in progress");
+        status = NFA_STATUS_SEMANTIC_ERROR;
+    }
+    else if ((p_msg = (BT_HDR *) GKI_getbuf (BT_HDR_SIZE)) != NULL)
     {
         p_msg->event    = NFA_EE_API_UPDATE_NOW_EVT;
 

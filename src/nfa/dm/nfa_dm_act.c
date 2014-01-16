@@ -344,6 +344,7 @@ static void nfa_dm_nfc_response_cback (tNFC_RESPONSE_EVT event, tNFC_RESPONSE *p
     case NFC_NFCEE_INFO_REVT:                    /* NFCEE Discover Notification */
     case NFC_EE_ACTION_REVT:                     /* EE Action notification */
     case NFC_NFCEE_MODE_SET_REVT:                /* NFCEE Mode Set response */
+    case NFC_SET_ROUTING_REVT:                   /* Configure Routing response */
         nfa_ee_proc_evt (event, p_data);
         break;
 
@@ -355,6 +356,9 @@ static void nfa_dm_nfc_response_cback (tNFC_RESPONSE_EVT event, tNFC_RESPONSE *p
         }
         nfa_ee_proc_evt (event, p_data);
         break;
+
+    case NFC_GET_ROUTING_REVT:                   /* Retrieve Routing response */
+        break;
 #endif
 
     case NFC_RF_FIELD_REVT:                      /* RF Field information            */
@@ -363,11 +367,7 @@ static void nfa_dm_nfc_response_cback (tNFC_RESPONSE_EVT event, tNFC_RESPONSE *p
         (*nfa_dm_cb.p_dm_cback) (NFA_DM_RF_FIELD_EVT, &dm_cback_data);
         break;
 
-    case NFC_SET_ROUTING_REVT:                   /* Configure Routing response */
-        break;
 
-    case NFC_GET_ROUTING_REVT:                   /* Retrieve Routing response */
-        break;
 
     case NFC_GEN_ERROR_REVT:                     /* generic error command or notification */
         break;

@@ -65,6 +65,7 @@ enum
     NFA_EE_NCI_DATA_EVT,
     NFA_EE_NCI_ACTION_NTF_EVT,
     NFA_EE_NCI_DISC_REQ_NTF_EVT,
+    NFA_EE_NCI_WAIT_RSP_EVT,
 
     NFA_EE_ROUT_TIMEOUT_EVT,
     NFA_EE_DISCV_TIMEOUT_EVT,
@@ -308,6 +309,14 @@ typedef struct
     tNFC_NFCEE_MODE_SET_REVT    *p_data;
 } tNFA_EE_NCI_MODE_SET;
 
+/* data type for NFA_EE_NCI_WAIT_RSP_EVT */
+typedef struct
+{
+    BT_HDR                      hdr;
+    void                        *p_data;
+    UINT8                       opcode;
+} tNFA_EE_NCI_WAIT_RSP;
+
 /* data type for NFA_EE_NCI_CONN_EVT and NFA_EE_NCI_DATA_EVT */
 typedef struct
 {
@@ -351,6 +360,7 @@ typedef union
     tNFA_EE_NCI_DISC_RSP        disc_rsp;
     tNFA_EE_NCI_DISC_NTF        disc_ntf;
     tNFA_EE_NCI_MODE_SET        mode_set_rsp;
+    tNFA_EE_NCI_WAIT_RSP        wait_rsp;
     tNFA_EE_NCI_CONN            conn;
     tNFA_EE_NCI_ACTION          act;
     tNFA_EE_NCI_DISC_REQ        disc_req;
@@ -369,8 +379,15 @@ typedef void (*tNFA_EE_SM_ACT)(tNFA_EE_MSG *p_data);
 #define NFA_EE_STS_CHANGED_ROUTING      0x01
 #define NFA_EE_STS_CHANGED_VS           0x02
 #define NFA_EE_STS_CHANGED              0x0f
-#define NFA_EE_STS_PREV                 0xf0
 #define NFA_EE_STS_PREV_ROUTING         0x10
+#define NFA_EE_STS_PREV                 0xf0
+
+
+#define NFA_EE_WAIT_UPDATE              0x10    /* need to report NFA_EE_UPDATED_EVT */
+#define NFA_EE_WAIT_UPDATE_RSP          0x20    /* waiting for the rsp of set routing commands */
+#define NFA_EE_WAIT_UPDATE_ALL          0xF0
+
+typedef UINT8 tNFA_EE_WAIT;
 
 #define NFA_EE_FLAG_WAIT_HCI            0x01    /* set this bit when waiting for HCI to finish the initialization process in NFA_EE_EM_STATE_RESTORING */
 #define NFA_EE_FLAG_NOTIFY_HCI          0x02    /* set this bit when EE needs to notify the p_enable_cback at the end of NFCEE discover process in NFA_EE_EM_STATE_RESTORING */
@@ -395,11 +412,13 @@ typedef struct
     tNFA_EE_CBACK        *p_ee_disc_cback;       /* to report EE discovery result    */
     tNFA_EE_ENABLE_DONE_CBACK *p_enable_cback;   /* callback to notify on enable done*/
     tNFA_EE_EM_STATE     em_state;               /* NFA-EE state initialized or not  */
+    UINT8                wait_rsp;               /* num of NCI rsp expected (update) */
     UINT8                num_ee_expecting;       /* number of ee_info still expecting*/
     UINT8                cur_ee;                 /* the number of ee_info in cb      */
     UINT8                ee_cfged;               /* the bit mask of configured ECBs  */
     UINT8                ee_cfg_sts;             /* configuration status             */
-    tNFA_EE_FLAGS        ee_flags;               /* flags                           */
+    tNFA_EE_WAIT         ee_wait_evt;            /* Pending event(s) to be reported  */
+    tNFA_EE_FLAGS        ee_flags;               /* flags                            */
 } tNFA_EE_CB;
 
 /*****************************************************************************
@@ -452,6 +471,7 @@ void nfa_ee_report_disc_done(BOOLEAN notify_sys);
 void nfa_ee_nci_disc_rsp(tNFA_EE_MSG *p_data);
 void nfa_ee_nci_disc_ntf(tNFA_EE_MSG *p_data);
 void nfa_ee_nci_mode_set_rsp(tNFA_EE_MSG *p_data);
+void nfa_ee_nci_wait_rsp(tNFA_EE_MSG *p_data);
 void nfa_ee_nci_conn(tNFA_EE_MSG *p_data);
 void nfa_ee_nci_action_ntf(tNFA_EE_MSG *p_data);
 void nfa_ee_nci_disc_req_ntf(tNFA_EE_MSG *p_data);
@@ -465,6 +485,7 @@ void nfa_ee_remove_labels(void);
 int nfa_ee_find_total_aid_len(tNFA_EE_ECB *p_cb, int start_entry);
 void nfa_ee_start_timer(void);
 void nfa_ee_reg_cback_enable_done (tNFA_EE_ENABLE_DONE_CBACK *p_cback);
+void nfa_ee_report_update_evt (void);
 
 extern void nfa_ee_proc_hci_info_cback (void);
 void nfa_ee_check_disable (void);
