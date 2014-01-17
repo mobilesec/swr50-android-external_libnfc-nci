@@ -159,3 +159,19 @@ tNFC_HAL_CFG nfc_hal_cfg =
 };
 
 tNFC_HAL_CFG *p_nfc_hal_cfg= (tNFC_HAL_CFG *) &nfc_hal_cfg;
+
+const UINT8 nfc_hal_dm_xtal_params_cfg [] =
+{
+    8,             /* length */
+    0x00,           /* B0 Rfpll_cfg_pll_xtal_div_2                  */
+    0x00,           /* B1 Rfpll_cfg_pll_vcocal1_0_cal_ref_timeout   */
+    0x00,           /* B2 Rfpll_cfg_pll_vcocal2_cal_count           */
+    0x00,           /* B3 Rfpll_cfg_pll_vcocal3_cal_count           */
+    0x00,           /* B4 Rfpll_cfg_pll_dsm_b_msb_wild_base         */
+    0x00,           /* B5 Rfpll_cfg_pll_dsm_b_lsb_3_wild_base_3     */
+    0x00,           /* B6 Rfpll_cfg_pll_dsm_b_lsb_2_wild_base_2     */
+    0x00            /* B7 Rfpll_cfg_pll_dsm_b_lsb_1_wild_base_1     */
+};
+
+/* By default, the XTAL command does not need these extra params. */
+UINT8 *p_nfc_hal_dm_xtal_params_cfg = NULL;

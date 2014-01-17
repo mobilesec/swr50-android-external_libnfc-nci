@@ -56,6 +56,9 @@ static UINT8 nfc_hal_dm_set_fw_fsm_cmd[NCI_MSG_HDR_SIZE + 1] =
 #define NCI_SET_FWFSM_OFFSET_ENABLE      3
 
 #define NCI_PROP_PARAM_SIZE_XTAL_INDEX      3       /* length of parameters in XTAL_INDEX CMD */
+#ifndef NCI_PROP_PARAM_MAX_SIZE_XTAL_INDEX
+#define NCI_PROP_PARAM_MAX_SIZE_XTAL_INDEX      20
+#endif
 
 const UINT8 nfc_hal_dm_get_build_info_cmd[NCI_MSG_HDR_SIZE] =
 {
@@ -394,25 +397,35 @@ tNFC_HAL_XTAL_INDEX nfc_hal_dm_get_xtal_index (UINT32 brcm_hw_id, UINT16 *p_xtal
 *******************************************************************************/
 void nfc_hal_dm_set_xtal_freq_index (void)
 {
-    UINT8 nci_brcm_xtal_index_cmd[NCI_MSG_HDR_SIZE + NCI_PROP_PARAM_SIZE_XTAL_INDEX];
+    UINT8 nci_brcm_xtal_index_cmd[NCI_MSG_HDR_SIZE + NCI_PROP_PARAM_MAX_SIZE_XTAL_INDEX];
     UINT8 *p;
     tNFC_HAL_XTAL_INDEX xtal_index;
     UINT16              xtal_freq;
+    UINT8               cmd_len = NCI_PROP_PARAM_SIZE_XTAL_INDEX;
+    extern UINT8 *p_nfc_hal_dm_xtal_params_cfg;
 
     HAL_TRACE_DEBUG1 ("nfc_hal_dm_set_xtal_freq_index (): brcm_hw_id = 0x%x", nfc_hal_cb.dev_cb.brcm_hw_id);
 
     xtal_index = nfc_hal_dm_get_xtal_index (nfc_hal_cb.dev_cb.brcm_hw_id, &xtal_freq);
+    if ((xtal_index == NFC_HAL_XTAL_INDEX_SPECIAL) && (p_nfc_hal_dm_xtal_params_cfg))
+    {
+        cmd_len += p_nfc_hal_dm_xtal_params_cfg[0]; /* [0] is the length of extra params */
+    }
 
     p = nci_brcm_xtal_index_cmd;
     UINT8_TO_STREAM  (p, (NCI_MTS_CMD|NCI_GID_PROP));
     UINT8_TO_STREAM  (p, NCI_MSG_GET_XTAL_INDEX_FROM_DH);
-    UINT8_TO_STREAM  (p, NCI_PROP_PARAM_SIZE_XTAL_INDEX);
+    UINT8_TO_STREAM  (p, cmd_len);
     UINT8_TO_STREAM  (p, xtal_index);
     UINT16_TO_STREAM (p, xtal_freq);
+    if (cmd_len > NCI_PROP_PARAM_SIZE_XTAL_INDEX)
+    {
+        memcpy (p, &p_nfc_hal_dm_xtal_params_cfg[1], p_nfc_hal_dm_xtal_params_cfg[0]);
+    }
 
     NFC_HAL_SET_INIT_STATE (NFC_HAL_INIT_STATE_W4_XTAL_SET);
 
-    nfc_hal_dm_send_nci_cmd (nci_brcm_xtal_index_cmd, NCI_MSG_HDR_SIZE + NCI_PROP_PARAM_SIZE_XTAL_INDEX, NULL);
+    nfc_hal_dm_send_nci_cmd (nci_brcm_xtal_index_cmd, NCI_MSG_HDR_SIZE + cmd_len, NULL);
 }
 
 /*******************************************************************************
@@ -469,6 +482,7 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
     UINT8   chipverstr[NCI_SPD_HEADER_CHIPVER_LEN];
     UINT16  xtal_freq;
     UINT32  hw_id = 0;
+    tNFC_HAL_XTAL_INDEX xtal_index;
 
     HAL_TRACE_DEBUG1 ("nfc_hal_dm_proc_msg_during_init(): init state:%d", nfc_hal_cb.dev_cb.initializing_state);
 
@@ -567,7 +581,8 @@ void nfc_hal_dm_proc_msg_during_init (NFC_HDR *p_msg)
             nfc_hal_hci_handle_build_info (chipverlen, chipverstr);
 
             /* if NFCC needs to set Xtal frequency before getting patch version */
-            if (nfc_hal_dm_get_xtal_index (nfc_hal_cb.dev_cb.brcm_hw_id, &xtal_freq) < NFC_HAL_XTAL_INDEX_MAX)
+            xtal_index = nfc_hal_dm_get_xtal_index (nfc_hal_cb.dev_cb.brcm_hw_id, &xtal_freq);
+            if ((xtal_index < NFC_HAL_XTAL_INDEX_MAX) || (xtal_index == NFC_HAL_XTAL_INDEX_SPECIAL))
             {
                 {
                     /* set Xtal index before getting patch version */
