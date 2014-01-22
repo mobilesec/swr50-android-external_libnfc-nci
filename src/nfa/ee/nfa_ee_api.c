@@ -491,6 +491,34 @@ tNFA_STATUS NFA_EeRemoveAidRouting(UINT8     aid_len,
 
 /*******************************************************************************
 **
+** Function         NFA_EeGetLmrtRemainingSize
+**
+** Description      This function is called to get remaining size of the
+**                  Listen Mode Routing Table.
+**                  The remaining size is reported in NFA_EE_REMAINING_SIZE_EVT
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+tNFA_STATUS NFA_EeGetLmrtRemainingSize (void)
+{
+    tNFA_EE_API_LMRT_SIZE *p_msg;
+    tNFA_STATUS status = NFA_STATUS_FAILED;
+
+    NFA_TRACE_API0 ("NFA_EeGetLmrtRemainingSize()");
+    if ((p_msg = (tNFA_EE_API_LMRT_SIZE *) GKI_getbuf (sizeof(tNFA_EE_API_LMRT_SIZE))) != NULL)
+    {
+        p_msg->event    = NFA_EE_API_LMRT_SIZE_EVT;
+        nfa_sys_sendmsg (p_msg);
+        status = NFA_STATUS_OK;
+    }
+
+    return status;
+}
+
+/******************************************************************************
+**
 ** Function         NFA_EeUpdateNow
 **
 ** Description      This function is called to send the current listen mode

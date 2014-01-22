@@ -52,6 +52,7 @@ enum
     NFA_EE_API_SET_PROTO_CFG_EVT,
     NFA_EE_API_ADD_AID_EVT,
     NFA_EE_API_REMOVE_AID_EVT,
+    NFA_EE_API_LMRT_SIZE_EVT,
     NFA_EE_API_UPDATE_NOW_EVT,
     NFA_EE_API_CONNECT_EVT,
     NFA_EE_API_SEND_DATA_EVT,
@@ -233,6 +234,9 @@ typedef struct
     UINT8               *p_aid;
 } tNFA_EE_API_REMOVE_AID;
 
+/* data type for NFA_EE_API_LMRT_SIZE_EVT */
+typedef  BT_HDR tNFA_EE_API_LMRT_SIZE;
+
 /* data type for NFA_EE_API_CONNECT_EVT */
 typedef struct
 {
@@ -340,6 +344,7 @@ typedef union
     tNFA_EE_API_SET_PROTO_CFG   set_proto;
     tNFA_EE_API_ADD_AID         add_aid;
     tNFA_EE_API_REMOVE_AID      rm_aid;
+    tNFA_EE_API_LMRT_SIZE       lmrt_size;
     tNFA_EE_API_CONNECT         connect;
     tNFA_EE_API_SEND_DATA       send_data;
     tNFA_EE_API_DISCONNECT      disconnect;
@@ -438,6 +443,7 @@ void nfa_ee_api_set_tech_cfg(tNFA_EE_MSG *p_data);
 void nfa_ee_api_set_proto_cfg(tNFA_EE_MSG *p_data);
 void nfa_ee_api_add_aid(tNFA_EE_MSG *p_data);
 void nfa_ee_api_remove_aid(tNFA_EE_MSG *p_data);
+void nfa_ee_api_lmrt_size(tNFA_EE_MSG *p_data);
 void nfa_ee_api_update_now(tNFA_EE_MSG *p_data);
 void nfa_ee_api_connect(tNFA_EE_MSG *p_data);
 void nfa_ee_api_send_data(tNFA_EE_MSG *p_data);

@@ -778,6 +778,26 @@ void nfa_ee_api_remove_aid(tNFA_EE_MSG *p_data)
 
 /*******************************************************************************
 **
+** Function         nfa_ee_api_lmrt_size
+**
+** Description      Reports the remaining size in the Listen Mode Routing Table
+**
+** Returns          void
+**
+*******************************************************************************/
+void nfa_ee_api_lmrt_size(tNFA_EE_MSG *p_data)
+{
+    tNFA_EE_CBACK_DATA  evt_data = {0};
+    UINT16 total_size = NFC_GetLmrtSize();
+
+    evt_data.size       = total_size - nfa_ee_total_lmrt_size();
+    NFA_TRACE_DEBUG2 ("nfa_ee_api_lmrt_size total size:%d remaining size:%d", total_size, evt_data.size);
+
+    nfa_ee_report_event (NULL, NFA_EE_REMAINING_SIZE_EVT, &evt_data);
+}
+
+/*******************************************************************************
+**
 ** Function         nfa_ee_api_update_now
 **
 ** Description      Initiates connection creation process to the given NFCEE

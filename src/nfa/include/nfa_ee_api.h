@@ -44,6 +44,7 @@ enum
     NFA_EE_MODE_SET_EVT,        /* The status for activating or deactivating an NFCEE    */
     NFA_EE_ADD_AID_EVT,         /* The status for adding an AID to a routing table entry */
     NFA_EE_REMOVE_AID_EVT,      /* The status for removing an AID from a routing table   */
+    NFA_EE_REMAINING_SIZE_EVT,  /* The remaining size of the Listen Mode Routing Table   */
     NFA_EE_SET_TECH_CFG_EVT,    /* The status for setting the routing based on RF tech.  */
     NFA_EE_SET_PROTO_CFG_EVT,   /* The status for setting the routing based on protocols */
     NFA_EE_CONNECT_EVT,         /* Result of NFA_EeConnect                               */
@@ -195,6 +196,7 @@ typedef union
     tNFA_STATUS             remove_aid;
     tNFA_STATUS             set_tech;
     tNFA_STATUS             set_proto;
+    UINT16                  size;
     tNFA_EE_CONNECT         connect;
     tNFA_EE_ACTION          action;
     tNFA_EE_MODE_SET        mode_set;
@@ -388,6 +390,20 @@ NFC_API extern tNFA_STATUS NFA_EeAddAidRouting (tNFA_HANDLE          ee_handle,
 *******************************************************************************/
 NFC_API extern tNFA_STATUS NFA_EeRemoveAidRouting (UINT8     aid_len,
                                                    UINT8    *p_aid);
+
+/*******************************************************************************
+**
+** Function         NFA_EeGetLmrtRemainingSize
+**
+** Description      This function is called to get remaining size of the
+**                  Listen Mode Routing Table.
+**                  The remaining size is reported in NFA_EE_REMAINING_SIZE_EVT
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**
+*******************************************************************************/
+NFC_API extern tNFA_STATUS NFA_EeGetLmrtRemainingSize (void);
 
 /*******************************************************************************
 **
