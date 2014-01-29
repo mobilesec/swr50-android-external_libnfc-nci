@@ -366,9 +366,7 @@ static void getNfaValues (UINT32 chipid)
     //configure how many secure elements are available for each type of chip
     if (p_nfc_hal_cfg->nfc_hal_hci_uicc_support > 0)
     {
-        if (GetNumValue(NAME_NFA_MAX_EE_SUPPORTED, &num, sizeof(num)))
-            nfc_hal_cb.max_ee = num;
-        else if ((chipid & BRCM_NFC_GEN_MASK) == BRCM_NFC_20791_GEN)
+        if ((chipid & BRCM_NFC_GEN_MASK) == BRCM_NFC_20791_GEN)
         {
             nfc_hal_cb.max_ee = BRCM_NFC_20791_GEN_MAX_EE;
             p_nfc_hal_cfg->nfc_hal_hci_uicc_support = HAL_NFC_HCI_UICC0_HOST | HAL_NFC_HCI_UICC1_HOST;
@@ -383,6 +381,10 @@ static void getNfaValues (UINT32 chipid)
             nfc_hal_cb.max_ee = BRCM_NFC_20795_GEN_MAX_EE;
             p_nfc_hal_cfg->nfc_hal_hci_uicc_support = HAL_NFC_HCI_UICC0_HOST | HAL_NFC_HCI_UICC1_HOST | HAL_NFC_HCI_UICC2_HOST;
         }
+
+        //let .conf variable determine how many EE's to discover
+        if (GetNumValue(NAME_NFA_MAX_EE_SUPPORTED, &num, sizeof(num)))
+            nfc_hal_cb.max_ee = num;
     }
 }
 
