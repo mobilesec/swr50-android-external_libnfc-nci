@@ -1846,7 +1846,8 @@ void nfa_dm_notify_activation_status (tNFA_STATUS status, tNFA_TAG_PARAMS *p_par
             memcpy (nfa_dm_cb.activated_nfcid, p_nfcid, nfcid_len);
 
         nfa_dm_cb.flags |= NFA_DM_FLAGS_SEND_DEACTIVATED_EVT;
-        nfa_dm_conn_cback_event_notify (NFA_ACTIVATED_EVT, &evt_data);
+        if (!(nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_CHECKING))
+            nfa_dm_conn_cback_event_notify (NFA_ACTIVATED_EVT, &evt_data);
     }
     else
     {

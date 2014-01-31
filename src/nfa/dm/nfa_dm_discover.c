@@ -2112,6 +2112,7 @@ static void nfa_dm_disc_sm_w4_host_select (tNFA_DM_RF_DISC_SM_EVENT event,
     tNFA_DM_DISC_FLAGS  old_sleep_wakeup_flag = (nfa_dm_cb.disc_cb.disc_flags & NFA_DM_DISC_FLAGS_CHECKING);
     BOOLEAN             sleep_wakeup_event = FALSE;
     BOOLEAN             sleep_wakeup_event_processed = FALSE;
+    tNFA_STATUS         status;
 
     switch (event)
     {
@@ -2149,12 +2150,14 @@ static void nfa_dm_disc_sm_w4_host_select (tNFA_DM_RF_DISC_SM_EVENT event,
         break;
     case NFA_DM_RF_INTF_ACTIVATED_NTF:
         nfa_dm_disc_new_state (NFA_DM_RFST_POLL_ACTIVE);
+        /* always call nfa_dm_disc_notify_activation to update protocol/interface information in NFA control blocks */
+        status = nfa_dm_disc_notify_activation (&(p_data->nfc_discover));
         if (old_sleep_wakeup_flag)
         {
             /* Handle sleep wakeup success: notify RW module of sleep wakeup of tag; if deactivation is pending then deactivate  */
             nfa_dm_disc_end_sleep_wakeup (NFC_STATUS_OK);
         }
-        else if (nfa_dm_disc_notify_activation (&(p_data->nfc_discover)) == NFA_STATUS_FAILED)
+        else if (status == NFA_STATUS_FAILED)
         {
             NFA_TRACE_DEBUG0 ("Not matched, restart discovery after receiving deactivate ntf");
 
