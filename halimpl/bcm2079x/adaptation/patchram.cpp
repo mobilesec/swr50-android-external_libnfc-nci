@@ -45,12 +45,14 @@ static UINT8 sConfig [CONFIG_MAX_LEN];
 static StartupConfig sStartupConfig;
 static StartupConfig sLptdConfig;
 static StartupConfig sPreDiscoveryConfig;
+static StartupConfig sXtalCustomParam;
 extern UINT8 *p_nfc_hal_dm_start_up_cfg; //defined in the HAL
 static UINT8 nfa_dm_start_up_vsc_cfg[CONFIG_MAX_LEN];
 extern UINT8 *p_nfc_hal_dm_start_up_vsc_cfg; //defined in the HAL
 extern UINT8 *p_nfc_hal_dm_lptd_cfg; //defined in the HAL
 static UINT8 sDontSendLptd[] = { 0 };
 extern UINT8 *p_nfc_hal_pre_discover_cfg; //defined in the HAL
+extern UINT8 *p_nfc_hal_dm_xtal_params_cfg; //defined in HAL
 
 extern tSNOOZE_MODE_CONFIG gSnoozeModeCfg;
 extern tNFC_HAL_CFG *p_nfc_hal_cfg;
@@ -589,6 +591,7 @@ void configureCrystalFrequency ()
     UINT32 hwId = 0;
     UINT16 xtalFreq = 0;
     UINT8 xtalIndex = 0;
+    int actualLen = 0;
 
     GetNumValue (NAME_XTAL_HARDWARE_ID, &num, sizeof(num));
     hwId = num;
@@ -598,6 +601,13 @@ void configureCrystalFrequency ()
 
     GetNumValue (NAME_XTAL_FREQ_INDEX, &num, sizeof(num));
     xtalIndex = (UINT8) num;
+
+    actualLen = GetStrValue (NAME_XTAL_PARAMS_CFG, (char*)sConfig, sizeof(sConfig));
+    if (actualLen && (xtalIndex == NFC_HAL_XTAL_INDEX_SPECIAL)) //whether to use custom crystal frequency
+    {
+        sXtalCustomParam.append (sConfig, actualLen);
+        p_nfc_hal_dm_xtal_params_cfg = const_cast<UINT8*> (sXtalCustomParam.getInternalBuffer ());
+    }
 
     if ((hwId == 0) && (xtalFreq == 0) && (xtalIndex == 0))
         return;
