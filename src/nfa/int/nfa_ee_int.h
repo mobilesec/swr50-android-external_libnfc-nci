@@ -161,7 +161,7 @@ typedef struct
     tNFA_NFC_PROTOCOL       lf_protocol;        /* Listen F protocol    */
     tNFA_NFC_PROTOCOL       lbp_protocol;       /* Listen B' protocol   */
     UINT8                   size_mask;          /* the size for technology and protocol routing */
-    UINT8                   size_aid;           /* the size for aid routing */
+    UINT16                  size_aid;           /* the size for aid routing */
 } tNFA_EE_ECB;
 
 /* data type for NFA_EE_API_DISCOVER_EVT */

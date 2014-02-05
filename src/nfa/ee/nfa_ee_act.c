@@ -2110,11 +2110,7 @@ static BOOLEAN nfa_ee_need_recfg(void)
     /* if no routing/vs is configured, do not need to send the info to NFCC */
     if (nfa_ee_cb.ee_cfged || nfa_ee_cb.ee_cfg_sts)
     {
-        if (nfa_ee_cb.ee_cfged & NFA_EE_CFGED_UPDATE_NOW)
-        {
-            needed = TRUE;
-        }
-        else if (nfa_ee_cb.ee_cfg_sts & NFA_EE_STS_CHANGED)
+        if (nfa_ee_cb.ee_cfg_sts & NFA_EE_STS_CHANGED)
         {
             needed = TRUE;
         }
@@ -2160,6 +2156,7 @@ void nfa_ee_rout_timeout(tNFA_EE_MSG *p_data)
         /* discovery is not started */
         nfa_ee_update_rout();
     }
+
     if (nfa_ee_cb.wait_rsp)
         nfa_ee_cb.ee_wait_evt   |= NFA_EE_WAIT_UPDATE_RSP;
     if (ee_cfged & NFA_EE_CFGED_UPDATE_NOW)
