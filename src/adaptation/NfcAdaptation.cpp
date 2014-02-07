@@ -50,6 +50,9 @@ extern tNFA_DM_CFG *p_nfa_dm_cfg;
 extern UINT8 nfa_ee_max_ee_cfg;
 extern const UINT8  nfca_version_string [];
 extern const UINT8  nfa_version_string [];
+static UINT8 deviceHostWhiteList [NFA_HCI_MAX_HOST_IN_NETWORK];
+static tNFA_HCI_CFG jni_nfa_hci_cfg;
+extern tNFA_HCI_CFG *p_nfa_hci_cfg;
 
 /*******************************************************************************
 **
@@ -136,6 +139,17 @@ void NfcAdaptation::Initialize ()
     {
         nfa_ee_max_ee_cfg = num;
         ALOGD("%s: Overriding NFA_EE_MAX_EE_SUPPORTED to use %d", func, nfa_ee_max_ee_cfg);
+    }
+
+    //configure device host whitelist of HCI host ID's; see specification ETSI TS 102 622 V11.1.10
+    //(2012-10), section 6.1.3.1
+    num = GetStrValue ( NAME_DEVICE_HOST_WHITE_LIST, (char*) deviceHostWhiteList, sizeof ( deviceHostWhiteList ) );
+    if (num)
+    {
+        memmove (&jni_nfa_hci_cfg, p_nfa_hci_cfg, sizeof(jni_nfa_hci_cfg));
+        jni_nfa_hci_cfg.num_whitelist_host = (UINT8) num; //number of HCI host ID's in the whitelist
+        jni_nfa_hci_cfg.p_whitelist = deviceHostWhiteList; //array of HCI host ID's
+        p_nfa_hci_cfg = &jni_nfa_hci_cfg;
     }
 
     initializeGlobalAppLogLevel ();
