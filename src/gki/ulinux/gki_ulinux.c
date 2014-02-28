@@ -679,9 +679,14 @@ UINT16 GKI_wait (UINT16 flag, UINT32 timeout)
                 abstime.tv_nsec = abstime.tv_nsec % NSEC_PER_SEC;
             }
             abstime.tv_sec += sec;
-
+#if defined(__LP64__)
+            // STOPSHIP need pthread_condattr_setclock(..., CLOCK_MONOTONIC)
+            pthread_cond_timedwait(&gki_cb.os.thread_evt_cond[rtask],
+                    &gki_cb.os.thread_evt_mutex[rtask], &abstime);
+#else
             pthread_cond_timedwait_monotonic(&gki_cb.os.thread_evt_cond[rtask],
                     &gki_cb.os.thread_evt_mutex[rtask], &abstime);
+#endif
 
         }
         else

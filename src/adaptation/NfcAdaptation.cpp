@@ -212,7 +212,7 @@ UINT32 NfcAdaptation::NFCA_TASK (UINT32 arg)
     ALOGD ("%s: enter", func);
     GKI_run (0);
     ALOGD ("%s: exit", func);
-    return NULL;
+    return 0;
 }
 
 /*******************************************************************************
@@ -240,7 +240,7 @@ UINT32 NfcAdaptation::Thread (UINT32 arg)
 
     GKI_exit_task (GKI_get_taskid ());
     ALOGD ("%s: exit", func);
-    return NULL;
+    return 0;
 }
 
 /*******************************************************************************

@@ -121,7 +121,12 @@ bool CondVar::wait (Mutex& mutex, long millisec)
     //declared in /development/ndk/platforms/android-9/include/pthread.h;
     //it uses monotonic clock.
     //the standard pthread_cond_timedwait() uses realtime clock.
+#if defined(__LP64__)
+    // STOPSHIP need pthread_condattr_setclock(..., CLOCK_MONOTONIC)
+    int waitResult = pthread_cond_timedwait (&mCondition, mutex.nativeHandle(), &absoluteTime);
+#else
     int waitResult = pthread_cond_timedwait_monotonic_np (&mCondition, mutex.nativeHandle(), &absoluteTime);
+#endif
     if ((waitResult != 0) && (waitResult != ETIMEDOUT))
         ALOGE ("CondVar::wait: fail timed wait; error=0x%X", waitResult);
     retVal = (waitResult == 0); //waited successfully
