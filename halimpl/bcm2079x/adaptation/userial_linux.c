@@ -1396,7 +1396,7 @@ UDRV_API void    USERIAL_Close(tUSERIAL_PORT port)
         // make thread detached, no other thread will join
         pthread_attr_init(&attr);
         pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-        pthread_create( &close_thread, &attr, (void *)userial_close_thread,(void*)port);
+        pthread_create( &close_thread, &attr, (void *)userial_close_thread, NULL);
         pthread_attr_destroy(&attr);
     }
     else
@@ -1419,7 +1419,6 @@ UDRV_API void    USERIAL_Close(tUSERIAL_PORT port)
 *******************************************************************************/
 void userial_close_thread(UINT32 params)
 {
-    tUSERIAL_PORT port = (tUSERIAL_PORT )params;
     BT_HDR                  *p_buf = NULL;
     int result;
 

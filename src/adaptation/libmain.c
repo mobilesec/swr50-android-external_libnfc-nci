@@ -116,7 +116,7 @@ NFC_API extern void nfa_nv_co_read(UINT8 *pBuffer, UINT16 nbytes, UINT8 block)
         close (fileStream);
         if (actualReadData > 0)
         {
-            ALOGD ("%s: data size=%u", __FUNCTION__, actualReadData);
+            ALOGD ("%s: data size=%zu", __FUNCTION__, actualReadData);
             nfa_nv_ci_read (actualReadData, NFA_NV_CO_OK, block);
         }
         else
@@ -174,7 +174,7 @@ NFC_API extern void nfa_nv_co_write(const UINT8 *pBuffer, UINT16 nbytes, UINT8 b
         unsigned short checksum = crcChecksumCompute (pBuffer, nbytes);
         size_t actualWrittenCrc = write (fileStream, &checksum, sizeof(checksum));
         size_t actualWrittenData = write (fileStream, pBuffer, nbytes);
-        ALOGD ("%s: %d bytes written", __FUNCTION__, actualWrittenData);
+        ALOGD ("%s: %zu bytes written", __FUNCTION__, actualWrittenData);
         if ((actualWrittenData == nbytes) && (actualWrittenCrc == sizeof(checksum)))
         {
             nfa_nv_ci_write (NFA_NV_CO_OK);
@@ -341,12 +341,12 @@ static inline void word2hex(const char* data, char** hex)
 **                  Nothing
 **
 *******************************************************************************/
-void dumpbin(const char* data, int size, UINT32 trace_layer, UINT32 trace_type)
+void dumpbin(const UINT8* data, UINT32 size, UINT32 trace_layer, UINT32 trace_type)
 {
     char line_buff[256];
     char *line;
-    int i, j, addr;
-    const int width = 16;
+    UINT32 i, j, addr;
+    const UINT32 width = 16;
     if(size <= 0)
         return;
 #ifdef __RAW_HEADER
@@ -376,19 +376,19 @@ void dumpbin(const char* data, int size, UINT32 trace_layer, UINT32 trace_type)
         //write hex of data
         for(j = 0; j < width; j++)
         {
-            byte2hex(&data[j], &line);
+            byte2hex((const char*)&data[j], &line);
             *line++ = ' ';
         }
         //write char of data
         for(j = 0; j < width; j++)
-            byte2char(data++, &line);
+            byte2char((const char*)data++, &line);
         //wirte the end of line
         *line = 0;
         //output the line
         PRINT(line_buff);
     }
     //last line of left over if any
-    int leftover = size % width;
+    UINT32 leftover = size % width;
     if(leftover > 0)
     {
         line = line_buff;
@@ -399,7 +399,7 @@ void dumpbin(const char* data, int size, UINT32 trace_layer, UINT32 trace_type)
         //write hex of data
         for(j = 0; j < leftover; j++)
         {
-            byte2hex(&data[j], &line);
+            byte2hex((const char *)&data[j], &line);
             *line++ = ' ';
         }
         //write hex padding
@@ -411,7 +411,7 @@ void dumpbin(const char* data, int size, UINT32 trace_layer, UINT32 trace_type)
         }
         //write char of data
         for(j = 0; j < leftover; j++)
-            byte2char(data++, &line);
+            byte2char((const char*)data++, &line);
         //write the end of line
         *line = 0;
         //output the line
@@ -449,10 +449,10 @@ UINT8 *scru_dump_hex (UINT8 *p, char *pTitle, UINT32 len, UINT32 layer, UINT32 t
 *******************************************************************************/
 void DispHciCmd (BT_HDR *p_buf)
 {
-    int i,j;
-    int nBytes = ((BT_HDR_SIZE + p_buf->offset + p_buf->len)*2)+1;
+    UINT32 i,j;
+    UINT32 nBytes = ((BT_HDR_SIZE + p_buf->offset + p_buf->len)*2)+1;
     UINT8 * data = (UINT8*) p_buf;
-    int data_len = BT_HDR_SIZE + p_buf->offset + p_buf->len;
+    UINT32 data_len = BT_HDR_SIZE + p_buf->offset + p_buf->len;
 
     if (!(ScrProtocolTraceFlag & SCR_PROTO_TRACE_HCI_SUMMARY))
         return;
@@ -484,10 +484,10 @@ void DispHciCmd (BT_HDR *p_buf)
 *******************************************************************************/
 void DispHciEvt (BT_HDR *p_buf)
 {
-    int i,j;
-    int nBytes = ((BT_HDR_SIZE + p_buf->offset + p_buf->len)*2)+1;
+    UINT32 i,j;
+    UINT32 nBytes = ((BT_HDR_SIZE + p_buf->offset + p_buf->len)*2)+1;
     UINT8 * data = (UINT8*) p_buf;
-    int data_len = BT_HDR_SIZE + p_buf->offset + p_buf->len;
+    UINT32 data_len = BT_HDR_SIZE + p_buf->offset + p_buf->len;
 
     if (!(ScrProtocolTraceFlag & SCR_PROTO_TRACE_HCI_SUMMARY))
         return;
@@ -521,7 +521,7 @@ void DispNciDump (UINT8 *data, UINT16 len, BOOLEAN is_recv)
         return;
 
     char line_buf[(MAX_NCI_PACKET_SIZE*2)+1];
-    int i,j;
+    UINT32 i,j;
 
     for(i = 0, j = 0; i < len && j < sizeof(line_buf)-3; i++)
     {
@@ -546,10 +546,10 @@ void DispNciDump (UINT8 *data, UINT16 len, BOOLEAN is_recv)
 *******************************************************************************/
 void DispLLCP (BT_HDR *p_buf, BOOLEAN is_recv)
 {
-    int i,j;
-    int nBytes = ((BT_HDR_SIZE + p_buf->offset + p_buf->len)*2)+1;
+    UINT32 i,j;
+    UINT32 nBytes = ((BT_HDR_SIZE + p_buf->offset + p_buf->len)*2)+1;
     UINT8 * data = (UINT8*) p_buf;
-    int data_len = BT_HDR_SIZE + p_buf->offset + p_buf->len;
+    UINT32 data_len = BT_HDR_SIZE + p_buf->offset + p_buf->len;
 
     if (appl_trace_level < BT_TRACE_LEVEL_DEBUG)
         return;
@@ -579,8 +579,8 @@ void DispLLCP (BT_HDR *p_buf, BOOLEAN is_recv)
 *******************************************************************************/
 void DispHcp (UINT8 *data, UINT16 len, BOOLEAN is_recv)
 {
-    int i,j;
-    int nBytes = (len*2)+1;
+    UINT32 i,j;
+    UINT32 nBytes = (len*2)+1;
     char line_buf[400];
 
     if (appl_trace_level < BT_TRACE_LEVEL_DEBUG)
