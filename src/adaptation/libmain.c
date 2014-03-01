@@ -114,7 +114,6 @@ extern void nfa_nv_co_read(UINT8 *pBuffer, UINT16 nbytes, UINT8 block)
             ALOGE ("%s: fail to read", __FUNCTION__);
             nfa_nv_ci_read (0, NFA_NV_CO_FAIL, block);
         }
-        close (fileStream);
     }
     else
     {
