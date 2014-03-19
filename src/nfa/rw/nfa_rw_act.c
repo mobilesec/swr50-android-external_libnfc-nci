@@ -2578,6 +2578,16 @@ BOOLEAN nfa_rw_activate_ntf(tNFA_RW_MSG *p_data)
     BOOLEAN            activate_notify = TRUE;
     UINT8              *p;
 
+    if (  (nfa_rw_cb.halt_event != RW_T2T_MAX_EVT)
+        &&(nfa_rw_cb.activated_tech_mode == NFC_DISCOVERY_TYPE_POLL_A)
+        &&(nfa_rw_cb.protocol == NFC_PROTOCOL_T2T)
+        &&(nfa_rw_cb.pa_sel_res == NFC_SEL_RES_NFC_FORUM_T2T)  )
+    {
+        /* Type 2 tag is wake up from HALT State */
+        NFA_TRACE_DEBUG0("nfa_rw_activate_ntf () - Type 2 tag wake up from HALT State");
+        return TRUE;
+    }
+
     NFA_TRACE_DEBUG0("nfa_rw_activate_ntf");
 
     /* Initialize control block */
