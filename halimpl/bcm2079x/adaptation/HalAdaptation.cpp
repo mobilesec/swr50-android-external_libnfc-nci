@@ -36,6 +36,7 @@
 #include "android_logmsg.h"
 extern void delete_hal_non_volatile_store (bool forceDelete);
 extern void verify_hal_non_volatile_store ();
+extern void resetConfig ();
 extern "C"
 {
 #include "userial.h"
@@ -206,6 +207,7 @@ int HaiTerminateLibrary ()
     gAndroidHalCallback = NULL;
     gAndroidHalDataCallback = NULL;
     GKI_shutdown ();
+    resetConfig ();
     retval = 0;
     ALOGD ("%s: exit %d", __FUNCTION__, retval);
     return retval;
