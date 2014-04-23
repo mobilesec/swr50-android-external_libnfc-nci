@@ -30,6 +30,7 @@
 #define NFC_HAL_PRM_FLAGS_SIGNATURE_SENT    0x04    /* Signature sent to NFCC */
 #define NFC_HAL_PRM_FLAGS_I2C_FIX_REQUIRED  0x08    /* PreI2C patch required */
 #define NFC_HAL_PRM_FLAGS_BCM20791B3        0x10    /* B3 Patch (no RESET_NTF after patch download) */
+#define NFC_HAL_PRM_FLAGS_RM_RF             0x20    /* Erase Personality data */
 
 /* Secure patch download definitions */
 #define NFC_HAL_PRM_NCD_PATCHFILE_HDR_LEN  7       /* PRJID + MAJORVER + MINORVER + COUNT */
@@ -52,6 +53,20 @@ const UINT8 NFC_HAL_PRM_BCM20791B3_STR[]   = "20791B3";
 #endif
 
 void nfc_hal_prm_post_baud_update (tHAL_NFC_STATUS status);
+typedef struct
+{
+    UINT16              offset;
+    UINT8               len;
+} tNFC_HAL_PRM_RM_RF;
+
+const tNFC_HAL_PRM_RM_RF nfc_hal_prm_rm_rf_20795a1 [] =
+{
+    {0x0000,    0xFB},
+    {0x019C,    0x08},
+    {0x05E8,    0xFB},
+    {0,         0}
+};
+static BOOLEAN nfc_hal_prm_nvm_rw_cmd(void);
 
 /*****************************************************************************
 ** Extern variable from nfc_hal_dm_cfg.c
@@ -293,6 +308,51 @@ void nfc_hal_prm_spd_download_i2c_fix (void)
 
 /*******************************************************************************
 **
+** Function         nfc_hal_prm_spd_check_version_continue
+**
+** Description      Check patchfile version with current downloaded version
+**
+** Returns          void
+**
+*******************************************************************************/
+static void nfc_hal_prm_spd_check_version_continue (void)
+{
+    HAL_TRACE_DEBUG1 ("nfc_hal_prm_spd_check_version_continue 0x%02x", nfc_hal_cb.prm.flags);
+    if (nfc_hal_cb.prm.flags & NFC_HAL_PRM_FLAGS_RM_RF)
+    {
+        HAL_TRACE_DEBUG0("erase relevant blocks in NVM");
+        nfc_hal_cb.prm.flags &= ~NFC_HAL_PRM_FLAGS_RM_RF;
+        if (!nfc_hal_prm_nvm_rw_cmd())
+        {
+            /* nvm rw started successfully */
+            return;
+        }
+    }
+#if (defined (NFC_HAL_PRE_I2C_PATCH_INCLUDED) && (NFC_HAL_PRE_I2C_PATCH_INCLUDED == TRUE))
+    if (nfc_hal_cb.prm.flags & NFC_HAL_PRM_FLAGS_I2C_FIX_REQUIRED)
+    {
+        HAL_TRACE_DEBUG0 ("I2C patch fix required.");
+        /* Download i2c fix first */
+        nfc_hal_prm_spd_download_i2c_fix ();
+        return;
+    }
+#endif  /* NFC_HAL_PRE_I2C_PATCH_INCLUDED */
+
+    /* Download first segment */
+    nfc_hal_cb.prm.state = NFC_HAL_PRM_ST_SPD_GET_PATCH_HEADER;
+    if (!(nfc_hal_cb.prm.flags & NFC_HAL_PRM_FLAGS_USE_PATCHRAM_BUF))
+    {
+        /* Notify adaptation layer to call HAL_NfcPrmDownloadContinue with the next patch segment */
+        (nfc_hal_cb.prm.p_cback) (NFC_HAL_PRM_SPD_GET_NEXT_PATCH);
+    }
+    else
+    {
+        nfc_hal_prm_spd_handle_next_patch_start ();
+    }
+}
+
+/*******************************************************************************
+**
 ** Function         nfc_hal_prm_spd_check_version
 **
 ** Description      Check patchfile version with current downloaded version
@@ -386,6 +446,12 @@ void nfc_hal_prm_spd_check_version (void)
         {
             /* No patch in NVM, need to download all */
             nfc_hal_cb.prm.spd_patch_needed_mask = patchfile_patch_present_mask;
+            if (nfc_hal_cb.dev_cb.brcm_hw_id == BRCM_20795A1_ID)
+            {
+                nfc_hal_cb.prm.flags   |= NFC_HAL_PRM_FLAGS_RM_RF;
+                nfc_hal_cb.prm.p_param  = (void *)nfc_hal_prm_rm_rf_20795a1;
+                nfc_hal_cb.prm.param_idx = 0;
+            }
 
             HAL_TRACE_DEBUG2 ("No previous patch detected. Downloading patch %i.%i",
                               patchfile_ver_major, patchfile_ver_minor);
@@ -451,24 +517,9 @@ void nfc_hal_prm_spd_check_version (void)
         {
             HAL_TRACE_DEBUG0 ("I2C patch fix required.");
             nfc_hal_cb.prm.flags |= NFC_HAL_PRM_FLAGS_I2C_FIX_REQUIRED;
-
-            /* Download i2c fix first */
-            nfc_hal_prm_spd_download_i2c_fix ();
-            return;
         }
 #endif  /* NFC_HAL_PRE_I2C_PATCH_INCLUDED */
-
-        /* Download first segment */
-        nfc_hal_cb.prm.state = NFC_HAL_PRM_ST_SPD_GET_PATCH_HEADER;
-        if (!(nfc_hal_cb.prm.flags & NFC_HAL_PRM_FLAGS_USE_PATCHRAM_BUF))
-        {
-            /* Notify adaptation layer to call HAL_NfcPrmDownloadContinue with the next patch segment */
-            (nfc_hal_cb.prm.p_cback) (NFC_HAL_PRM_SPD_GET_NEXT_PATCH);
-        }
-        else
-        {
-            nfc_hal_prm_spd_handle_next_patch_start ();
-        }
+        nfc_hal_prm_spd_check_version_continue ();
     }
     else
     {
@@ -549,6 +600,53 @@ UINT8 *nfc_hal_prm_spd_status_str (UINT8 spd_status_code)
     return ((UINT8*) p_str);
 }
 #endif  /* (NFC_HAL_TRACE_VERBOSE == TRUE) */
+/*******************************************************************************
+**
+** Function         nfc_hal_prm_nvm_rw_cmd
+**
+** Description      Non Volatile Read Write Command; for now only write zeros
+**
+** Returns          TRUE if done.
+**
+*******************************************************************************/
+static BOOLEAN nfc_hal_prm_nvm_rw_cmd(void)
+{
+    tNFC_HAL_PRM_RM_RF  *p_param = (tNFC_HAL_PRM_RM_RF *)(nfc_hal_cb.prm.p_param);
+    UINT8   *p_buff, *p, *p_end;
+    UINT8   len = 0;
+    UINT16  cmd_len;
+
+    if (p_param)
+        len     = p_param[nfc_hal_cb.prm.param_idx].len;
+    HAL_TRACE_DEBUG2 ("nfc_hal_prm_nvm_rw_cmd: %d/%d", nfc_hal_cb.prm.param_idx, len);
+    if (len == 0)
+    {
+        return TRUE;
+    }
+    cmd_len = len + 7;
+
+    if ((p_buff = (UINT8 *) GKI_getbuf(cmd_len)) == NULL)
+    {
+        HAL_TRACE_ERROR0 ("NVM No buffer");
+        nfc_hal_prm_spd_handle_download_complete (NFC_HAL_PRM_ABORT_EVT);
+        return TRUE;
+    }
+
+    p = p_buff;
+
+    UINT8_TO_STREAM  (p, (NCI_MTS_CMD|NCI_GID_PROP));
+    UINT8_TO_STREAM  (p, NCI_MSG_EEPROM_RW);
+    UINT8_TO_STREAM  (p, (len+4));
+    UINT8_TO_STREAM  (p, 1); /* 1=write 0=read */
+    UINT16_TO_STREAM  (p, p_param[nfc_hal_cb.prm.param_idx].offset);
+    UINT8_TO_STREAM  (p, len);
+    memset (p, 0, len); /* Fill remaining bytes with zeros*/
+
+    nfc_hal_cb.prm.param_idx++;
+    nfc_hal_dm_send_nci_cmd(p_buff, cmd_len, nfc_hal_prm_nci_command_complete_cback);
+    GKI_freebuf (p_buff);
+    return FALSE;
+}
 
 /*******************************************************************************
 **
@@ -694,6 +792,22 @@ void nfc_hal_prm_nci_command_complete_cback (tNFC_HAL_NCI_EVT event, UINT16 data
     else if (event == NFC_VS_GET_PATCH_VERSION_EVT)
     {
         nfc_hal_prm_spd_handle_download_complete (NFC_HAL_PRM_COMPLETE_EVT);
+    }
+    else if (event == NFC_VS_EEPROM_RW_EVT)
+    {
+        STREAM_TO_UINT8 (status, p);
+        if (status == NCI_STATUS_OK)
+        {
+            if (nfc_hal_prm_nvm_rw_cmd ())
+            {
+                nfc_hal_prm_spd_check_version_continue ();
+            }
+        }
+        else
+        {
+            HAL_TRACE_ERROR0 ("NVM failed");
+            nfc_hal_prm_spd_handle_download_complete (NFC_HAL_PRM_ABORT_EVT);
+        }
     }
     else
     {

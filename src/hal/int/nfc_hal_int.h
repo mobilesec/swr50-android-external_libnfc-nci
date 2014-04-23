@@ -312,6 +312,8 @@ typedef struct
     UINT16              cur_patch_offset;       /* offset of next byte to process              */
     UINT32              dest_ram;
     TIMER_LIST_ENT      timer;                  /* Timer for patch download                    */
+    void               *p_param;                /* general purpose param for PRM               */
+    UINT8               param_idx;              /* information related to general purpose param*/
 
     /* Secure Patch Download */
     UINT32              spd_patch_needed_mask;  /* Mask of patches that need to be downloaded */
