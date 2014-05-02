@@ -65,6 +65,16 @@ extern tNFC_HAL_CFG *p_nfc_hal_cfg;
 extern const UINT8  nfca_version_string [];
 extern const UINT8  nfa_version_string [];
 
+tNFC_HAL_DM_PRE_SET_MEM nfc_hal_pre_set_mem_20795a1 [] =
+{
+    {0x0016403c,    0x00000008},
+    {0x0016403c,    0x00000000},
+    {0x0014008c,    0x00000001},
+    {0,         0}
+};
+
+extern tNFC_HAL_DM_PRE_SET_MEM *p_nfc_hal_dm_pre_set_mem;
+
 ///////////////////////////////////////
 
 
@@ -79,6 +89,15 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
     UINT8 logLevel = 0;
 
     logLevel = InitializeGlobalAppLogLevel ();
+
+    if ( GetNumValue ( NAME_GLOBAL_RESET, &num, sizeof ( num ) ) )
+    {
+        if (num == 1)
+        {
+            // Send commands to disable boc
+            p_nfc_hal_dm_pre_set_mem = nfc_hal_pre_set_mem_20795a1;
+        }
+    }
 
     configureCrystalFrequency ();
     verify_hal_non_volatile_store ();

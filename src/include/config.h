@@ -85,6 +85,7 @@ int GetNumValue(const char* name, void* p_value, unsigned long len);
 #define NAME_PRESENCE_CHECK_ALGORITHM   "PRESENCE_CHECK_ALGORITHM"
 #define NAME_ALLOW_NO_NVM               "ALLOW_NO_NVM"
 #define NAME_DEVICE_HOST_WHITE_LIST     "DEVICE_HOST_WHITE_LIST"
+#define NAME_GLOBAL_RESET               "DO_GLOBAL_RESET"
 
 #define                     LPTD_PARAM_LEN (40)
 

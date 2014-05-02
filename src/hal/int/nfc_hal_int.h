@@ -139,6 +139,9 @@ extern NFC_HAL_TRANS_CFG_QUALIFIER tNFC_HAL_TRANS_CFG nfc_hal_trans_cfg;
 #define HCI_BRCM_WRITE_SLEEP_MODE_LENGTH    12
 #define HCI_BRCM_UPDATE_BAUD_RATE_UNENCODED_LENGTH      0x06
 #define HCIE_PREAMBLE_SIZE                  2
+#define HCI_BRCM_PRE_SET_MEM                (0x000C | HCI_GRP_VENDOR_SPECIFIC)
+#define HCI_BRCM_PRE_SET_MEM_LENGTH         10
+#define HCI_BRCM_PRE_SET_MEM_TYPE           8
 
 /****************************************************************************
 ** Internal constants and definitions
@@ -431,6 +434,7 @@ typedef struct
 #endif
 
     UINT8                   pre_discover_done;  /* TRUE, when the prediscover config is complete */
+    UINT8                   pre_set_mem_idx;
 
     UINT8                   max_rf_credits;     /* NFC Max RF data credits */
     UINT8                   max_ee;             /* NFC Max number of NFCEE supported by NFCC */
@@ -481,6 +485,8 @@ void nfc_hal_dm_shutting_down_nfcc (void);
 BOOLEAN nfc_hal_dm_power_mode_execute (tNFC_HAL_LP_EVT event);
 void nfc_hal_dm_send_pend_cmd (void);
 tHAL_NFC_STATUS nfc_hal_dm_set_config (UINT8 tlv_size, UINT8 *p_param_tlvs, tNFC_HAL_NCI_CBACK *p_cback);
+BOOLEAN nfc_hal_dm_check_pre_set_mem (void);
+
 
 /* nfc_hal_prm.c */
 void nfc_hal_prm_spd_reset_ntf (UINT8 reset_reason, UINT8 reset_type);

@@ -140,6 +140,11 @@ UINT8 *p_nfc_hal_dm_lptd_cfg = (UINT8 *) &nfc_hal_dm_lptd_cfg[0];
 */
 UINT8 *p_nfc_hal_dm_pll_325_cfg = NULL;
 
+/*
+** Proprietary pre-set is required, if not NULL.
+*/
+tNFC_HAL_DM_PRE_SET_MEM *p_nfc_hal_dm_pre_set_mem = NULL;
+
 tNFC_HAL_CFG nfc_hal_cfg =
 {
     FALSE,                                  /* set nfc_hal_prm_nvm_required to TRUE, if the platform wants to abort PRM process without NVM */

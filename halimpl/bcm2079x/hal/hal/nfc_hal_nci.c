@@ -425,6 +425,7 @@ static void nfc_hal_nci_proc_rx_bt_msg (void)
 
         /* if initializing BRCM NFCC */
         if ((nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_APP_COMPLETE) ||
+            (nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_BUILD_INFO) ||
             (nfc_hal_cb.dev_cb.initializing_state == NFC_HAL_INIT_STATE_W4_CONTROL_DONE))
         {
             /* this is command complete event for baud rate update or download patch */

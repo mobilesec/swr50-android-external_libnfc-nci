@@ -92,6 +92,13 @@ typedef void (tHAL_API_POWER_CYCLE) (void);
 typedef UINT8 (tHAL_API_GET_MAX_NFCEE) (void);
 
 
+#define NFC_HAL_DM_PRE_SET_MEM_LEN  5
+typedef struct
+{
+    UINT32          addr;
+    UINT32          data;
+} tNFC_HAL_DM_PRE_SET_MEM;
+
 /* data members for NFC_HAL-HCI */
 typedef struct
 {
