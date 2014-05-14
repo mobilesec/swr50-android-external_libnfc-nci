@@ -210,6 +210,6 @@ tNFA_STATUS nfa_ce_start_listening (void);
 void nfa_ce_remove_listen_info_entry (UINT8 listen_info_idx, BOOLEAN notify_app);
 void nfa_ce_sys_disable (void);
 void nfa_ce_free_scratch_buf (void);
-
+BOOLEAN nfa_ce_restart_listen_check (void);
 #endif /* NFA_DM_INT_H */
 
