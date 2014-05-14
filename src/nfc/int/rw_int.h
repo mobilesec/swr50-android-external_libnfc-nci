@@ -376,6 +376,12 @@ typedef struct
 typedef struct
 {
     UINT32              cur_tout;               /* Current command timeout */
+    /* check timeout is check_tout_a + n * check_tout_b; X is T/t3t * 4^E */
+    UINT32              check_tout_a;           /* Check command timeout (A+1)*X */
+    UINT32              check_tout_b;           /* Check command timeout (B+1)*X */
+    /* update timeout is update_tout_a + n * update_tout_b; X is T/t3t * 4^E */
+    UINT32              update_tout_a;          /* Update command timeout (A+1)*X */
+    UINT32              update_tout_b;          /* Update command timeout (B+1)*X */
     tRW_T3T_RW_STATE    rw_state;               /* Reader/writer state */
     UINT8               rw_substate;
     UINT8               cur_cmd;                /* Current command being executed */
