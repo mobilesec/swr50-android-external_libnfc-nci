@@ -1674,7 +1674,8 @@ UDRV_API void USERIAL_PowerupDevice(tUSERIAL_PORT port)
                 resetSuccess = 1;
                 linux_cb.client_device_address = bcmi2cnfc_client_addr;
                 /* Delay long enough for address change */
-                delay = 100;
+                /* MACO xxx this needs to be at least 200 ms for BCM2079x B3 */
+                delay = 200;
             }
         } else {
             resetSuccess = 1;
@@ -1718,11 +1719,15 @@ static int change_client_addr(int addr)
     if (ret != size) {
         ALOGD( "change_client_addr() change addr to 0x%x by setting BSP address to 0x%x\n", addr, ALIAS_CLIENT_ADDRESS);
         /* legacy kernel */
-        ioctl(linux_cb.sock, BCMNFC_CHANGE_ADDR, addr);
-        /* We'll tweak address to make it look like 0x1FA address */
+        /* MACO xxx commented out code below only works with new kernel driver,
+         * but Mako/Manta ship with old one */
+        ret = ioctl(linux_cb.sock, BCMNFC_CHANGE_ADDR, addr);
+        return ret;
+        /*
         ret = ioctl(linux_cb.sock, BCMNFC_SET_CLIENT_ADDR, ALIAS_CLIENT_ADDRESS);
         size++;
         ret = write(linux_cb.sock, addr_data, size);
+        */
     }
 
     if (ret == size) {
