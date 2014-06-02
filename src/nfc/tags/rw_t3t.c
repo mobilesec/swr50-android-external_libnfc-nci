@@ -49,7 +49,7 @@
 #define RW_T3T_POLL_CMD_TIMEOUT_TICKS                               ((RW_T3T_TOUT_RESP*2*QUICK_TIMER_TICKS_PER_SEC) / 1000)
 #define RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS                            ((RW_T3T_TOUT_RESP*QUICK_TIMER_TICKS_PER_SEC) / 1000)
 #define RW_T3T_RAW_FRAME_CMD_TIMEOUT_TICKS                          (RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS * 4)
-#define RW_T3T_MIN_TIMEOUT_TICKS                                    3
+#define RW_T3T_MIN_TIMEOUT_TICKS                                    10
 
 /* Macro to extract major version from NDEF version byte */
 #define T3T_GET_MAJOR_VERSION(ver)      (ver>>4)
@@ -184,9 +184,13 @@ static UINT32 rw_t3t_check_timeout (UINT16 num_blocks)
 {
     tRW_T3T_CB  *p_cb    = &rw_cb.tcb.t3t;
     UINT32      timeout;
+    UINT32      extra;
+
     timeout = (p_cb->check_tout_a + num_blocks * p_cb->check_tout_b)*QUICK_TIMER_TICKS_PER_SEC/1000000;
-    if (timeout < RW_T3T_MIN_TIMEOUT_TICKS)
-        timeout = RW_T3T_MIN_TIMEOUT_TICKS;
+    /* allow some extra time for driver */
+    extra   = (timeout / 10) + RW_T3T_MIN_TIMEOUT_TICKS;
+    timeout += extra;
+
     return timeout;
 }
 
@@ -203,9 +207,13 @@ static UINT32 rw_t3t_update_timeout (UINT16 num_blocks)
 {
     tRW_T3T_CB  *p_cb    = &rw_cb.tcb.t3t;
     UINT32      timeout;
+    UINT32      extra;
+
     timeout = (p_cb->update_tout_a + num_blocks * p_cb->update_tout_b)*QUICK_TIMER_TICKS_PER_SEC/1000000;
-    if (timeout < RW_T3T_MIN_TIMEOUT_TICKS)
-        timeout = RW_T3T_MIN_TIMEOUT_TICKS;
+    /* allow some extra time for driver */
+    extra   = (timeout / 10) + RW_T3T_MIN_TIMEOUT_TICKS;
+    timeout += extra;
+
     return timeout;
 }
 /*******************************************************************************
