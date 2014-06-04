@@ -102,6 +102,9 @@ void nfc_ncif_cmd_timeout (void)
     {
         nfc_enabled (NFC_STATUS_FAILED, NULL);
     }
+
+    /* XXX maco since this failure is unrecoverable, abort the process */
+    abort();
 }
 
 /*******************************************************************************
