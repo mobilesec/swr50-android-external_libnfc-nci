@@ -93,6 +93,34 @@ static UINT8 spi_negotiation[10] = { 0xF0, /* CMD */
 };
 static UINT8 spi_nego_res[20];
 
+/* Modes used when powering off (independent
+   of what the stack/jni has configured */
+#define POM_NORMAL          (0)     /* Normal */
+#define POM_CE3SO           (1)     /* Go to CE3-SO */
+#define POM_NFC_OFF         (2)     /* Set NFC Off bit */
+
+static int gPowerOffMode = POM_NORMAL;
+
+static UINT8 ce3_so_cmd[10] = { 0x10,
+                                0x2F, /* CMD */
+                                0x08,
+                                0x06, /* size of cmd */
+                                0x02, /* CE3 power-level */
+                                0xF3, /* LpmUicc */
+                                0x01, /* LpmListenTech */
+                                0x01, /* Param */
+                                0x00, /* Forced */
+                                0x00  /* Debug */
+};
+
+static UINT8 set_nfc_off_cmd[5] = {
+                                0x10,
+                                0x2F, /* CMD */
+                                0x38,
+                                0x01, /* size of cmd */
+                                0x01  /* setNfcOff */
+};
+
 #include <ctype.h>
 
 #define USING_BRCM_USB TRUE
@@ -555,7 +583,7 @@ UDRV_API void    USERIAL_Init(void * p_cfg)
         if (is_close_thread_is_waiting)
         {
             pthread_mutex_unlock(&close_thread_mutex);
-            ALOGI("USERIAL_Open(): wait for close-thread");
+            ALOGI("USERIAL_Init(): wait for close-thread");
             sleep (1);
         }
         else
@@ -870,7 +898,7 @@ BOOLEAN userial_to_tcio_baud(UINT8 cfg_baud, UINT32 * baud)
         *baud = B4000000;
     else
     {
-        ALOGE( "USERIAL_Open: unsupported baud idx %i", cfg_baud );
+        ALOGE( "userial_to_tcio_baud: unsupported baud idx %i", cfg_baud );
         *baud = B115200;
         return FALSE;
     }
@@ -964,6 +992,8 @@ UDRV_API void USERIAL_Open(tUSERIAL_PORT port, tUSERIAL_OPEN_CFG *p_cfg, tUSERIA
         gPrePowerOffDelay = num;
     if ( GetNumValue ( NAME_POST_POWER_OFF_DELAY, &num, sizeof ( num ) ) )
         gPostPowerOffDelay = num;
+    if ( GetNumValue ( NAME_POWER_OFF_MODE, &num, sizeof ( num ) ) )
+        gPowerOffMode = num;
     ALOGI("USERIAL_Open() device: %s port=%d, uart_port=%d WAKE_DELAY(%d) WRITE_DELAY(%d) POWER_ON_DELAY(%d) PRE_POWER_OFF_DELAY(%d) POST_POWER_OFF_DELAY(%d)",
             (char*)userial_dev, port, uart_port, nfc_wake_delay, nfc_write_delay, gPowerOnDelay, gPrePowerOffDelay,
             gPostPowerOffDelay);
@@ -1407,8 +1437,32 @@ UDRV_API void    USERIAL_Close(tUSERIAL_PORT port)
 {
     pthread_attr_t attr;
     pthread_t      close_thread;
+    UINT8          res[10];
+    UINT32         delay = 100;
 
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGD ("%s: enter; gPowerOffMode=%d", __FUNCTION__, gPowerOffMode);
+
+    /* Do we need to put NFCC into certain mode before switching off?... */
+    if (gPowerOffMode != POM_NORMAL)
+    {
+        switch (gPowerOffMode)
+        {
+        case POM_CE3SO:
+            ALOGD ("%s: Sending Set_PwrLevel cmd to go to CE3-SO mode", __FUNCTION__);
+            USERIAL_Write(port, ce3_so_cmd, sizeof (ce3_so_cmd));
+            delay = 1000;
+            break;
+
+        case POM_NFC_OFF:
+            ALOGD ("%s: Sending Set_NfcOff cmd", __FUNCTION__);
+            USERIAL_Write(port, set_nfc_off_cmd, sizeof (set_nfc_off_cmd));
+            break;
+        }
+
+        USERIAL_Read(port, res, sizeof ( res ));
+        GKI_delay(delay);
+    }
+
     // check to see if thread is already running
     if (pthread_mutex_trylock(&close_thread_mutex) == 0)
     {
@@ -1657,7 +1711,7 @@ UDRV_API void USERIAL_PowerupDevice(tUSERIAL_PORT port)
             int len = spi_negotiation[0];
             /* Wake control is not available: Start SPI negotiation*/
             USERIAL_Write(port, &spi_negotiation[1], len);
-            USERIAL_Read(port, spi_negotiation, sizeof ( spi_negotiation ));
+            USERIAL_Read(port, spi_nego_res, sizeof ( spi_nego_res ));
         }
 
         if ( GetNumValue ( NAME_CLIENT_ADDRESS, &num, sizeof ( num ) ) )
