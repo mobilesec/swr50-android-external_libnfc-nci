@@ -593,14 +593,14 @@ void configureCrystalFrequency ()
     UINT8 xtalIndex = 0;
     int actualLen = 0;
 
-    GetNumValue (NAME_XTAL_HARDWARE_ID, &num, sizeof(num));
-    hwId = num;
+    if (GetNumValue (NAME_XTAL_HARDWARE_ID, &num, sizeof(num)))
+        hwId = num;
 
-    GetNumValue (NAME_XTAL_FREQUENCY, &num, sizeof(num));
-    xtalFreq = (UINT16) num;
+    if (GetNumValue (NAME_XTAL_FREQUENCY, &num, sizeof(num)))
+        xtalFreq = (UINT16) num;
 
-    GetNumValue (NAME_XTAL_FREQ_INDEX, &num, sizeof(num));
-    xtalIndex = (UINT8) num;
+    if (GetNumValue (NAME_XTAL_FREQ_INDEX, &num, sizeof(num)))
+        xtalIndex = (UINT8) num;
 
     actualLen = GetStrValue (NAME_XTAL_PARAMS_CFG, (char*)sConfig, sizeof(sConfig));
     if (actualLen && (xtalIndex == NFC_HAL_XTAL_INDEX_SPECIAL)) //whether to use custom crystal frequency

@@ -360,7 +360,8 @@ bool CNfcConfig::readConfig(const char* name, bool bResetContent)
 **
 *******************************************************************************/
 CNfcConfig::CNfcConfig() :
-    mValidFile(true)
+    mValidFile(true),
+    state(0)
 {
 }
 

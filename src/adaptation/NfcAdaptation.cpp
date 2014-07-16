@@ -65,6 +65,7 @@ extern tNFA_HCI_CFG *p_nfa_hci_cfg;
 *******************************************************************************/
 NfcAdaptation::NfcAdaptation()
 {
+    memset (&mHalEntryFuncs, 0, sizeof(mHalEntryFuncs));
 }
 
 /*******************************************************************************
