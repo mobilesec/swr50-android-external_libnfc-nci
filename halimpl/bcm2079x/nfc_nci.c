@@ -179,9 +179,9 @@ struct nfc_nci_module_t HAL_MODULE_INFO_SYM =
     {
         .tag = HARDWARE_MODULE_TAG, .module_api_version = 0x0100, // [15:8] major, [7:0] minor (1.0)
         .hal_api_version = 0x00, // 0 is only valid value
-        .id = NFC_NCI_HARDWARE_MODULE_ID,
-        .name = "Default NFC NCI HW HAL",
-        .author = "The Android Open Source Project",
+        .id = NFC_NCI_BCM2079X_HARDWARE_MODULE_ID,
+        .name = "BCM2079x NFC NCI HW HAL",
+        .author = "Broadcom Corporation",
         .methods = &nfc_module_methods,
     },
 };

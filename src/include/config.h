@@ -87,6 +87,7 @@ int GetNumValue(const char* name, void* p_value, unsigned long len);
 #define NAME_DEVICE_HOST_WHITE_LIST     "DEVICE_HOST_WHITE_LIST"
 #define NAME_POWER_OFF_MODE             "POWER_OFF_MODE"
 #define NAME_GLOBAL_RESET               "DO_GLOBAL_RESET"
+#define NAME_NCI_HAL_MODULE             "NCI_HAL_MODULE"
 
 #define                     LPTD_PARAM_LEN (40)
 

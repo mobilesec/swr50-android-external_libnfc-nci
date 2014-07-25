@@ -54,7 +54,7 @@ include $(BUILD_SHARED_LIBRARY)
 # Android's generic HAL (libhardware.so) dynamically loads this shared library.
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := nfc_nci.$(TARGET_DEVICE)
+LOCAL_MODULE := nfc_nci.bcm2079x.default
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := $(call all-c-files-under, $(HALIMPL)) \
     $(call all-cpp-files-under, $(HALIMPL)) \

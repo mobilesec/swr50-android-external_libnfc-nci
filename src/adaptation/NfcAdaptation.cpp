@@ -44,6 +44,7 @@ ThreadCondVar NfcAdaptation::mHalCloseCompletedEvent;
 UINT32 ScrProtocolTraceFlag = SCR_PROTO_TRACE_ALL; //0x017F00;
 UINT8 appl_trace_level = 0xff;
 char bcm_nfc_location[120];
+char nci_hal_module[64];
 
 static UINT8 nfa_dm_cfg[sizeof ( tNFA_DM_CFG ) ];
 extern tNFA_DM_CFG *p_nfa_dm_cfg;
@@ -126,8 +127,7 @@ void NfcAdaptation::Initialize ()
     }
     if ( !GetStrValue ( NAME_NFA_STORAGE, bcm_nfc_location, sizeof ( bcm_nfc_location ) ) )
     {
-        memset (bcm_nfc_location, 0, sizeof(bcm_nfc_location));
-        strncpy (bcm_nfc_location, "/data/nfc", 9);
+        strlcpy (bcm_nfc_location, "/data/nfc", sizeof(bcm_nfc_location));
     }
     if ( GetNumValue ( NAME_PROTOCOL_TRACE_LEVEL, &num, sizeof ( num ) ) )
         ScrProtocolTraceFlag = num;
@@ -295,6 +295,11 @@ void NfcAdaptation::InitializeHalDeviceContext ()
     const char* func = "NfcAdaptation::InitializeHalDeviceContext";
     ALOGD ("%s: enter", func);
     int ret = 0; //0 means success
+    if ( !GetStrValue ( NAME_NCI_HAL_MODULE, nci_hal_module, sizeof ( nci_hal_module) ) )
+    {
+        ALOGE("No HAL module specified in config, falling back to BCM2079x");
+        strlcpy (nci_hal_module, "nfc_nci.bcm2079x", sizeof(nci_hal_module));
+    }
     const hw_module_t* hw_module = NULL;
 
     mHalEntryFuncs.initialize = HalInitialize;
@@ -308,7 +313,7 @@ void NfcAdaptation::InitializeHalDeviceContext ()
     mHalEntryFuncs.power_cycle = HalPowerCycle;
     mHalEntryFuncs.get_max_ee = HalGetMaxNfcee;
 
-    ret = hw_get_module (NFC_NCI_HARDWARE_MODULE_ID, &hw_module);
+    ret = hw_get_module (nci_hal_module, &hw_module);
     if (ret == 0)
     {
         ret = nfc_nci_open (hw_module, &mHalDeviceContext);
@@ -316,7 +321,7 @@ void NfcAdaptation::InitializeHalDeviceContext ()
             ALOGE ("%s: nfc_nci_open fail", func);
     }
     else
-        ALOGE ("%s: fail hw_get_module", func);
+        ALOGE ("%s: fail hw_get_module %s", func, nci_hal_module);
     ALOGD ("%s: exit", func);
 }
 
