@@ -40,8 +40,6 @@
 #endif
 
 #define NFA_EE_ROUT_BUF_SIZE            540
-#define NFA_EE_ROUT_ONE_TECH_CFG_LEN    4
-#define NFA_EE_ROUT_ONE_PROTO_CFG_LEN   4
 #define NFA_EE_ROUT_MAX_TLV_SIZE        0xFD
 
 
@@ -379,7 +377,8 @@ void nfa_ee_report_event(tNFA_EE_CBACK *p_cback, tNFA_EE_EVT event, tNFA_EE_CBAC
 *******************************************************************************/
 void nfa_ee_start_timer(void)
 {
-    nfa_sys_start_timer(&nfa_ee_cb.timer, NFA_EE_ROUT_TIMEOUT_EVT, NFA_EE_ROUT_TIMEOUT_VAL);
+    if (nfa_dm_is_active())
+        nfa_sys_start_timer(&nfa_ee_cb.timer, NFA_EE_ROUT_TIMEOUT_EVT, NFA_EE_ROUT_TIMEOUT_VAL);
 }
 
 /*******************************************************************************

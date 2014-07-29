@@ -209,6 +209,11 @@ void nfa_dm_proc_nfcc_power_mode (UINT8 nfcc_power_mode)
         nfa_dm_cb.setcfg_pending_num  = 0;
 
         nfa_dm_set_init_nci_params ();
+        nfa_dm_cb.flags &= ~NFA_DM_FLAGS_POWER_OFF_SLEEP;
+    }
+    else if (nfcc_power_mode == NFA_DM_PWR_MODE_OFF_SLEEP)
+    {
+        nfa_dm_cb.flags |= NFA_DM_FLAGS_POWER_OFF_SLEEP;
     }
 
     nfa_sys_cback_notify_nfcc_power_mode_proc_complete (NFA_ID_DM);
