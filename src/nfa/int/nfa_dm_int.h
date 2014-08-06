@@ -422,6 +422,7 @@ typedef struct
 #define NFA_DM_FLAGS_RAW_FRAME                  0x00000800  /* NFA_SendRawFrame() is called since RF activation                     */
 #define NFA_DM_FLAGS_LISTEN_DISABLED            0x00001000  /* NFA_DisableListening() is called and engaged                         */
 #define NFA_DM_FLAGS_P2P_PAUSED                 0x00002000  /* NFA_PauseP2p() is called and engaged                         */
+#define NFA_DM_FLAGS_POWER_OFF_SLEEP            0x00008000  /* Power Off Sleep                                                      */
 /* stored parameters */
 typedef struct
 {

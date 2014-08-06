@@ -77,7 +77,6 @@ private:
     static  NfcAdaptation* mpInstance;
     static  ThreadMutex sLock;
     ThreadCondVar    mCondVar;
-    pthread_t mThreadId;
     tHAL_NFC_ENTRY   mHalEntryFuncs; // function pointers for HAL entry points
     static nfc_nci_device_t* mHalDeviceContext;
     static tHAL_NFC_CBACK* mHalCallback;

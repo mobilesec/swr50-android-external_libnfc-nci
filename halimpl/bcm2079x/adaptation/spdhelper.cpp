@@ -102,6 +102,7 @@ SpdHelper::SpdHelper()
     mPatchId.erase();
     if(!GetNumValue((char*)NAME_SPD_MAXRETRYCOUNT, &mMaxErrorCount, sizeof(mMaxErrorCount)))
         mMaxErrorCount = DEFAULT_SPD_MAXRETRYCOUNT;
+    mIsPatchBad = false;
     if (!GetNumValue((char*)NAME_SPD_DEBUG, &mSpdDebug, sizeof(mSpdDebug)))
         mSpdDebug = false;
 }
