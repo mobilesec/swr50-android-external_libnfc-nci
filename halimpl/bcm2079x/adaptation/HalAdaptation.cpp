@@ -355,6 +355,9 @@ int HaiPreDiscover (const bcm2079x_dev_t* device)
     ALOGD ("%s: enter", __FUNCTION__);
     int retval = EACCES;
 
+    // This function is a clear indication that the stack is initializing
+    // EE.  So we can reset the cold-boot flag here.
+    isColdBoot = false;
     retval = HAL_NfcPreDiscover () ? 1 : 0;
     ALOGD ("%s: exit %d", __FUNCTION__, retval);
     return retval;
