@@ -32,6 +32,7 @@
 #include "nfc_hal_post_reset.h"
 #include <errno.h>
 #include <pthread.h>
+#include <cutils/properties.h>
 #include "buildcfg.h"
 #include "android_logmsg.h"
 extern void delete_hal_non_volatile_store (bool forceDelete);
@@ -86,6 +87,7 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
     unsigned long freq = 0;
     unsigned long num = 0;
     char temp[120];
+    int8_t prop_value;
     UINT8 logLevel = 0;
 
     logLevel = InitializeGlobalAppLogLevel ();
@@ -204,6 +206,11 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
         p_nfc_hal_cfg->nfc_hal_hci_uicc_support = 0;
     }
 
+    prop_value = property_get_bool("nfc.bcm2079x.isColdboot", 0);
+    if (prop_value) {
+        isColdBoot = true;
+        property_set("nfc.bcm2079x.isColdboot", "0");
+    }
     // Set 'first boot' flag based on static variable that will get set to false
     // after the stack has first initialized the EE.
     p_nfc_hal_cfg->nfc_hal_first_boot = isColdBoot ? TRUE : FALSE;
