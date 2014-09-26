@@ -947,7 +947,8 @@ BOOLEAN nfa_ce_deactivate_ntf (tNFA_CE_MSG *p_ce_msg)
         {
             conn_evt.ce_deactivated.handle = NFA_HANDLE_GROUP_CE | ((tNFA_HANDLE)nfa_ce_cb.idx_wild_card);
             conn_evt.ce_deactivated.type   = deact_type;
-            (*p_cb->p_active_conn_cback) (NFA_CE_DEACTIVATED_EVT, &conn_evt);
+            if (p_cb->p_active_conn_cback)
+                (*p_cb->p_active_conn_cback) (NFA_CE_DEACTIVATED_EVT, &conn_evt);
         }
 
         return TRUE;
