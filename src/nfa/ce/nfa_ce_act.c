@@ -365,6 +365,7 @@ void nfa_ce_t3t_generate_rand_nfcid (UINT8 nfcid2[NCI_RF_F_UID_LEN])
 tNFA_STATUS nfa_ce_start_listening (void)
 {
     tNFA_DM_DISC_TECH_PROTO_MASK listen_mask;
+    tNFA_DM_DISC_PARAMS listen_parameters;
     tNFA_CE_CB    *p_cb = &nfa_ce_cb;
     tNFA_HANDLE   disc_handle;
     UINT8         listen_info_idx;
@@ -391,7 +392,7 @@ tNFA_STATUS nfa_ce_start_listening (void)
             listen_mask |= nfa_ce_cb.isodep_disc_mask;
         }
 
-        disc_handle = nfa_dm_add_rf_discover (listen_mask, NFA_DM_DISC_HOST_ID_DH, nfa_ce_discovery_cback);
+        disc_handle = nfa_dm_add_rf_discover (listen_mask, (tNFA_DM_DISC_PARAMS *)NULL, NFA_DM_DISC_HOST_ID_DH, nfa_ce_discovery_cback);
 
         if (disc_handle == NFA_HANDLE_INVALID)
             return (NFA_STATUS_FAILED);
@@ -412,6 +413,7 @@ tNFA_STATUS nfa_ce_start_listening (void)
                 nfc_ce_t3t_set_listen_params ();
 
                 disc_handle = nfa_dm_add_rf_discover (NFA_DM_DISC_MASK_LF_T3T,
+                                                      (tNFA_DM_DISC_PARAMS *)NULL,
                                                       NFA_DM_DISC_HOST_ID_DH,
                                                       nfa_ce_discovery_cback);
 
@@ -422,7 +424,37 @@ tNFA_STATUS nfa_ce_start_listening (void)
             }
             else if (p_cb->listen_info[listen_info_idx].flags & NFA_CE_LISTEN_INFO_T4T_AID)
             {
+                listen_parameters.params_valid = TRUE;
+                if (nfa_ce_cb.sak_override) {
+                    listen_parameters.la_sel_info_len = NCI_PARAM_LEN_LA_SEL_INFO;
+                    listen_parameters.la_sel_info[0] = nfa_ce_cb.sak;
+                } else {
+                    listen_parameters.la_sel_info_len = 0;
+                }
+                if (nfa_ce_cb.sak_override) {
+                    listen_parameters.la_bit_frame_sdd_len = NCI_PARAM_LEN_LA_BIT_FRAME_SDD;
+                    listen_parameters.la_bit_frame_sdd[0] = (UINT8)(nfa_ce_cb.atqa & 0x0FF);
+                    listen_parameters.la_platform_config_len = NCI_PARAM_LEN_LA_PLATFORM_CONFIG;
+                    listen_parameters.la_platform_config[0] = (UINT8)((nfa_ce_cb.atqa >> 8) & 0x0FF);
+                } else {
+                    listen_parameters.la_bit_frame_sdd_len = 0;
+                    listen_parameters.la_platform_config_len = 0;
+                }
+                if ((nfa_ce_cb.nfcid1_len > 0) && (nfa_ce_cb.nfcid1_len <= NCI_NFCID1_MAX_LEN)) {
+                    listen_parameters.la_nfcid1_len = nfa_ce_cb.nfcid1_len;
+                    memcpy(listen_parameters.la_nfcid1, nfa_ce_cb.nfcid1, nfa_ce_cb.nfcid1_len);
+                } else {
+                    listen_parameters.la_nfcid1_len = 0;
+                }
+                if ((nfa_ce_cb.hist_bytes_len > 0) && (nfa_ce_cb.hist_bytes_len <= NCI_MAX_HIS_BYTES_LEN)) {
+                    listen_parameters.la_hist_by_len = nfa_ce_cb.hist_bytes_len;
+                    memcpy(listen_parameters.la_hist_by, nfa_ce_cb.hist_bytes, nfa_ce_cb.hist_bytes_len);
+                } else {
+                    listen_parameters.la_hist_by_len = 0;
+                }
+
                 disc_handle = nfa_dm_add_rf_discover (nfa_ce_cb.isodep_disc_mask,
+                                                       &listen_parameters,
                                                        NFA_DM_DISC_HOST_ID_DH,
                                                        nfa_ce_discovery_cback);
 
@@ -460,6 +492,7 @@ tNFA_STATUS nfa_ce_start_listening (void)
                     /* Start listening for requested technologies */
                     /* register discovery callback to NFA DM */
                     disc_handle = nfa_dm_add_rf_discover (listen_mask,
+                                                          (tNFA_DM_DISC_PARAMS *)NULL,
                                                           (tNFA_DM_DISC_HOST_ID) (p_cb->listen_info[listen_info_idx].ee_handle &0x00FF),
                                                           nfa_ce_discovery_cback);
 
@@ -1412,10 +1445,35 @@ BOOLEAN nfa_ce_api_dereg_listen (tNFA_CE_MSG *p_ce_msg)
 BOOLEAN nfa_ce_api_cfg_isodep_tech (tNFA_CE_MSG *p_ce_msg)
 {
     nfa_ce_cb.isodep_disc_mask  = 0;
-    if (p_ce_msg->hdr.layer_specific & NFA_TECHNOLOGY_MASK_A)
+    if (p_ce_msg->hdr.layer_specific & NFA_TECHNOLOGY_MASK_A) {
         nfa_ce_cb.isodep_disc_mask  = NFA_DM_DISC_MASK_LA_ISO_DEP;
+        nfa_ce_cb.isodep_disc_mask  = NFA_DM_DISC_MASK_LA_T2T; // mroland: also listen for T2T
+    }
 
     if (p_ce_msg->hdr.layer_specific & NFA_TECHNOLOGY_MASK_B)
         nfa_ce_cb.isodep_disc_mask |= NFA_DM_DISC_MASK_LB_ISO_DEP;
     return TRUE;
 }
+
+/*******************************************************************************
+**
+** Function         nfa_ce_api_cfg_nfca_params
+**
+** Description      Configure the parameters for NFC-A listening
+**
+** Returns          TRUE (message buffer to be freed by caller)
+**
+*******************************************************************************/
+BOOLEAN nfa_ce_api_cfg_nfca_params (tNFA_CE_MSG *p_ce_msg)
+{
+    nfa_ce_cb.sak  = p_ce_msg->nfca_params.sak;
+    nfa_ce_cb.sak_override  = p_ce_msg->nfca_params.sak_override;
+    nfa_ce_cb.atqa  = p_ce_msg->nfca_params.atqa;
+    nfa_ce_cb.atqa_override  = p_ce_msg->nfca_params.atqa_override;
+    nfa_ce_cb.nfcid1_len  = p_ce_msg->nfca_params.nfcid1_len;
+    memcpy (nfa_ce_cb.nfcid1, p_ce_msg->nfca_params.nfcid1, NCI_NFCID1_MAX_LEN);
+    nfa_ce_cb.hist_bytes_len  = p_ce_msg->nfca_params.hist_bytes_len;
+    memcpy (nfa_ce_cb.hist_bytes, p_ce_msg->nfca_params.hist_bytes, NCI_MAX_HIS_BYTES_LEN);
+    return TRUE;
+}
+

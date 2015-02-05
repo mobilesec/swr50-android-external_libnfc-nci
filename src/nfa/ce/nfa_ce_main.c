@@ -53,6 +53,7 @@ const tNFA_CE_ACTION nfa_ce_action_tbl[] =
     nfa_ce_api_reg_listen,      /* NFA_CE_API_REG_LISTEN_EVT    */
     nfa_ce_api_dereg_listen,    /* NFA_CE_API_DEREG_LISTEN_EVT  */
     nfa_ce_api_cfg_isodep_tech, /* NFA_CE_API_CFG_ISODEP_TECH_EVT*/
+    nfa_ce_api_cfg_nfca_params, /* NFA_CE_API_CFG_NFCA_PARAMS_EVT*/
     nfa_ce_activate_ntf,        /* NFA_CE_ACTIVATE_NTF_EVT      */
     nfa_ce_deactivate_ntf,      /* NFA_CE_DEACTIVATE_NTF_EVT    */
 };
@@ -86,6 +87,12 @@ void nfa_ce_init (void)
     nfa_ce_t3t_generate_rand_nfcid (nfa_ce_cb.listen_info[NFA_CE_LISTEN_INFO_IDX_NDEF].t3t_nfcid2);
     nfa_ce_cb.listen_info[NFA_CE_LISTEN_INFO_IDX_NDEF].rf_disc_handle = NFA_HANDLE_INVALID;
     nfa_ce_cb.isodep_disc_mask  = NFA_CE_DEFAULT_ISODEP_DISC_MASK;
+    nfa_ce_cb.isodep_disc_mask  |= NFA_DM_DISC_MASK_PA_T2T; // mroland: also listen for T2T
+    nfa_ce_cb.sak = 0;
+    nfa_ce_cb.sak_override = FALSE;
+    nfa_ce_cb.atqa = 0;
+    nfa_ce_cb.atqa_override = FALSE;
+    nfa_ce_cb.nfcid1_len = 0;
     nfa_ce_cb.idx_wild_card     = NFA_CE_LISTEN_INFO_IDX_INVALID;
 
     /* register message handler on NFA SYS */

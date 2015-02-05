@@ -424,3 +424,60 @@ tNFA_STATUS NFA_CeSetIsoDepListenTech (tNFA_TECHNOLOGY_MASK tech_mask)
     return (NFA_STATUS_FAILED);
 }
 
+/*******************************************************************************
+ **
+ ** Function         NFA_CeSetIsoDepListenNfcAParams
+ **
+ ** Description      Set additional parameters (NFCID1, ATQA, SAK) for NFC-A
+ **                  technologies.
+ **
+ **                  By default (if this API is not called), NFA willuse a
+ **                  random NFCID1, an ATQA set to 0x0004 and a SAK value
+ **                  according to the settings for ISO-DEP and NFC-DEP use.
+ **
+ ** Returns:
+ **                  NFA_STATUS_OK, if command accepted
+ **                  NFA_STATUS_FAILED: otherwise
+ **
+ *******************************************************************************/
+tNFA_STATUS NFA_CeSetIsoDepListenNfcAParams (UINT8 *p_nfcid1, UINT8 nfcid1_len, UINT16 atqa, BOOLEAN override_atqa, UINT8 sak, BOOLEAN override_sak, UINT8 *p_hist_bytes, UINT8 hist_bytes_len)
+{
+    tNFA_CE_MSG *p_msg;
+
+    NFA_TRACE_API4 ("NFA_CeSetIsoDepListenNfcAParams (): nfcid1_len=%d, atqa=0x%04x, sak=0x%02x, hist_bytes_len=%d", nfcid1_len, atqa, sak, hist_bytes_len);
+
+    if (nfcid1_len > NCI_NFCID1_MAX_LEN) {
+        NFA_TRACE_ERROR0 ("NFA_CeSetIsoDepListenNfcAParams: Invalid NFCID1 length");
+        return (NFA_STATUS_INVALID_PARAM);
+    }
+
+    if (hist_bytes_len > NCI_MAX_HIS_BYTES_LEN) {
+        NFA_TRACE_ERROR0 ("NFA_CeSetIsoDepListenNfcAParams: Invalid historical bytes length");
+        return (NFA_STATUS_INVALID_PARAM);
+    }
+
+    if ((p_msg = (tNFA_CE_MSG *) GKI_getbuf ((UINT16) sizeof(tNFA_CE_MSG))) != NULL)
+    {
+        p_msg->nfca_params.hdr.event = NFA_CE_API_CFG_NFCA_PARAMS_EVT;
+
+        p_msg->nfca_params.nfcid1_len    = nfcid1_len;
+        p_msg->nfca_params.atqa          = atqa;
+        p_msg->nfca_params.atqa_override = override_atqa;
+        p_msg->nfca_params.sak           = sak;
+        p_msg->nfca_params.sak_override  = override_sak;
+        p_msg->nfca_params.hist_bytes_len    = hist_bytes_len;
+
+        if (nfcid1_len)
+            memcpy (p_msg->nfca_params.nfcid1, p_nfcid1, nfcid1_len);
+
+        if (hist_bytes_len)
+            memcpy (p_msg->nfca_params.hist_bytes, p_hist_bytes, hist_bytes_len);
+
+        nfa_sys_sendmsg (p_msg);
+
+        return (NFA_STATUS_OK);
+    }
+
+    return (NFA_STATUS_FAILED);
+}
+

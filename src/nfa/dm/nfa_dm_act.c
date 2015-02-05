@@ -930,6 +930,7 @@ tNFA_STATUS nfa_dm_start_polling (void)
         }
 
         nfa_dm_cb.poll_disc_handle = nfa_dm_add_rf_discover (poll_disc_mask,
+                                                             (tNFA_DM_DISC_PARAMS *)NULL,
                                                              NFA_DM_DISC_HOST_ID_DH,
                                                              nfa_dm_poll_disc_cback);
 

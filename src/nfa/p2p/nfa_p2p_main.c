@@ -250,6 +250,7 @@ static void nfa_p2p_update_active_listen (void)
 
     /* Configure listen technologies and protocols and register callback to NFA DM discovery */
     nfa_p2p_cb.dm_disc_handle = nfa_dm_add_rf_discover (p2p_listen_mask,
+                                                        (tNFA_DM_DISC_PARAMS *)NULL,
                                                         NFA_DM_DISC_HOST_ID_DH,
                                                         nfa_p2p_discovery_cback);
 
@@ -605,6 +606,7 @@ void nfa_p2p_enable_listening (tNFA_SYS_ID sys_id, BOOLEAN update_wks)
     {
         /* Configure listen technologies and protocols and register callback to NFA DM discovery */
         nfa_p2p_cb.dm_disc_handle = nfa_dm_add_rf_discover (p2p_listen_mask,
+                                                            (tNFA_DM_DISC_PARAMS *)NULL,
                                                             NFA_DM_DISC_HOST_ID_DH,
                                                             nfa_p2p_discovery_cback);
     }

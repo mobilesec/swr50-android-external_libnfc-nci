@@ -42,7 +42,7 @@
 static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc_mask,
                                             tNFC_DISCOVER_PARAMS disc_params[],
                                             UINT8 max_params);
-static tNFA_STATUS nfa_dm_set_rf_listen_mode_config (tNFA_DM_DISC_TECH_PROTO_MASK tech_proto_mask);
+static tNFA_STATUS nfa_dm_set_rf_listen_mode_config (tNFA_DM_DISC_TECH_PROTO_MASK tech_proto_mask, tNFA_DM_DISC_PARAMS *p_dm_params);
 static void nfa_dm_set_rf_listen_mode_raw_config (tNFA_DM_DISC_TECH_PROTO_MASK *p_disc_mask);
 static tNFA_DM_DISC_TECH_PROTO_MASK nfa_dm_disc_get_disc_mask (tNFC_RF_TECH_N_MODE tech_n_mode,
                                                                tNFC_PROTOCOL       protocol);
@@ -270,9 +270,9 @@ static UINT8 nfa_dm_get_rf_discover_config (tNFA_DM_DISC_TECH_PROTO_MASK dm_disc
 ** Returns          NFA_STATUS_OK if success
 **
 *******************************************************************************/
-static tNFA_STATUS nfa_dm_set_rf_listen_mode_config (tNFA_DM_DISC_TECH_PROTO_MASK tech_proto_mask)
+static tNFA_STATUS nfa_dm_set_rf_listen_mode_config (tNFA_DM_DISC_TECH_PROTO_MASK tech_proto_mask, tNFA_DM_DISC_PARAMS *p_dm_params)
 {
-    UINT8 params[40], *p;
+    UINT8 params[40], *p, xx;
     UINT8 platform  = 0;
     UINT8 sens_info = 0;
 
@@ -319,15 +319,47 @@ static tNFA_STATUS nfa_dm_set_rf_listen_mode_config (tNFA_DM_DISC_TECH_PROTO_MAS
     */
     if (nfa_dm_cb.disc_cb.listen_RT[NFA_DM_DISC_LRT_NFC_A] == NFA_DM_DISC_HOST_ID_DH)
     {
-        UINT8_TO_STREAM (p, NFC_PMID_LA_BIT_FRAME_SDD);
-        UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_BIT_FRAME_SDD);
-        UINT8_TO_STREAM (p, 0x04);
-        UINT8_TO_STREAM (p, NFC_PMID_LA_PLATFORM_CONFIG);
-        UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_PLATFORM_CONFIG);
-        UINT8_TO_STREAM (p, platform);
-        UINT8_TO_STREAM (p, NFC_PMID_LA_SEL_INFO);
-        UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_SEL_INFO);
-        UINT8_TO_STREAM (p, sens_info);
+        if ((p_dm_params != (tNFA_DM_DISC_PARAMS *)NULL) && (p_dm_params->params_valid) && (p_dm_params->la_bit_frame_sdd_len == NCI_PARAM_LEN_LA_BIT_FRAME_SDD)) {
+            UINT8_TO_STREAM (p, NFC_PMID_LA_BIT_FRAME_SDD);
+            UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_BIT_FRAME_SDD);
+            UINT8_TO_STREAM (p, p_dm_params->la_bit_frame_sdd[0]); // ATQA[0]
+        } else {
+            UINT8_TO_STREAM (p, NFC_PMID_LA_BIT_FRAME_SDD);
+            UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_BIT_FRAME_SDD);
+            UINT8_TO_STREAM (p, 0x04);                             // ATQA[0]
+        }
+        if ((p_dm_params != (tNFA_DM_DISC_PARAMS *)NULL) && (p_dm_params->params_valid) && (p_dm_params->la_platform_config_len == NCI_PARAM_LEN_LA_PLATFORM_CONFIG)) {
+            UINT8_TO_STREAM (p, NFC_PMID_LA_PLATFORM_CONFIG);
+            UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_PLATFORM_CONFIG);
+            UINT8_TO_STREAM (p, p_dm_params->la_platform_config[0]);// ATQA[1]
+        } else {
+            UINT8_TO_STREAM (p, NFC_PMID_LA_PLATFORM_CONFIG);
+            UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_PLATFORM_CONFIG);
+            UINT8_TO_STREAM (p, platform);                         // ATQA[1]
+        }
+        if ((p_dm_params != (tNFA_DM_DISC_PARAMS *)NULL) && (p_dm_params->params_valid) && (p_dm_params->la_sel_info_len == NCI_PARAM_LEN_LA_SEL_INFO)) {
+            UINT8_TO_STREAM (p, NFC_PMID_LA_SEL_INFO);
+            UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_SEL_INFO);
+            UINT8_TO_STREAM (p, p_dm_params->la_sel_info[0]);      // SAK
+        } else {
+            UINT8_TO_STREAM (p, NFC_PMID_LA_SEL_INFO);
+            UINT8_TO_STREAM (p, NCI_PARAM_LEN_LA_SEL_INFO);
+            UINT8_TO_STREAM (p, sens_info);                        // SAK
+        }
+        if ((p_dm_params != (tNFA_DM_DISC_PARAMS *)NULL) && (p_dm_params->params_valid) && (p_dm_params->la_nfcid1_len > 0) && (p_dm_params->la_nfcid1_len <= NCI_NFCID1_MAX_LEN)) {
+            UINT8_TO_STREAM (p, NFC_PMID_LA_NFCID1);
+            UINT8_TO_STREAM (p, p_dm_params->la_nfcid1_len);
+            for (xx = 0; xx < p_dm_params->la_nfcid1_len; ++xx) {
+                UINT8_TO_STREAM (p, p_dm_params->la_nfcid1[xx]);   // NFCID1[xx]
+            }
+        }
+        if ((p_dm_params != (tNFA_DM_DISC_PARAMS *)NULL) && (p_dm_params->params_valid) && (p_dm_params->la_hist_by_len > 0) && (p_dm_params->la_hist_by_len <= NCI_MAX_HIS_BYTES_LEN)) {
+            UINT8_TO_STREAM (p, NFC_PMID_LA_HIST_BY);
+            UINT8_TO_STREAM (p, p_dm_params->la_hist_by_len);
+            for (xx = 0; xx < p_dm_params->la_hist_by_len; ++xx) {
+                UINT8_TO_STREAM (p, p_dm_params->la_hist_by[xx]);  // HISTORICAL_BYTES[xx]
+            }
+        }
     }
     else /* Let NFCC use UICC configuration by configuring with length = 0 */
     {
@@ -948,6 +980,7 @@ void nfa_dm_start_rf_discover (void)
 {
     tNFC_DISCOVER_PARAMS    disc_params[NFA_DM_MAX_DISC_PARAMS];
     tNFA_DM_DISC_TECH_PROTO_MASK dm_disc_mask = 0, poll_mask, listen_mask;
+    tNFA_DM_DISC_PARAMS    *p_dm_disc_params = (tNFA_DM_DISC_PARAMS *)NULL;
     UINT8                   num_params, xx;
 
     NFA_TRACE_DEBUG0 ("nfa_dm_start_rf_discover ()");
@@ -1060,6 +1093,11 @@ void nfa_dm_start_rf_discover (void)
                                    xx, nfa_dm_cb.disc_cb.entry[xx].selected_disc_mask);
 
                 dm_disc_mask |= nfa_dm_cb.disc_cb.entry[xx].selected_disc_mask;
+
+                if ((p_dm_disc_params == (tNFA_DM_DISC_PARAMS *)NULL) && (nfa_dm_cb.disc_cb.entry[xx].requested_disc_params.params_valid))
+                {
+                    p_dm_disc_params = &(nfa_dm_cb.disc_cb.entry[xx].requested_disc_params);
+                }
             }
         }
 
@@ -1087,7 +1125,7 @@ void nfa_dm_start_rf_discover (void)
         if (!nfa_dm_cb.disc_cb.excl_disc_entry.in_use)
         {
             /* update listening protocols in each NFC technology */
-            nfa_dm_set_rf_listen_mode_config (dm_disc_mask);
+            nfa_dm_set_rf_listen_mode_config (dm_disc_mask, p_dm_disc_params);
         }
 
         /* Set polling duty cycle */
@@ -2642,6 +2680,7 @@ void nfa_dm_disc_sm_execute (tNFA_DM_RF_DISC_SM_EVENT event, tNFA_DM_RF_DISC_DAT
 **
 *******************************************************************************/
 tNFA_HANDLE nfa_dm_add_rf_discover (tNFA_DM_DISC_TECH_PROTO_MASK disc_mask,
+                                    tNFA_DM_DISC_PARAMS         *p_disc_params,
                                     tNFA_DM_DISC_HOST_ID         host_id,
                                     tNFA_DISCOVER_CBACK         *p_disc_cback)
 {
@@ -2658,6 +2697,14 @@ tNFA_HANDLE nfa_dm_add_rf_discover (tNFA_DM_DISC_TECH_PROTO_MASK disc_mask,
             nfa_dm_cb.disc_cb.entry[xx].host_id             = host_id;
             nfa_dm_cb.disc_cb.entry[xx].p_disc_cback        = p_disc_cback;
             nfa_dm_cb.disc_cb.entry[xx].disc_flags          = NFA_DM_DISC_FLAGS_NOTIFY;
+            if (p_disc_params != (tNFA_DM_DISC_PARAMS *)NULL)
+            {
+                nfa_dm_cb.disc_cb.entry[xx].requested_disc_params = *p_disc_params;
+            }
+            else
+            {
+               nfa_dm_cb.disc_cb.entry[xx].requested_disc_params.params_valid = FALSE;
+            }
             return xx;
         }
     }

@@ -46,6 +46,7 @@ enum
     NFA_CE_API_REG_LISTEN_EVT,
     NFA_CE_API_DEREG_LISTEN_EVT,
     NFA_CE_API_CFG_ISODEP_TECH_EVT,
+    NFA_CE_API_CFG_NFCA_PARAMS_EVT,
     NFA_CE_ACTIVATE_NTF_EVT,
     NFA_CE_DEACTIVATE_NTF_EVT,
 
@@ -111,6 +112,20 @@ typedef struct
     UINT32          listen_info;
 } tNFA_CE_API_DEREG_LISTEN;
 
+/* data type for NFA_CE_API_CFG_NFCA_PARAMS_EVT */
+typedef struct
+{
+    BT_HDR              hdr;
+    UINT8               sak;
+    BOOLEAN             sak_override;
+    UINT16              atqa;
+    BOOLEAN             atqa_override;
+    UINT8               nfcid1_len;
+    UINT8               nfcid1[NCI_NFCID1_MAX_LEN];
+    UINT8               hist_bytes_len;
+    UINT8               hist_bytes[NCI_MAX_HIS_BYTES_LEN];
+} tNFA_CE_API_CFG_NFCA_PARAMS;
+
 /* union of all data types */
 typedef union
 {
@@ -120,6 +135,7 @@ typedef union
     tNFA_CE_API_REG_LISTEN      reg_listen;
     tNFA_CE_API_DEREG_LISTEN    dereg_listen;
     tNFA_CE_ACTIVATE_NTF        activate_ntf;
+    tNFA_CE_API_CFG_NFCA_PARAMS nfca_params;
 } tNFA_CE_MSG;
 
 /****************************************************************************
@@ -183,6 +199,15 @@ typedef struct
 
     tNFA_DM_DISC_TECH_PROTO_MASK isodep_disc_mask;          /* the technology/protocol mask for ISO-DEP */
 
+    UINT8               sak;                                /* SAK value for NFC-A */
+    BOOLEAN             sak_override;                       /* override default with this SAK value for NFC-A */
+    UINT16              atqa;                               /* ATQA value for NFC-A */
+    BOOLEAN             atqa_override;                      /* override default with this ATQA value for NFC-A */
+    UINT8               nfcid1_len;                         /* NFCID1 length (or 0 to use default value) for NFC-A */
+    UINT8               nfcid1[NCI_NFCID1_MAX_LEN];         /* NFCID1 value for NFC-A */
+    UINT8               hist_bytes_len;                     /* historical bytes length (or 0 to use default value) for NFC-A */
+    UINT8               hist_bytes[NCI_MAX_HIS_BYTES_LEN];  /* historical bytes value for NFC-A */
+
     /* Local ndef tag info */
     UINT8               *p_ndef_data;
     UINT16              ndef_cur_size;
@@ -200,6 +225,7 @@ BOOLEAN nfa_ce_api_cfg_local_tag (tNFA_CE_MSG *p_ce_msg);
 BOOLEAN nfa_ce_api_reg_listen (tNFA_CE_MSG *p_ce_msg);
 BOOLEAN nfa_ce_api_dereg_listen (tNFA_CE_MSG *p_ce_msg);
 BOOLEAN nfa_ce_api_cfg_isodep_tech (tNFA_CE_MSG *p_ce_msg);
+BOOLEAN nfa_ce_api_cfg_nfca_params (tNFA_CE_MSG *p_ce_msg);
 BOOLEAN nfa_ce_activate_ntf (tNFA_CE_MSG *p_ce_msg);
 BOOLEAN nfa_ce_deactivate_ntf (tNFA_CE_MSG *p_ce_msg);
 

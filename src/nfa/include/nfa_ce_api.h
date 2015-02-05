@@ -225,6 +225,27 @@ NFC_API extern tNFA_STATUS NFA_CeDeregisterAidOnDH (tNFA_HANDLE handle);
 *******************************************************************************/
 NFC_API extern tNFA_STATUS NFA_CeSetIsoDepListenTech (tNFA_TECHNOLOGY_MASK tech_mask);
 
+/*******************************************************************************
+ **
+ ** Function         NFA_CeSetIsoDepListenNfcAParams
+ **
+ ** Description      Set additional parameters (NFCID1, ATQA, SAK) for NFC-A
+ **                  technologies.
+ **
+ **                  By default (if this API is not called), NFA willuse a
+ **                  random NFCID1, an ATQA set to 0x0004 and a SAK value
+ **                  according to the settings for ISO-DEP and NFC-DEP use.
+ **
+ ** Returns:
+ **                  NFA_STATUS_OK, if command accepted
+ **                  NFA_STATUS_FAILED: otherwise
+ **
+ *******************************************************************************/
+NFC_API extern tNFA_STATUS NFA_CeSetIsoDepListenNfcAParams (UINT8 *p_nfcid1, UINT8 nfcid1_len,
+                                                            UINT16 atqa, BOOLEAN override_atqa,
+                                                            UINT8 sak, BOOLEAN override_sak,
+                                                            UINT8 *p_hist_bytes, UINT8 hist_bytes_len);
+
 #ifdef __cplusplus
 }
 #endif

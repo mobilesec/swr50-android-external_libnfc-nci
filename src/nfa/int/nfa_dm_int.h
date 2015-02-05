@@ -336,6 +336,40 @@ typedef void (tNFA_DISCOVER_CBACK) (tNFA_DM_RF_DISC_EVT event, tNFC_DISCOVER *p_
 
 typedef UINT16 tNFA_DM_DISC_FLAGS;
 
+typedef struct
+{
+    BOOLEAN params_valid;
+
+    UINT8 la_bit_frame_sdd[NCI_PARAM_LEN_LA_BIT_FRAME_SDD];
+    UINT8 la_bit_frame_sdd_len;
+    UINT8 la_platform_config[NCI_PARAM_LEN_LA_PLATFORM_CONFIG];
+    UINT8 la_platform_config_len;
+    UINT8 la_sel_info[NCI_PARAM_LEN_LA_SEL_INFO];
+    UINT8 la_sel_info_len;
+    UINT8 la_nfcid1[NCI_NFCID1_MAX_LEN];
+    UINT8 la_nfcid1_len;
+    UINT8 la_hist_by[NCI_MAX_HIS_BYTES_LEN];
+    UINT8 la_hist_by_len;
+
+    //UINT8 lb_sensb_info[NCI_PARAM_LEN_LB_SENSB_INFO];
+    //UINT8 lb_sensb_info_len;
+    //UINT8 lb_nfcid0[NCI_PARAM_LEN_LB_NFCID0];
+    //UINT8 lb_nfcid0_len;
+    //UINT8 lb_appdata[NCI_PARAM_LEN_LB_APPDATA];
+    //UINT8 lb_appdata_len;
+    //UINT8 lb_adc_fo[NCI_PARAM_LEN_LB_ADC_FO];
+    //UINT8 lb_adc_fo_len;
+    //UINT8 lb_h_info[NCI_MAX_ATTRIB_LEN];
+    //UINT8 lb_h_info_len;
+
+    //UINT8 lf_protocol[NCI_PARAM_LEN_LF_PROTOCOL];
+    //UINT8 lf_protocol_len;
+    //UINT8 lf_t3t_flags2[NCI_PARAM_LEN_LF_T3T_FLAGS2];
+    //UINT8 lf_t3t_flags2_len;
+    //UINT8 lf_t3t_pmm[NCI_PARAM_LEN_LF_T3T_PMM];
+    //UINT8 lf_t3t_id[NFA_CE_LISTEN_INFO_MAX][NCI_PARAM_LEN_LF_T3T_ID];
+} tNFA_DM_DISC_PARAMS;
+
 /* DM Discovery control block */
 typedef struct
 {
@@ -346,6 +380,7 @@ typedef struct
     tNFA_DM_DISC_HOST_ID            host_id;            /* DH or UICC1/UICC2     */
     tNFA_DM_DISC_TECH_PROTO_MASK    requested_disc_mask;/* technology and protocol requested              */
     tNFA_DM_DISC_TECH_PROTO_MASK    selected_disc_mask; /* technology and protocol waiting for activation */
+    tNFA_DM_DISC_PARAMS             requested_disc_params;
 } tNFA_DM_DISC_ENTRY;
 
 #define NFA_DM_DISC_NUM_ENTRIES  8              /* polling, raw listen, P2P listen, NDEF CE, 2xVSE, 2xUICC */
@@ -612,7 +647,7 @@ void nfa_dm_conn_cback_event_notify (UINT8 event, tNFA_CONN_EVT_DATA *p_data);
 
 /* Discovery function prototypes */
 void nfa_dm_disc_sm_execute (tNFA_DM_RF_DISC_SM_EVENT event, tNFA_DM_RF_DISC_DATA *p_data);
-tNFA_HANDLE nfa_dm_add_rf_discover (tNFA_DM_DISC_TECH_PROTO_MASK disc_mask, tNFA_DM_DISC_HOST_ID host_id, tNFA_DISCOVER_CBACK *p_disc_cback);
+tNFA_HANDLE nfa_dm_add_rf_discover (tNFA_DM_DISC_TECH_PROTO_MASK disc_mask, tNFA_DM_DISC_PARAMS *p_disc_params, tNFA_DM_DISC_HOST_ID host_id, tNFA_DISCOVER_CBACK *p_disc_cback);
 void nfa_dm_delete_rf_discover (tNFA_HANDLE handle);
 void nfa_dm_start_excl_discovery (tNFA_TECHNOLOGY_MASK poll_tech_mask,
                                   tNFA_LISTEN_CFG *p_listen_cfg,
