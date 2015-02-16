@@ -100,8 +100,13 @@ tNFC_STATUS CE_SetActivatedTagType (tNFC_ACTIVATE_DEVT *p_activate_params, UINT1
     switch (protocol)
     {
     case NFC_PROTOCOL_T1T:
-    case NFC_PROTOCOL_T2T:
         return NFC_STATUS_FAILED;
+
+    case NFC_PROTOCOL_T2T:
+        /* store callback function before NFC_SetStaticRfCback () */
+        ce_cb.p_cback  = p_cback;
+        status = ce_select_t2t ();
+        break;
 
     case NFC_PROTOCOL_T3T:   /* Type3Tag    - NFC-F */
         /* store callback function before NFC_SetStaticRfCback () */

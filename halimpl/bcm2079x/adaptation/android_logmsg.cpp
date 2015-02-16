@@ -289,7 +289,22 @@ inline void byte2hex (const char* data, char** str)
     void DispCHO (UINT8 *pMsg, UINT32 MsgLen, BOOLEAN is_rx) {}
     void DispT3TagMessage(BT_HDR *p_msg, BOOLEAN is_rx) {}
     void DispRWT4Tags (BT_HDR *p_buf, BOOLEAN is_rx) {}
-    void DispCET4Tags (BT_HDR *p_buf, BOOLEAN is_rx) {}
+
+    void DispCET4Tags (BT_HDR *p_buf, BOOLEAN is_rx) {
+        UINT32 nBytes = ((BT_HDR_SIZE + p_buf->offset + p_buf->len)*2)+1;
+        UINT8 * data = (UINT8*) p_buf;
+        int data_len = BT_HDR_SIZE + p_buf->offset + p_buf->len;
+
+        if (appl_trace_level < BT_TRACE_LEVEL_DEBUG)
+            return;
+
+        if (nBytes > sizeof(log_line))
+            return;
+
+        ToHex (data, data_len, log_line, sizeof(log_line));
+        __android_log_write (ANDROID_LOG_DEBUG, (is_rx) ? "BrcmCeT4tTagsR": "BrcmCeT4tTagsX", log_line);
+    }
+
     void DispRWI93Tag (BT_HDR *p_buf, BOOLEAN is_rx, UINT8 command_to_respond) {}
     void DispNDEFMsg (UINT8 *pMsg, UINT32 MsgLen, BOOLEAN is_recv) {}
 

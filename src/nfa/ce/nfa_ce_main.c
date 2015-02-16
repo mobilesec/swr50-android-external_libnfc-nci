@@ -87,7 +87,7 @@ void nfa_ce_init (void)
     nfa_ce_t3t_generate_rand_nfcid (nfa_ce_cb.listen_info[NFA_CE_LISTEN_INFO_IDX_NDEF].t3t_nfcid2);
     nfa_ce_cb.listen_info[NFA_CE_LISTEN_INFO_IDX_NDEF].rf_disc_handle = NFA_HANDLE_INVALID;
     nfa_ce_cb.isodep_disc_mask  = NFA_CE_DEFAULT_ISODEP_DISC_MASK;
-    nfa_ce_cb.isodep_disc_mask  |= NFA_DM_DISC_MASK_PA_T2T; // mroland: also listen for T2T
+    //nfa_ce_cb.isodep_disc_mask  |= NFA_DM_DISC_MASK_PA_T2T; // mroland: also listen for T2T
     nfa_ce_cb.sak = 0;
     nfa_ce_cb.sak_override = FALSE;
     nfa_ce_cb.atqa = 0;

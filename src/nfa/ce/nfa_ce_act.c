@@ -834,8 +834,34 @@ BOOLEAN nfa_ce_activate_ntf (tNFA_CE_MSG *p_ce_msg)
 
         p_ce_cback = nfa_ce_handle_t3t_evt;
     }
+    else if (p_cb->activation_params.protocol == NFA_PROTOCOL_T2T)
+    {
+        /* For all T2T entries in listen_info, set T4T_ACTIVATE_NOTIFY_PENDING flag */
+        for (i=0; i<NFA_CE_LISTEN_INFO_IDX_INVALID; i++)
+        {
+            if (p_cb->listen_info[i].flags & NFA_CE_LISTEN_INFO_IN_USE)
+            {
+                if ((p_cb->listen_info[i].protocol_mask & NFA_PROTOCOL_MASK_T2T) ||
+                    (p_cb->listen_info[i].protocol_mask & NFA_PROTOCOL_MASK_ISO_DEP))
+                {
+                    /* Found listen_info table entry for T2T raw listen */
+                    p_cb->listen_info[i].flags |= NFA_CE_LISTEN_INFO_T4T_ACTIVATE_PND;
+
+                    t4t_activate_pending = TRUE;
+                }
+            }
+        }
+
+        /* If listening for T2T, then notify CE module now and */
+        if (t4t_activate_pending && (listen_info_idx == NFA_CE_LISTEN_INFO_IDX_INVALID))
+        {
+            CE_SetActivatedTagType (&p_cb->activation_params, 0, p_ce_cback);
+            return TRUE;
+        }
+    }
     else if (p_cb->activation_params.protocol == NFA_PROTOCOL_ISO_DEP)
     {
+
         p_ce_cback = nfa_ce_handle_t4t_evt;
 
         /* For T4T, we do not know which AID will be selected yet */
@@ -1447,7 +1473,7 @@ BOOLEAN nfa_ce_api_cfg_isodep_tech (tNFA_CE_MSG *p_ce_msg)
     nfa_ce_cb.isodep_disc_mask  = 0;
     if (p_ce_msg->hdr.layer_specific & NFA_TECHNOLOGY_MASK_A) {
         nfa_ce_cb.isodep_disc_mask  = NFA_DM_DISC_MASK_LA_ISO_DEP;
-        nfa_ce_cb.isodep_disc_mask  = NFA_DM_DISC_MASK_LA_T2T; // mroland: also listen for T2T
+        nfa_ce_cb.isodep_disc_mask  |= NFA_DM_DISC_MASK_LA_T2T; // mroland: also listen for T2T
     }
 
     if (p_ce_msg->hdr.layer_specific & NFA_TECHNOLOGY_MASK_B)

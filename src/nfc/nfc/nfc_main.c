@@ -754,7 +754,8 @@ void NFC_Init (tHAL_NFC_ENTRY *p_hal_entry_tbl)
 
     rw_init ();
     ce_init ();
-    llcp_init ();
+    //2015-02-16/mroland: Disable LLCP initialization to provide reliable CE in all cases (does this work?)
+    //llcp_init ();
     NFC_SET_MAX_CONN_DEFAULT ();
 }
 
