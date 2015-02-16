@@ -110,7 +110,6 @@ static void ce_t2t_data_cback (UINT8 conn_id, tNFC_CONN_EVT event, tNFC_CONN *p_
     p_cmd = (UINT8 *) (p_c_apdu + 1) + p_c_apdu->offset;
 
     CE_TRACE_DEBUG0 ("CET2T: Forward raw frame to wildcard AID handler");
-    p_data->data.status = CE_T4T_STATUS_WILDCARD_AID_SELECTED;
 
     /* forward raw frame to upper layer */
     ce_data.raw_frame.status = p_data->data.status;
